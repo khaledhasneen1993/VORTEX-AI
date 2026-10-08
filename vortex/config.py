@@ -20,6 +20,9 @@ class Settings:
     max_margin_fraction: float = 0.25
     max_spread_bps: float = 12.0
     min_score: int = 5
+    strict_votes: bool = True
+    min_strong_score: int = 7
+    trailing_atr_mult: float = 1.0
     cooldown_minutes: int = 15
     loop_seconds: int = 20
     fee_rate: float = 0.0005
@@ -48,6 +51,10 @@ class Settings:
             raise ValueError("Spread cap invalid")
         if not 3 <= self.min_score <= 10:
             raise ValueError("Score threshold invalid")
+        if not isinstance(self.strict_votes, bool) or not 7 <= self.min_strong_score <= 10:
+            raise ValueError("Vote policy must be boolean with strong score 7..10")
+        if not 0.25 <= self.trailing_atr_mult <= 5:
+            raise ValueError("TRAILING_ATR_MULT must be between 0.25 and 5")
         if self.cooldown_minutes < 0 or not 5 <= self.loop_seconds <= 300:
             raise ValueError("Polling/cooldown invalid")
         if not 0 <= self.fee_rate <= 0.003 or not 0 <= self.slippage_bps <= 30:
@@ -58,7 +65,13 @@ class Settings:
         load_dotenv()
         def f(name: str, default: str) -> str:
             return os.getenv(name, default).strip()
+        strict = f("STRICT_VOTES", "true").lower()
+        if strict not in {"true", "false"}:
+            raise ValueError("STRICT_VOTES must be true or false")
         return cls(
+            strict_votes=(strict == "true"),
+            trailing_atr_mult=float(f("TRAILING_ATR_MULT", "1.0")),
+            min_strong_score=int(f("MIN_STRONG_SCORE", "7")),
             mode=f("RUN_MODE", "paper"),
             symbols=tuple(s.strip().upper() for s in f("SYMBOLS", "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,DOGEUSDT").split(",") if s.strip()),
             timeframe=f("TIMEFRAME", "5m"),

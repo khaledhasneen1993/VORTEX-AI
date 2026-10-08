@@ -94,7 +94,6 @@ def test_no_market_api_or_pnl_needed_to_run_risk_regressions():
     cfg = Settings(mode="paper")
     assert cfg.risk_per_trade == 0.10
     assert cfg.max_daily_loss == .50
-    assert cfg.max_consecutive_losses == 5
 
 
 

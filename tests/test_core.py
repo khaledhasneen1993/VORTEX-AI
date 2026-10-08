@@ -169,14 +169,14 @@ def test_explicit_risk_reset_keeps_daily_loss_floor(tmp_path):
     broker.gate.blocked = True
     broker.gate.consecutive_losses = 4
     broker.gate.day_start_equity = 1000
-    broker.wallet = 940
+    broker.wallet = 490
     broker.save()
     with pytest.raises(ValueError):
         broker.reset_halt(False)
     broker.reset_halt(True)
     reloaded = PaperBroker(Settings(data_dir=tmp_path))
-    assert reloaded.wallet == 940
-    assert not reloaded.gate.can_open(940, 0)[0]
+    assert reloaded.wallet == 490
+    assert not reloaded.gate.can_open(490, 0)[0]
 
 
 def test_dashboard_requires_local_port():

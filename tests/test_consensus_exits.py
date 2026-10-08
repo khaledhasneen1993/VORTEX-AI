@@ -183,3 +183,32 @@ def test_ws_rejects_delayed_and_out_of_order_ticks():
     timestamp[0] += 4_001
     with pytest.raises(ValueError):
         stream.snapshot()
+
+
+
+def test_incomplete_200_hour_macro_abstains_without_crashing():
+    # Fewer than 210 completed hourly bars must NEVER be evaluated as EMA200.
+    def bars(n, step):
+        return [Candle(i*step, 100+i*.01, 100.2+i*.01, 99.8+i*.01,
+                       100+i*.01, 100, (i+1)*step-1) for i in range(n)]
+    small = bars(100, 300_000)
+    fifteen = bars(100, 900_000)
+    short_hourly = bars(10, 3_600_000)
+    assert vote("BTCUSDT", small, fifteen, macro=short_hourly) is None
+    assert vote("BTCUSDT", small, fifteen, macro=[]) is None
+
+
+def test_staged_target_has_room_for_trailing():
+    from vortex.exits import decide_tick
+    p = Position("BTCUSDT", "LONG", 1, 100, 98, 106, 1, 0, 20,
+                 initial_qty=1, initial_risk=2, peak=100, step=.001)
+    a = decide_tick(p, 102.1)
+    assert a.reason == "tp1"
+    p.qty -= a.qty
+    b = decide_tick(p, 103.1)
+    assert b.reason == "tp2"
+    p.qty -= b.qty
+    # At +2R (price 104), terminal 3R target has NOT fired yet.
+    assert decide_tick(p, 104.1) is None
+    assert p.stop > p.entry
+    assert p.target > 104.1

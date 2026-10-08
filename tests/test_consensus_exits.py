@@ -125,6 +125,7 @@ def test_two_independent_votes_enforced(monkeypatch):
     monkeypatch.setattr(st, "_macd_hist", lambda closes: 1.)
     s = vote("BTCUSDT", small, high, macro=macro)
     assert s is not None and s.side == "LONG"
+    assert (s.target - s.entry) / (s.entry - s.stop) == pytest.approx(3.0)
     assert "breakout" in s.reason and "trend" in s.reason
     # Drop volume breakout; trend alone must not trigger an entry.
     x = small[-1]

@@ -21,7 +21,7 @@ portfolio/single-symbol reports and TESTNET-only guarded orders.
   inflate training labels.
 - [x] Risk defaults updated to **10% maximum modeled trade-risk budget**
   (`risk_per_trade=0.10`), **5x leverage**, 3 simultaneous PAPER positions,
-  25% aggregate margin cap, 5% daily drawdown halt, 5 successive-loss halt.
+  25% aggregate margin cap, **50% daily drawdown halt**, 5 successive-loss halt.
   Quantity is the MINIMUM of loss-budget and margin/leverage caps; modelled
   round-trip fees and slippage count towards its loss budget.
 - [x] `RUN_MODE=live` and actual funds remain unsupported.
@@ -77,16 +77,16 @@ execution. Read README.md for CLI usage.
 - [x] `size_trade()` includes expected entry+exit fees and slippage in the
   10% risk ceiling and limits maximum total margin to 25% of marked equity.
   A position may legitimately use *less* risk when the margin limit binds.
-- [x] `MAX_DAILY_LOSS=0.05` and five-consecutive-loss halt remain enabled.
-  **A 10% per-position risk budget can exceed a 5% daily loss limit in one
-  stopped-out position**. The daily breaker blocks later entries; it is
-  NOT a guarantee no single trade loses over 5%.
+- [x] `MAX_DAILY_LOSS=0.50` and the five-consecutive-loss halt remain enabled.
+  With an opening equity of 1000, new entries stop at equity <= 500;
+  at 501 the daily-loss rule alone permits entry. This threshold does NOT
+  limit per-trade losses or close an open position.
 - [x] No Live path or real funds; Testnet remains unverified on a real Testnet
   account without operator-provided testnet credentials.
 
 - [x] Hard invariant checks: leverage setting validates within 1..10, but
   every trading execution is additionally limited to **5x**. No more than
-  three positions, 25% aggregate margin, 5% daily drawdown breaker, or five
+  three positions, 25% aggregate margin, **50% daily drawdown breaker**, or five
   consecutive losses can be configured.
 
 ## Final end-to-end audit of the 10% settings
@@ -115,3 +115,11 @@ execution. Read README.md for CLI usage.
 - [ ] **Genuine TESTNET signed order integration still unverified.**
   No TESTNET credentials have been connected or orders issued here.
 - [ ] No production trading or real-money Live mode exists.
+
+## Daily portfolio loss change to 50%
+
+- [x] `Settings.max_daily_loss` defaults to `0.50` and `Settings.from_env()` reads `MAX_DAILY_LOSS`, default `0.50`. Values outside `0 < max_daily_loss <= 0.50` are rejected.
+- [x] `data`-backed PAPER and both historical modes use the same `RiskGate.can_open()` threshold: `equity <= day_start_equity * (1 - max_daily_loss)`, blocking **new entries** at a daily drawdown of at least 50%.
+- [x] Tests verify 1000 -> 501 remains allowed by the daily rule, 1000 -> 500 triggers a latched halt, and configurations greater than 0.50 fail.
+- [x] Unchanged: 10% planned stop risk per position, 5x maximum execution leverage, three open positions, five consecutive-loss halt, 1.5-ATR initial stop and all staged exit/strategy rules.
+- [ ] Signed Binance TESTNET behavior remains unverified on an actual Testnet account. No real-money route exists.

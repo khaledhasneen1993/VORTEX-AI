@@ -66,6 +66,10 @@ def decide_tick(p: Position, price: float, *, atr_value: float | None = None,
     # Existing stop executes BEFORE any new stop adjustment.
     if (price - p.stop) * sign <= 0:
         return ExitStep(p.qty, price, "stop", True)
+    # A sudden tick past the terminal objective must close all remaining size,
+    # not just a 25% stage and risk losing the target in the next quote.
+    if (price - p.target) * sign >= 0:
+        return ExitStep(p.qty, price, "target", True)
     favorable = (price - p.entry) * sign
     risk = _risk(p)
     if risk <= 0:
@@ -82,8 +86,6 @@ def decide_tick(p: Position, price: float, *, atr_value: float | None = None,
         _move_stop(p, atr_value, trailing_atr_mult)
         if qty:
             return ExitStep(qty, price, "tp2", False)
-    if (price - p.target) * sign >= 0:
-        return ExitStep(p.qty, price, "target", True)
     _move_stop(p, atr_value, trailing_atr_mult)
     return None
 

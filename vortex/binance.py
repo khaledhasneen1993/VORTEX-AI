@@ -80,3 +80,41 @@ class Market:
             except (KeyError, ValueError, TypeError):
                 continue
         return out
+
+
+    def history(self, symbol: str, interval: str, days: int, now_ms: int) -> list[Candle]:
+        """Paginate completed candles over 1..45 days plus 2-day warmup.
+
+        Binance rows must be strictly contiguous (fail rather than silently mask gaps).
+        """
+        if symbol not in self.metadata() or interval not in {"5m", "15m"} or not 1 <= days <= 45:
+            raise MarketError("Invalid history request")
+        step = 300_000 if interval == "5m" else 900_000
+        start = ((now_ms - (days + 2) * 86_400_000) // step) * step
+        cursor = start
+        end = now_ms - 1
+        candles: list[Candle] = []
+        while cursor < end:
+            raw = self.get("/fapi/v1/klines",
+                           {"symbol": symbol, "interval": interval, "startTime": cursor,
+                            "endTime": end, "limit": 1500})
+            if not raw:
+                break
+            batch = [Candle.from_binance(row) for row in raw]
+            batch = [c for c in batch if c.close_ts < now_ms and c.ts >= cursor]
+            if not batch:
+                break
+            if candles and batch[0].ts != candles[-1].ts + step:
+                raise MarketError("Historical candle gap / overlap")
+            if any(y.ts != x.ts + step for x, y in zip(batch, batch[1:])):
+                raise MarketError("Incomplete historical candles")
+            candles.extend(batch)
+            nxt = batch[-1].ts + step
+            if nxt <= cursor:
+                raise MarketError("Pagination stalled")
+            cursor = nxt
+            if len(raw) < 1500:
+                break
+        if len(candles) < 100:
+            raise MarketError("Insufficient historical data; cannot infer backtest profitability")
+        return candles

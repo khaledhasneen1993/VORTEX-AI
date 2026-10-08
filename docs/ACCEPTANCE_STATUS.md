@@ -1,65 +1,54 @@
-# VORTEX AI — acceptance report (2026-10-09)
+# VORTEX AI — seven-point implementation acceptance
 
-This is an engineering acceptance checklist, **NOT** a trading performance claim.
-User objective: four reviewed source projects + agreed VORTEX customizations,
-with safe automated market scanning, risk, honest simulations and testnet
-protective execution. No secrets are stored in this public repository.
+**Code milestone:** optional strong-vote mode, ATR-based trailing, explicit PAPER labels,
+portfolio/single-symbol reports and TESTNET-only guarded orders.
 
-## Pass: offline/CI verified against deterministic fixtures
+## Implemented for controlled PAPER and historical experiments
+- [x] `STRICT_VOTES=true` keeps two independent agreeing votes. Set `false` to admit
+  one uncontested vote when score >= MIN_STRONG_SCORE (default 7), and
+  relative volume >= 1.5 or ADX >= 25, and the hourly macro does not oppose.
+  Every individual vote logs its direction/abstention and filter context.
+- [x] ATR-based trailing after +2R guarantees a stop beyond +1R with small buffer,
+  preserving the +1R/+1.5R 25% partial exits and final objective.
+- [x] Both historical engines use UTC candle days for daily loss limits, model
+  historical fees, and report closed trades, win rate, profit factor,
+  max marked-equity drawdown, mean R and a bounded equity curve.
+- [x] `vortex backtest` and `vortex portfolio-backtest` write complete JSON
+  snapshots to `data/backtests/`, then print paths and summary metrics.
+- [x] Full closed PAPER trade event records in `data/closed_trades.jsonl` include
+  direction, approved votes, timestamps, original entry STOP/TARGET, indicators,
+  net PnL and R. Partials remain in `data/partial_exits.jsonl` and do not
+  inflate training labels.
+- [x] Existing risk defaults remain: 1% stake risk, 3 max PAPER positions,
+  5x leverage cap, 5% daily drawdown, halt after 5 successive completed losses.
+- [x] `RUN_MODE=live` and actual funds remain unsupported.
 
-- [x] Four independent votes, TWO-vote agreement, hourly EMA50/200 regime,
-      completed 1m Stochastic RSI divergence, ATR stop and 3R terminal target.
-- [x] Historical single-market and portfolio UTC daily risk reset based on
-      historical timestamps (not development host date).
-- [x] Risk halt remains latched after daily loss or five losing completed positions.
-- [x] Historical drawdown calculated on marked portfolio equity; open positions
-      reported as unrealized and NOT silently booked as closed PnL.
-- [x] Indicator warmup includes TEN days of hourly history before EMA200 signals.
-- [x] Reject stale, future-dated, missing-timestamp REST bookTicker and
-      websocket ticker observations before acting on them.
-- [x] Funding and open-interest vote requires monotone exchange-sourced
-      timestamps; duplicate, delayed or absent observations ABSTAIN.
-- [x] TESTNET guardian rejects unknown conditional orders and halts after a
-      partially confirmed emergency flatten; no blind order replay.
-- [x] Single POSIX process lock prevents concurrent PAPER writers or signed
-      TESTNET watchdog/commissioning processes for one ledger.
-- [x] Tests, fatal-code lint, dependency consistency, compilation, and CLI
-      smoke gates are in GitHub Actions.
+## TESTNET-only guarded order path (code and MOCK tests)
+- [x] Manual `vortex testnet-once --symbol BTCUSDT --ack-testnet` additionally
+  requires `VORTEX_TESTNET_ARM=TESTNET_ONLY` and approved TESTNET-only credentials.
+- [x] MAINNET environment aliases are rejected. As key types cannot be determined
+  from their characters, a signed authentication challenge is made against
+  `testnet.binancefuture.com` before any order; production keys will not authenticate.
+- [x] Only one entry may be attempted; journaled INTENT/PROTECTING/PROTECTED/HALTED.
+- [x] Server-held STOP_MARKET and TAKE_PROFIT_MARKET use Algo Orders, confirmed
+  by a follow-up open-orders read rather than trusted acknowledgments.
+- [x] Partial-entry and partial-reduce-only outcomes latch HALTED/unfinished
+  journal; no automatic retry or duplicate write. Emergency flatten must
+  confirm zero remaining exposure before declaring it done.
+- [x] Mocked tests check client-ID isolation, unknown orders, stale exchange
+  states and write-ahead durability.
 
-## NOT yet independently proven — no false approval
+## NOT independently verified
+- [ ] Actual signed Binance Futures Testnet integration (no testnet credentials
+  were accessed and **no real Testnet orders were sent**).
+- [ ] Historical profit and forward paper performance, because this task requested
+  **implementation and tests**, not a performance run.
+- [ ] Historical replay of funding, order-book and radar constituents when
+  no real timestamped archive exists. OHLC results cannot validate that edge.
+- [ ] AI predictive accuracy: model training needs 250+ independent completed
+  labeled paper trades and a holdout.
+- [ ] Live VPS uptime / outages / restart behavior in market conditions.
+- [ ] Production trading: not implemented, not authorized.
 
-- [ ] Real Binance Futures TESTNET responses, protection lifecycle,
-      partial fills, clock drift, liquidation, rate limits and reconnection.
-      Requires actual TESTNET-only API credentials and operator permission.
-- [ ] Profitability and drawdown across an independently chosen historical
-      sample; user requested to review before simulations.
-- [ ] Weeks of forward paper operation, market snapshots and VPS endurance.
-      GitHub Actions executes tests, it does **not** run a 24/7 bot.
-- [ ] Historical replay of archived live open interest/funding, depth,
-      radar constituents and market-impact/fill observations.
-      OHLC data alone cannot reproduce these faithfully.
-- [ ] 250+ genuine closed-position feature/label examples and validated ML
-      model. The repository ships no pretrained 'AI edge'.
-- [ ] Literal feature parity with all 18 StrikeChart detectors, LSTM/
-      ensemble architectures, and every optional subsystem of the other
-      three original projects. Existing integrations are independently
-      implemented subsets; unused names are not evidence of functioning.
-- [ ] Production signed adapter and independent approval. `RUN_MODE=live`
-      deliberately fails closed. There is no real-money readiness claim.
-
-## Exact source and audit
-
-- Source ZIP comparisons: Neko Futures Trader, Professional Quantitative
-  Trading Bot, Futures AI Bot, StrikeChart.
-- Current code: vortex/strategies.py, vortex/strategy.py, vortex/risk.py,
-  vortex/backtest.py, vortex/portfolio.py, vortex/stream.py,
-  vortex/binance.py, vortex/testnet_guard.py, vortex/testnet_stages.py,
-  vortex/exchange_testnet.py, vortex/locks.py, vortex/ml.py.
-- Static/risk tests: tests/test_historical_risk.py,
-  tests/test_market_freshness.py, tests/test_single_writer.py,
-  tests/test_testnet_stages.py, tests/test_hardening.py.
-- Exchange order and REST response formats: Binance official USD-M docs
-  https://developers.binance.com/en/docs/catalog/core-trading-derivatives-trading-usd-s-m-futures/api/rest-api/trade
-
-This checklist must remain explicit. Passing mocked tests can qualify a release
-for controlled simulation, NEVER as proof of profit or production readiness.
+These statements deliberately distinguish TESTED MOCK LOGIC from actual exchange
+execution. Read README.md for CLI usage.

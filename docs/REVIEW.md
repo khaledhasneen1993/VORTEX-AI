@@ -3,6 +3,12 @@
 Status: **PRE-SIMULATION CODE REVIEW**. No production trading is authorized.
 
 ## Implemented modules
+- [x] Four independent strategy voters, TWO-vote confluence, completed 1h macro
+- [x] Funding/OI vote requires real, timestamped and time-separated public derivatives
+- [x] Liquidity/momentum candidate radar with opt-in compatibility gate
+- [x] Paper quarter TP1/TP2 + inward-only trailing, mirrored in OHLC replay
+- [x] Paper position entry features + one completed-roundtrip ML training label
+- [x] Fixed Binance 2026 /public/stream bookTicker route
 - [x] Python package, CLI, CI test suite
 - [x] Optional Binance WebSocket bid/ask with staleness rejection
 - [x] Optional real depth/aggregate trade flow filter; no invented whale classifications
@@ -17,6 +23,11 @@ Status: **PRE-SIMULATION CODE REVIEW**. No production trading is authorized.
 - [x] Mock tests for missing stops, ambiguous writes, quote delays and journal interruption
 
 ## Acceptance gates still open
+- [ ] Verify the four-voter signal frequency and parameter robustness on observed historical candles (no simulation performed yet)
+- [ ] Archive historical funding and open-interest data to include vote #4 in backtests; current OHLC replay omits vote #4
+- [ ] Real-time integration validation for dynamic radar and WebSocket on actual Binance public streams
+- [ ] Extend testnet order management to paper-equivalent TP1/TP2 and trailing only after protected replace/cancel lifecycle is tested
+- [ ] Model historical opportunity ranking and microstructure with honest archived depth/trades (currently unavailable)
 - [ ] Genuine TESTNET signed API/order integration with testnet-only keys
 - [ ] Exchange partial-fill, timeout and liquidation edge cases on a running testnet account
 - [ ] Real 30-day multi-symbol backtest with fees/funding sensitivity

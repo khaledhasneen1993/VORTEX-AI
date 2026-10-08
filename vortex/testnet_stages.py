@@ -38,7 +38,8 @@ def model(guard, amount: float) -> Position:
                     peak=float(st.get("peak") or st["actual_entry"]),
                     tp1_done=bool(st.get("tp1_done", False)),
                     tp2_done=bool(st.get("tp2_done", False)),
-                    step=float(st["step"]))
+                    step=float(st["step"]),
+                    atr_value=float(st.get("atr_value") or float(st["initial_risk"]) / 1.5))
 
 
 def tighten_stop(guard, wanted: float) -> bool:
@@ -84,7 +85,8 @@ def tighten_stop(guard, wanted: float) -> bool:
     return True
 
 
-def maintain(guard, bid: float, ask: float) -> dict:
+def maintain(guard, bid: float, ask: float, *,
+             atr_value: float | None = None, trailing_atr_mult: float = 1.0) -> dict:
     """Operator-armed one-pass TESTNET maintenance using an independent quote."""
     st = guard.state
     if st.get("phase") != "PROTECTED":
@@ -103,7 +105,8 @@ def maintain(guard, bid: float, ask: float) -> dict:
     position = model(guard, amount)
     # Execution side: longs sell at bid, shorts buy at ask, never at mid/last.
     price = bid if st["side"] == "LONG" else ask
-    step = decide_tick(position, price)
+    step = decide_tick(position, price, atr_value=atr_value,
+                       trailing_atr_mult=trailing_atr_mult)
     if step and step.final:
         # Exchange-side close-all TP or SL must manage final exit; never
         # race the exchange with a second market order at the threshold.
@@ -123,14 +126,15 @@ def maintain(guard, bid: float, ask: float) -> dict:
         if abs(after - (abs(amount) - step.qty)) > max(.00000001, float(st["step"]) * .1):
             guard.halt("Partial exit not fully confirmed; review Binance position and fills")
         guard.persist(stage_intent=None, tp1_done=position.tp1_done,
-                      tp2_done=position.tp2_done, peak=position.peak)
+                      tp2_done=position.tp2_done, peak=position.peak,
+                      atr_value=position.atr_value)
         # The original exchange STOP is still active throughout the partial exit.
         if position.stop != float(st["stop"]):
             tighten_stop(guard, position.stop)
         return {"status": step.reason, "qty": step.qty, "remaining": after}
     # If 2R reached after TP2, ratchet the protected stop without widening it.
     guard.persist(peak=position.peak, tp1_done=position.tp1_done,
-                  tp2_done=position.tp2_done)
+                  tp2_done=position.tp2_done, atr_value=position.atr_value)
     if position.stop != float(st["stop"]):
         tightened = tighten_stop(guard, position.stop)
         return {"status": "stop tightened" if tightened else "unchanged",

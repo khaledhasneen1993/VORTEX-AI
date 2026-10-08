@@ -141,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
     while True:
         try:
             now = market.server_ms()
-            quotes = stream.snapshot() if stream else market.quotes()
+            quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
             was_halted = broker.gate.blocked
             for closed in broker.mark(quotes, now):
                 log.info("CLOSED: %s", json.dumps(closed))

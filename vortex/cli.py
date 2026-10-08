@@ -17,15 +17,21 @@ log = logging.getLogger("vortex")
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="VORTEX AI / paper trading")
-    parser.add_argument("command", choices=("paper", "backtest", "status", "dashboard"))
+    parser.add_argument("command", choices=("paper", "backtest", "status", "dashboard", "reset-paper-halt"))
     parser.add_argument("--symbol", default="BTCUSDT", help="Backtest symbol")
     parser.add_argument("--bars", type=int, default=1200, help="Backtest candle count 300-1500")
     parser.add_argument("--days", type=int, default=None, help="Paginated backtest span 1-45 days")
     parser.add_argument("--once", action="store_true", help="Run one polling cycle")
     parser.add_argument("--port", type=int, default=8765, help="Dashboard loopback port")
+    parser.add_argument("--ack-risk", action="store_true", help="Acknowledge a manual paper risk reset")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     cfg = Settings.from_env()
+    if args.command == "reset-paper-halt":
+        broker = PaperBroker(cfg)
+        broker.reset_halt(args.ack_risk)
+        print("Paper risk halt reset; daily loss floor remains enforced")
+        return 0
     if args.command == "status":
         broker = PaperBroker(cfg)
         print(json.dumps({"wallet": broker.wallet,

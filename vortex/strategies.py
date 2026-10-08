@@ -61,7 +61,7 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
     s, h = small[-1], higher[-1]
     if s.close_ts <= 0 or h.close_ts > s.close_ts:
         return None
-    if macro and (len(macro) < 210 or macro[-1].close_ts > s.close_ts):
+    if macro is not None and (len(macro) < 210 or macro[-1].close_ts > s.close_ts):
         return None
     if any(b.ts <= a.ts for a, b in zip(small[-70:], small[-69:])):
         return None

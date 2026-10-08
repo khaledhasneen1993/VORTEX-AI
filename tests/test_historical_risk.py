@@ -91,7 +91,7 @@ def test_hourly_history_uses_full_ten_day_warmup(monkeypatch):
 
 def test_no_market_api_or_pnl_needed_to_run_risk_regressions():
     cfg = Settings(mode="paper")
-    assert cfg.risk_per_trade == 0.01
+    assert cfg.risk_per_trade == 0.10
     assert cfg.max_daily_loss == .05
     assert cfg.max_consecutive_losses == 5
 

@@ -167,7 +167,7 @@ class TestnetSupervisor:
                 self.emergency_flatten(signal.symbol)
             self.halt(f"Order sequence failed: {type(exc).__name__}; account reconciliation required")
 
-    def audit(self) -> dict:
+    def audit(self, *, may_flatten: bool = False) -> dict:
         """Audit existing testnet position. Nothing is retried, repaired or assumed."""
         if self.state["phase"] == "IDLE":
             self.start_check()
@@ -187,7 +187,9 @@ class TestnetSupervisor:
                          stop_id=None, take_id=None, close_id=None, reason="Exchange flat")
             return {"ok": True, "phase": "IDLE"}
         if not self.verify_protection(sym, side):
-            self.emergency_flatten(sym)
-            self.halt("Protective algo missing; emergency reduce-only close sent")
+            if may_flatten:
+                self.emergency_flatten(sym)
+                self.halt("Protective algo missing; emergency reduce-only close sent")
+            self.halt("Protective algo missing; unarmed audit stopped for human review")
         self.persist(phase="PROTECTED")
         return {"ok": True, "phase": "PROTECTED", "symbol": sym}

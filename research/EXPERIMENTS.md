@@ -128,3 +128,38 @@ not change stake/leverage or multiply losing positions. When stressing costs,
 keep this normal-cost entry criterion frozen so selection is not changed.
 
 Command: `python -m research.replay --month 2026-09 --execution 1m --entry-policy cost-floor --output research/results/E004-cost-floor-1m.json`
+
+## E004 result — failed third entry hypothesis
+
+36 closes, net -89.543420, end 910.456580, PF .5297654329,
+maxDD 10.079%, fees 40.967759. Fewer trades and lower drawdown do not establish
+an edge: net remains negative, PF <1, average net per trade is worse than E001.
+Reject for promotion. Risk defaults remain unchanged. No candidate qualifies
+for stress/independent validation or forward PAPER promotion yet.
+
+E000 independently matches EVERY original trade record after removing added
+diagnostics, and all 42 ZIP SHA256 values match the uploaded report. Original
+risk, fee, gap, entry timing and quantity accounting are thus reproduced.
+
+## Next-run handoff — E005 pre-registration (not executed)
+
+Three actual entry hypotheses tested: E002 extension cap, E003 delayed
+continuation, E004 cost viability; all failed. Do not repeat these.
+E001 is an execution-resolution measurement, not an additional strategy trial.
+
+Next diagnostic: invert the ORIGINAL accepted signal's direction while keeping
+same ATR distances, staged exits, cost model and account caps. Entry remains
+next-open. Recompute opposite stop/target symmetrically, keep a recorded source
+direction and explicitly label inverted votes as contrarian research, not
+original strategy votes. Do NOT combine E002/E003/E004. This isolates whether
+the original directional vote has useful contrarian information. It is an
+ablation on exposed development data, not a validated contrarian strategy.
+If still negative, compare original signals with a full-size fixed 3R exit
+(no partials/breakeven/trailing) as a separately preregistered exit ablation.
+Keep main untouched; implement/test only on this branch and append full results.
+Stop selecting September-only winners: any promising candidate then needs
+independent periods, cost stress and forward PAPER before acceptance.
+
+PR #11 is the ongoing research PR. First research CI run 37859064802 passed.
+All 121 local tests passed after E004 registration. Latest result/code commits
+may have their own CI pending; check Actions by exact remote HEAD.

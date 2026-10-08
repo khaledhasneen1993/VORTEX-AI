@@ -73,11 +73,21 @@ class TestnetSupervisor:
         # Find only OUR named orders, reject accidentally counting manual protective orders.
         own = [o for o in orders if o.get("clientAlgoId") in
                {self.state.get("stop_id"), self.state.get("take_id")}]
-        types = {o.get("orderType", o.get("type")) for o in own
-                 if o.get("side") == protective_side and
-                 str(o.get("closePosition")).lower() == "true" and
-                 o.get("positionSide", "BOTH") == "BOTH"}
-        return {"STOP_MARKET", "TAKE_PROFIT_MARKET"} <= types
+        verified = {}
+        for order in own:
+            kind = order.get("orderType", order.get("type"))
+            if (order.get("side") != protective_side or
+                str(order.get("closePosition")).lower() != "true" or
+                order.get("positionSide", "BOTH") != "BOTH"):
+                continue
+            wanted = self.state.get("stop") if kind == "STOP_MARKET" else (
+                self.state.get("target") if kind == "TAKE_PROFIT_MARKET" else None)
+            if wanted is None or "triggerPrice" not in order:
+                continue
+            from decimal import Decimal
+            if Decimal(str(order["triggerPrice"])) == Decimal(str(wanted)):
+                verified[kind] = True
+        return {"STOP_MARKET", "TAKE_PROFIT_MARKET"} <= set(verified)
 
     def emergency_flatten(self, symbol: str) -> None:
         """Close a known position once; if uncertain, STOP, never repeat blindly."""

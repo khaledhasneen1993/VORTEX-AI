@@ -125,7 +125,7 @@ class TestnetSupervisor:
         self.start_check()
         if self.api.symbol_config(signal.symbol).get("marginType") != "ISOLATED":
             self.halt("Only ISOLATED margin is supported for testnet entry")
-        if signal.side not in {"LONG", "SHORT"} or qty <= 0 or leverage not in range(1, 11):
+        if signal.side not in {"LONG", "SHORT"} or qty <= 0 or leverage not in range(1, 6):
             raise ValueError("Invalid entry parameters")
         if qty < filt.min_qty or qty * signal.entry < filt.min_notional:
             raise ValueError("Exchange minimum violated")

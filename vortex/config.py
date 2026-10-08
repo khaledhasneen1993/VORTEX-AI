@@ -1,6 +1,7 @@
 """Validated settings; paper-only by default and fail closed on unsafe modes."""
 from __future__ import annotations
 import os
+from math import isfinite
 from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
@@ -39,13 +40,15 @@ class Settings:
             raise ValueError("USD-M USDT symbols only")
         if self.timeframe not in {"5m", "15m"}:
             raise ValueError("Supported timeframe: 5m, 15m")
-        if self.starting_equity <= 0 or not 0 < self.risk_per_trade <= 0.10:
+        if (not isfinite(self.starting_equity) or self.starting_equity <= 0
+                or not isfinite(self.risk_per_trade)
+                or not 0 < self.risk_per_trade <= 0.10):
             raise ValueError("Equity or risk cap invalid")
         if not 0 < self.max_daily_loss <= 0.05 or not 1 <= self.max_consecutive_losses <= 5:
             raise ValueError("Daily loss or consecutive loss cap invalid")
         if not 1 <= self.max_positions <= 3 or not 1 <= self.max_leverage <= 10:
             raise ValueError("Position/leverage limit invalid")
-        if not 0 < self.max_margin_fraction <= 0.25:
+        if not isfinite(self.max_margin_fraction) or not 0 < self.max_margin_fraction <= 0.25:
             raise ValueError("Margin cap invalid")
         if not 0 < self.max_spread_bps <= 50:
             raise ValueError("Spread cap invalid")
@@ -53,11 +56,12 @@ class Settings:
             raise ValueError("Score threshold invalid")
         if not isinstance(self.strict_votes, bool) or not 3 <= self.min_strong_score <= 10:
             raise ValueError("Vote policy must be boolean with strong score 3..10")
-        if not 0.5 <= self.trailing_atr_mult <= 3.0:
+        if not isfinite(self.trailing_atr_mult) or not 0.5 <= self.trailing_atr_mult <= 3.0:
             raise ValueError("TRAILING_ATR_MULT must be between 0.5 and 3.0")
         if self.cooldown_minutes < 0 or not 5 <= self.loop_seconds <= 300:
             raise ValueError("Polling/cooldown invalid")
-        if not 0 <= self.fee_rate <= 0.003 or not 0 <= self.slippage_bps <= 30:
+        if (not isfinite(self.fee_rate) or not 0 <= self.fee_rate <= 0.003
+                or not isfinite(self.slippage_bps) or not 0 <= self.slippage_bps <= 30):
             raise ValueError("Costs invalid")
 
     @classmethod

@@ -19,6 +19,31 @@ from .reports import save_report
 log = logging.getLogger("vortex")
 
 
+def refresh_open_position_atr(market, positions, timeframe: str, now_ms: int,
+                              latest: dict[str, float], refreshed: dict[str, int]) -> None:
+    """Read latest COMPLETED ATR for every open PAPER position before exits.
+
+    A fresh candle is fetched once per symbol and timeframe bucket. If a public
+    candle request fails, the position's previous observed ATR remains in force;
+    never fabricate new values or skip an executable STOP because ATR is late.
+    """
+    from .indicators import atr
+    width = 300_000 if timeframe == "5m" else 900_000
+    bucket = now_ms // width
+    for symbol in positions:
+        if refreshed.get(symbol) == bucket:
+            continue
+        try:
+            bars = market.candles(symbol, timeframe, 70, now_ms)
+            if len(bars) < 16:
+                log.warning("ATR unavailable for open %s; retaining last observed ATR", symbol)
+                continue
+            latest[symbol] = atr(bars)
+            refreshed[symbol] = bucket
+        except (MarketError, ValueError) as exc:
+            log.warning("ATR refresh failed for open %s: %s", symbol, exc)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="VORTEX AI / paper trading")
     parser.add_argument("command", choices=("paper", "backtest", "portfolio-backtest", "status", "dashboard", "reset-paper-halt", "testnet-doctor", "testnet-once", "testnet-watch", "train-ai"))
@@ -131,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     paper_lock = ProcessLock(cfg.data_dir / "paper.lock").acquire()
     broker = PaperBroker(cfg)
     latest_atr: dict[str, float] = {}
+    atr_refresh_bucket: dict[str, int] = {}
     use_ai = os.getenv("USE_AI_MODEL", "false").lower() == "true"
     use_claude = os.getenv("USE_CLAUDE", "false").lower() == "true"
     ai_model = None
@@ -160,6 +186,10 @@ def main(argv: list[str] | None = None) -> int:
         try:
             now = market.server_ms()
             quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+            # Protect existing positions with the newest fully completed candle
+            # before evaluating this tick's staged or trailing exits.
+            refresh_open_position_atr(market, broker.positions, cfg.timeframe,
+                                      now, latest_atr, atr_refresh_bucket)
             was_halted = broker.gate.blocked
             for closed in broker.mark(quotes, now, latest_atr):
                 log.info("CLOSED: %s", json.dumps(closed))

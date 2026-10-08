@@ -12,6 +12,7 @@ from .exchange_testnet import TestnetGateway
 from .testnet_guard import TestnetSupervisor
 from .risk import size_trade
 from .strategy import analyze
+from dataclasses import replace
 
 
 def prepare(cfg: Settings, *, armed: bool = False):
@@ -59,7 +60,6 @@ def _once_locked(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
     if not sig or now - candles[-1].close_ts > 90_000:
         return {"ok": False, "reason": "No fresh qualified setup; no order sent"}
     if os.getenv("USE_CLAUDE", "false").lower() == "true":
-        from dataclasses import replace
         from .ml import feature_snapshot
         from .claude_review import confirm, ReviewUnavailable
         sig = replace(sig, features=feature_snapshot(candles, sig))
@@ -80,10 +80,11 @@ def _once_locked(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
         return {"ok": False, "reason": "Signal stale versus executable quote"}
     # Adjust protective distances to executable side of spread.
     sign = 1 if sig.side == "LONG" else -1
-    from .models import Signal
-    adjusted = Signal(sig.symbol, sig.side, sig.ts, entry,
-                      entry - sign * abs(sig.entry - sig.stop),
-                      entry + sign * abs(sig.target - sig.entry), sig.score, sig.reason)
+    # Keep the strategy's votes, ATR and indicators when moving the theoretical
+    # entry to the executable TESTNET book side. Otherwise trailing loses ATR.
+    adjusted = replace(sig, entry=entry,
+                       stop=entry - sign * abs(sig.entry - sig.stop),
+                       target=entry + sign * abs(sig.target - sig.entry))
     balance = api.usdt_balance()
     filt = market.symbol_filters(symbol)
     sized = size_trade(adjusted, balance, cfg, filt)

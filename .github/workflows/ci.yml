@@ -43,6 +43,29 @@ jobs:
       actions: write
       contents: write
     steps:
+      - name: Remove only verified merged work branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for pr in 5 6; do
+            meta=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr")
+            merged=$(echo "$meta" | jq -r '.merged')
+            branch=$(echo "$meta" | jq -r '.head.ref')
+            expected=$(echo "$meta" | jq -r '.head.sha')
+            if [[ "$merged" != "true" || -z "$branch" || "$branch" == "main" ]]; then
+              continue
+            fi
+            actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)
+            if [[ -n "$actual" && "$actual" == "$expected" ]]; then
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
+              echo "Deleted merged unchanged branch $branch"
+            elif [[ -n "$actual" ]]; then
+              echo "Preserving branch $branch because it changed after merge"
+            fi
+          done
+
       - name: Preserve newest main build and delete older workflow runs
         env:
           GH_TOKEN: ${{ github.token }}

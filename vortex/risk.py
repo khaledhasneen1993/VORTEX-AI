@@ -38,9 +38,12 @@ def size_trade(signal: Signal, equity: float, cfg: Settings, filt: Filters,
     if equity <= 0 or stop_gap <= 0 or not math.isfinite(stop_gap):
         return None
     # Fee and slippage across entry AND exit are charged against the risk budget.
-    slippage_round_trip = 2 * cfg.slippage_bps / 10000
-    cost_ratio = 2 * cfg.fee_rate + slippage_round_trip
-    max_by_risk = equity * cfg.risk_per_trade / (stop_gap + signal.entry * cost_ratio)
+    # Charge entry and conservative STOP-side exit costs. SHORT stops may be
+    # above entry, so using entry-only fees would understate planned risk.
+    per_side_cost = cfg.fee_rate + cfg.slippage_bps / 10000
+    worst_exit_basis = max(signal.entry, signal.stop)
+    cost_per_unit = per_side_cost * (signal.entry + worst_exit_basis)
+    max_by_risk = equity * cfg.risk_per_trade / (stop_gap + cost_per_unit)
     # Config accepts 1..10 but this bot's trading policy never exceeds 5x.
     leverage = min(cfg.max_leverage, 5)
     max_by_margin = max(0.0, equity * cfg.max_margin_fraction - committed_margin)

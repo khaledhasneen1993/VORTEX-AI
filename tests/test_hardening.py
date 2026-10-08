@@ -217,3 +217,26 @@ def test_portfolio_rejects_missing_history():
     with pytest.raises(ValueError):
         run_portfolio({"BTCUSDT": bars}, {"BTCUSDT": fake_history(900000)},
                       {"BTCUSDT": F}, Settings())
+
+
+
+def test_paper_close_journal_crash_is_recoverable(monkeypatch, tmp_path):
+    from vortex.paper import PaperBroker
+    p = PaperBroker(Settings(data_dir=tmp_path))
+    ok, _ = p.open(S, 99.99, 100.01, F, {"BTCUSDT": (99.99, 100.01)}, 1_000_000)
+    assert ok
+    original = p._write_journal
+    def fail_before_append(event):
+        raise OSError("simulated disk interruption")
+    monkeypatch.setattr(p, "_write_journal", fail_before_append)
+    with pytest.raises(OSError):
+        p.mark({"BTCUSDT": (97, 97.01)}, 1_050_000)
+    reloaded = PaperBroker(Settings(data_dir=tmp_path))
+    assert reloaded.closed_count == 1
+    assert not reloaded.positions
+    assert reloaded.pending_journal is None
+    assert len((tmp_path / "closed_trades.jsonl").read_text().splitlines()) == 1
+    reloaded.save()
+    after = PaperBroker(Settings(data_dir=tmp_path))
+    assert after.closed_count == 1
+    assert len((tmp_path / "closed_trades.jsonl").read_text().splitlines()) == 1

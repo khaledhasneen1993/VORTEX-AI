@@ -19,6 +19,7 @@ class ProtectionError(RuntimeError):
 
 
 class TestnetSupervisor:
+    __test__ = False  # pytest must not treat service classes as test cases
     def __init__(self, api, state_path: Path):
         self.api = api
         self.path = Path(state_path)

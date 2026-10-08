@@ -110,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
         stream = QuoteStream(cfg.symbols)
         stream.start()
     from .alerts import notify
+    from .derivatives import DerivativesTracker
+    derivative_tracker = DerivativesTracker()
     symbols = [s for s in cfg.symbols if s in market.metadata()]
     if len(symbols) != len(cfg.symbols):
         raise ValueError("One or more symbols inactive / not USDT perpetuals")
@@ -145,7 +147,13 @@ def main(argv: list[str] | None = None) -> int:
                     macro = market.candles(symbol, "1h", 120, now)
                     if not data or not upper or not macro:
                         continue
-                    signal = analyze(symbol, data, upper, cfg.min_score, macro=macro)
+                    try:
+                        deriv = derivative_tracker.sample(market, symbol, now)
+                    except (MarketError, KeyError, ValueError) as exc:
+                        log.warning("Unavailable derivative snapshot for %s: %s", symbol, exc)
+                        deriv = None  # funding strategy abstains; other votes remain valid
+                    signal = analyze(symbol, data, upper, cfg.min_score,
+                                     macro=macro, derivatives=deriv, decision_ms=now)
                     if signal and symbol in quotes:
                         from .ml import feature_snapshot, evaluate
                         # Capture only features observable at this completed entry signal.

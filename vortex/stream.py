@@ -1,6 +1,6 @@
 """Public Binance futures bookTicker WebSocket, stale-safe and reconnectable.
 
-Uses updated Binance /market URL family (2026). No REST fallback on stale data:
+Uses updated Binance /public URL family for high-frequency bookTicker (2026). No REST fallback on stale data:
 a missing/old quote is rejected rather than used for a simulated execution.
 """
 from __future__ import annotations

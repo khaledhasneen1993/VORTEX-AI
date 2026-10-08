@@ -75,7 +75,7 @@ class TestnetGateway:
         values["recvWindow"] = 5000
         query = urlencode(values)
         signature = hmac.new(self.secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
-        headers = {"X-MBX-APIKEY": self.key}
+        headers = {"X-MBX-APIKEY": self.key, "Content-Type": "application/x-www-form-urlencoded"}
         try:
             # HTTP verb / hostname pinned; server never sees credentials in repo.
             result = self.session.request(

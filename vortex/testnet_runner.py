@@ -45,7 +45,7 @@ def once(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
     now = market.server_ms()
     candles = market.candles(symbol, cfg.timeframe, 220, now)
     higher = market.candles(symbol, "15m", 120, now)
-    macro = market.candles(symbol, "1h", 120, now)
+    macro = market.candles(symbol, "1h", 260, now)
     sig = analyze(symbol, candles, higher, cfg.min_score, macro=macro)
     if not sig or now - candles[-1].close_ts > 90_000:
         return {"ok": False, "reason": "No fresh qualified setup; no order sent"}

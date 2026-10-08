@@ -172,3 +172,36 @@ def test_testnet_partial_entry_latches_halt_and_preserves_guards(tmp_path):
     assert guard.state["phase"] == "HALTED"
     assert len(api.orders) == 2
     assert guard.state["entry_id"] and guard.state["stop_id"] and guard.state["take_id"]
+
+
+
+def test_two_vote_majority_survives_one_dissent(monkeypatch):
+    from vortex.strategies import Derivatives
+    import vortex.strategies as st
+    small = _bars(120, 300000, 0, .20)
+    small[-1] = replace(small[-1], volume=220)
+    higher = _bars(80, 900000, 40, .30)
+    macro = _bars(240, 3600000, 231, .50)
+    monkeypatch.setattr(st, "adx", lambda bars, period=14: 30.)
+    monkeypatch.setattr(st, "_macd_hist", lambda prices: 1.)
+    current = small[-1].close_ts
+    deriv = Derivatives(.002, 2., current)
+    accepted = vote("BTCUSDT", small, higher, macro=macro, deriv=deriv)
+    assert accepted is not None
+    assert accepted.side == "LONG"
+    assert set(accepted.votes) == {"trend", "breakout"}
+
+
+def test_env_voting_and_atr_settings_are_validated(monkeypatch):
+    monkeypatch.setenv("STRICT_VOTES", "false")
+    monkeypatch.setenv("TRAILING_ATR_MULT", "1.25")
+    monkeypatch.setenv("MIN_STRONG_SCORE", "8")
+    cfg = Settings.from_env()
+    assert cfg.strict_votes is False
+    assert cfg.trailing_atr_mult == 1.25
+    assert cfg.min_strong_score == 8
+    assert cfg.risk_per_trade == .01 and cfg.max_positions == 3
+    assert cfg.max_leverage == 5 and cfg.max_daily_loss == .05
+    monkeypatch.setenv("STRICT_VOTES", "maybe")
+    with pytest.raises(ValueError):
+        Settings.from_env()

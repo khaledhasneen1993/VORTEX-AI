@@ -18,7 +18,7 @@ log = logging.getLogger("vortex")
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="VORTEX AI / paper trading")
-    parser.add_argument("command", choices=("paper", "backtest", "portfolio-backtest", "status", "dashboard", "reset-paper-halt", "testnet-doctor", "testnet-once", "testnet-watch"))
+    parser.add_argument("command", choices=("paper", "backtest", "portfolio-backtest", "status", "dashboard", "reset-paper-halt", "testnet-doctor", "testnet-once", "testnet-watch", "train-ai"))
     parser.add_argument("--symbol", default="BTCUSDT", help="Backtest symbol")
     parser.add_argument("--bars", type=int, default=1200, help="Backtest candle count 300-1500")
     parser.add_argument("--days", type=int, default=None, help="Paginated backtest span 1-45 days")
@@ -26,9 +26,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8765, help="Dashboard loopback port")
     parser.add_argument("--ack-risk", action="store_true", help="Acknowledge a manual paper risk reset")
     parser.add_argument("--ack-testnet", action="store_true", help="Acknowledge TESTNET-only order; requires matching env gate")
+    parser.add_argument("--dataset", type=str, default="", help="JSONL with confirmed closed-trade labels")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     cfg = Settings.from_env()
+    if args.command == "train-ai":
+        from pathlib import Path
+        from .ml import train_jsonl
+        if not args.dataset:
+            parser.error("train-ai requires --dataset file.jsonl")
+        print(json.dumps(train_jsonl(Path(args.dataset), cfg.data_dir / "ai_model.json"), indent=2))
+        return 0
     if args.command == "reset-paper-halt":
         broker = PaperBroker(cfg)
         broker.reset_halt(args.ack_risk)
@@ -80,6 +88,11 @@ def main(argv: list[str] | None = None) -> int:
     if cfg.mode != "paper":
         raise ValueError("paper command requires RUN_MODE=paper")
     broker = PaperBroker(cfg)
+    use_ai = os.getenv("USE_AI_MODEL", "false").lower() == "true"
+    ai_model = None
+    if use_ai:
+        from .ml import load_model
+        ai_model = load_model(cfg.data_dir / "ai_model.json")  # fails closed without validated model
     use_stream = os.getenv("USE_WEBSOCKET", "false").lower() == "true"
     use_micro = os.getenv("USE_MICROSTRUCTURE", "false").lower() == "true"
     stream = None
@@ -114,6 +127,12 @@ def main(argv: list[str] | None = None) -> int:
                         continue
                     signal = analyze(symbol, data, upper, cfg.min_score)
                     if signal and symbol in quotes:
+                        if use_ai:
+                            from .ml import feature_snapshot, evaluate
+                            probability = evaluate(ai_model, feature_snapshot(data, signal))
+                            if probability is None or probability < 0.56:
+                                log.info("ML REJECT %s probability=%s", symbol, probability)
+                                continue
                         # Never enter on an old signal (e.g. after a stalled connection).
                         if now - data[-1].close_ts > 90_000:
                             continue

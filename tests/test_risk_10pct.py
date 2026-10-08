@@ -135,7 +135,7 @@ def test_risk_gates_cannot_be_relaxed_through_environment(monkeypatch):
     with pytest.raises(ValueError):
         Settings(max_margin_fraction=.251)
     with pytest.raises(ValueError):
-        Settings(max_daily_loss=.501)
+        Settings(max_daily_loss=.60)
     with pytest.raises(ValueError):
         Settings(max_consecutive_losses=6)
 
@@ -164,16 +164,27 @@ def test_no_martingale_and_margin_reduces_additional_trade_size():
 
 
 def test_daily_loss_fifty_percent_env_threshold_and_latch(monkeypatch):
-    from vortex.config import Settings
-    from vortex.risk import RiskGate
+    # Explicit environment override must be a real validated Settings field.
     monkeypatch.setenv("MAX_DAILY_LOSS", "0.50")
     cfg = Settings.from_env()
     assert cfg.max_daily_loss == pytest.approx(.50)
+    assert Settings(max_daily_loss=.50).max_daily_loss == pytest.approx(.50)
     gate = RiskGate(cfg, 1000.)
     assert gate.can_open(501., 0) == (True, "ok")
     assert gate.can_open(500., 0) == (False, "daily loss circuit breaker")
     assert not gate.can_open(1000., 0)[0]  # halt stays latched
+    monkeypatch.setenv("MAX_DAILY_LOSS", "0.60")
     with pytest.raises(ValueError, match="Daily loss"):
-        Settings(max_daily_loss=.501)
+        Settings.from_env()
+    with pytest.raises(ValueError, match="Daily loss"):
+        Settings(max_daily_loss=.60)
     with pytest.raises(ValueError, match="Daily loss"):
         Settings(max_daily_loss=0)
+
+def test_fifty_percent_default_if_env_is_absent(monkeypatch):
+    monkeypatch.delenv("MAX_DAILY_LOSS", raising=False)
+    cfg = Settings.from_env()
+    assert cfg.max_daily_loss == pytest.approx(.50)
+    assert cfg.risk_per_trade == pytest.approx(.10)
+    assert cfg.max_leverage == 5
+    assert cfg.max_positions == 3

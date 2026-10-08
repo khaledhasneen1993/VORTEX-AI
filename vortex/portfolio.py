@@ -28,8 +28,9 @@ def run_portfolio(
     higher: dict[str, list[Candle]],
     filters: dict[str, Filters],
     config: Settings,
+    macro: dict[str, list[Candle]] | None = None,
 ) -> dict:
-    if not candles or set(candles) != set(higher) or set(candles) != set(filters):
+    if not candles or set(candles) != set(higher) or set(candles) != set(filters) or (macro is not None and set(candles) != set(macro)):
         raise ValueError("Each portfolio symbol requires bars, HTF and exchange filters")
     symbols = sorted(candles)
     by_symbol: dict[str, dict[int, Candle]] = {}
@@ -127,7 +128,9 @@ def run_portfolio(
                 continue
             history = [c for c in candles[sym] if c.ts <= ts][-220:]
             upper = [h for h in higher[sym] if h.close_ts <= bar[sym].close_ts][-120:]
-            sig = analyze(sym, history, upper, config.min_score)
+            macro_upper = [m for m in macro[sym] if m.close_ts <= bar[sym].close_ts][-120:] if macro is not None else None
+            sig = (analyze(sym, history, upper, config.min_score, macro=macro_upper)
+                   if macro is not None else analyze(sym, history, upper, config.min_score))
             if sig:
                 pending[sym] = sig
     pnl = [t["net_pnl"] for t in trades]

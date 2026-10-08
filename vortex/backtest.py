@@ -5,6 +5,7 @@ Stops win an intrabar tie. Both entry/exit include adverse slippage and fees.
 No funding, bid/ask history, liquidation or order queue; results NOT forecasts.
 """
 from __future__ import annotations
+from bisect import bisect_right
 from .config import Settings
 from .models import Candle, Signal, Position
 from .exits import levels_for_bar
@@ -13,7 +14,8 @@ from .strategy import analyze
 
 
 def run(symbol: str, small: list[Candle], higher: list[Candle],
-        filt: Filters, cfg: Settings, macro: list[Candle] | None = None) -> dict:
+        filt: Filters, cfg: Settings, macro: list[Candle] | None = None,
+        minute: list[Candle] | None = None) -> dict:
     wallet = cfg.starting_equity
     peak, max_dd = wallet, 0.0
     wins = losses = 0
@@ -21,6 +23,7 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
     gate = RiskGate(cfg, wallet)
     position: Position | None = None
     cooldown = 0
+    minute_closes = [x.close_ts for x in minute] if minute is not None else []
     for i in range(65, len(small)):
         candle = small[i]
         exited = False
@@ -61,9 +64,16 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         upper = [h for h in higher if h.close_ts <= candle.close_ts][-120:]
         macro_upper = ([m for m in macro if m.close_ts <= candle.close_ts][-120:]
                        if macro is not None else None)
-        signal = (analyze(symbol, small[max(0, i - 219):i + 1], upper, cfg.min_score,
-                          macro=macro_upper) if macro is not None else
-                  analyze(symbol, small[max(0, i - 219):i + 1], upper, cfg.min_score))
+        minute_window = (minute[max(0, bisect_right(minute_closes, candle.close_ts) - 90):
+                                bisect_right(minute_closes, candle.close_ts)]
+                         if minute is not None else None)
+        if minute is not None:
+            signal = analyze(symbol, small[max(0, i - 219):i + 1], upper,
+                             cfg.min_score, macro=macro_upper, minute=minute_window)
+        else:
+            signal = (analyze(symbol, small[max(0, i - 219):i + 1], upper,
+                              cfg.min_score, macro=macro_upper) if macro is not None else
+                      analyze(symbol, small[max(0, i - 219):i + 1], upper, cfg.min_score))
         if signal is None:
             continue
         future = small[i + 1]

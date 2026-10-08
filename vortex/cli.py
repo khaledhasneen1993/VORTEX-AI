@@ -20,6 +20,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("command", choices=("paper", "backtest", "status"))
     parser.add_argument("--symbol", default="BTCUSDT", help="Backtest symbol")
     parser.add_argument("--bars", type=int, default=1200, help="Backtest candle count 300-1500")
+    parser.add_argument("--days", type=int, default=None, help="Paginated backtest span 1-45 days")
     parser.add_argument("--once", action="store_true", help="Run one polling cycle")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -32,11 +33,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     market = Market()
     if args.command == "backtest":
-        if not 300 <= args.bars <= 1500 or args.symbol not in market.metadata():
+        if (args.days is None and not 300 <= args.bars <= 1500) or (args.days is not None and not 1 <= args.days <= 45) or args.symbol not in market.metadata():
             parser.error("bars=300..1500 and a valid futures symbol required")
         server = market.server_ms()
-        bars = market.candles(args.symbol, cfg.timeframe, args.bars, server)
-        upper = market.candles(args.symbol, "15m", 1500, server)
+        bars = (market.history(args.symbol, cfg.timeframe, args.days, server) if args.days else market.candles(args.symbol, cfg.timeframe, args.bars, server))
+        upper = (market.history(args.symbol, "15m", args.days, server) if args.days else market.candles(args.symbol, "15m", 1500, server))
         report = backtest(args.symbol, bars, upper, market.symbol_filters(args.symbol), cfg)
         print(json.dumps(report, indent=2))
         return 0

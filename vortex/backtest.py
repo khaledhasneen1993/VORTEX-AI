@@ -12,7 +12,7 @@ from .strategy import analyze
 
 
 def run(symbol: str, small: list[Candle], higher: list[Candle],
-        filt: Filters, cfg: Settings) -> dict:
+        filt: Filters, cfg: Settings, macro: list[Candle] | None = None) -> dict:
     wallet = cfg.starting_equity
     peak, max_dd = wallet, 0.0
     wins = losses = 0
@@ -55,7 +55,11 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         if position or exited or candle.ts <= cooldown or i == len(small) - 1:
             continue
         upper = [h for h in higher if h.close_ts <= candle.close_ts][-120:]
-        signal = analyze(symbol, small[max(0, i - 219):i + 1], upper, cfg.min_score)
+        macro_upper = ([m for m in macro if m.close_ts <= candle.close_ts][-120:]
+                       if macro is not None else None)
+        signal = (analyze(symbol, small[max(0, i - 219):i + 1], upper, cfg.min_score,
+                          macro=macro_upper) if macro is not None else
+                  analyze(symbol, small[max(0, i - 219):i + 1], upper, cfg.min_score))
         if signal is None:
             continue
         future = small[i + 1]

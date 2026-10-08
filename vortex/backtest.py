@@ -6,7 +6,8 @@ No funding, bid/ask history, liquidation or order queue; results NOT forecasts.
 """
 from __future__ import annotations
 from .config import Settings
-from .models import Candle, Signal
+from .models import Candle, Signal, Position
+from .exits import levels_for_bar
 from .risk import Filters, RiskGate, size_trade
 from .strategy import analyze
 
@@ -18,36 +19,39 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
     wins = losses = 0
     trades: list[dict] = []
     gate = RiskGate(cfg, wallet)
-    position: dict | None = None
+    position: Position | None = None
     cooldown = 0
     for i in range(65, len(small)):
         candle = small[i]
         exited = False
         if position:
             p = position
-            stop_hit = candle.low <= p["stop"] if p["side"] == "LONG" else candle.high >= p["stop"]
-            tp_hit = candle.high >= p["target"] if p["side"] == "LONG" else candle.low <= p["target"]
-            if stop_hit or tp_hit:
-                raw = p["stop"] if stop_hit else p["target"]
-                if stop_hit:
-                    raw = min(raw, candle.open) if p["side"] == "LONG" else max(raw, candle.open)
+            actions = levels_for_bar(p, candle.low, candle.high, candle.open)
+            for action in actions:
                 slip = cfg.slippage_bps / 10000
-                px = raw * (1 - slip if p["side"] == "LONG" else 1 + slip)
-                sign = 1 if p["side"] == "LONG" else -1
-                fee = px * p["qty"] * cfg.fee_rate
-                net = sign * (px - p["entry"]) * p["qty"] - p["entry_fee"] - fee
-                wallet += sign * (px - p["entry"]) * p["qty"] - fee
-                gate.closed(net)
-                wins += int(net >= 0)
-                losses += int(net < 0)
-                trades.append({"open_ts": p["open_ts"], "close_ts": candle.ts, "symbol": symbol,
-                               "side": p["side"], "entry": p["entry"], "exit": px,
-                               "qty": p["qty"], "net_pnl": round(net, 6),
-                               "reason": "stop" if stop_hit else "target",
-                               "wallet": round(wallet, 6)})
-                position = None
-                exited = True
-                cooldown = candle.ts + cfg.cooldown_minutes * 60000
+                px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
+                sign = 1 if p.side == "LONG" else -1
+                entry_fee_portion = p.entry_fee * (action.qty / p.qty)
+                exit_fee = px * action.qty * cfg.fee_rate
+                net = sign * (px - p.entry) * action.qty - entry_fee_portion - exit_fee
+                wallet += sign * (px - p.entry) * action.qty - exit_fee
+                p.entry_fee -= entry_fee_portion
+                p.qty = max(0., p.qty - action.qty)
+                p.accumulated_net += net
+                if action.final:
+                    final_net = p.accumulated_net
+                    gate.closed(final_net)
+                    wins += int(final_net >= 0)
+                    losses += int(final_net < 0)
+                    trades.append({"open_ts": p.opened_ts, "close_ts": candle.ts,
+                                   "symbol": symbol, "side": p.side,
+                                   "entry": p.entry, "exit": px,
+                                   "qty": p.initial_qty, "net_pnl": round(final_net, 6),
+                                   "reason": action.reason, "wallet": round(wallet, 6)})
+                    position = None
+                    exited = True
+                    cooldown = candle.ts + cfg.cooldown_minutes * 60000
+                    break
         peak = max(peak, wallet)
         max_dd = max(max_dd, (peak - wallet) / peak if peak else 0)
         if gate.blocked or wallet <= gate.day_start_equity * (1 - cfg.max_daily_loss):
@@ -78,15 +82,15 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         qty, margin = sized
         fee = qty * entry * cfg.fee_rate
         wallet -= fee
-        position = {"open_ts": future.ts, "side": signal.side, "entry": entry,
-                    "stop": adjusted.stop, "target": adjusted.target,
-                    "qty": qty, "entry_fee": fee, "margin": margin}
+        position = Position(symbol, signal.side, future.ts, entry,
+                            adjusted.stop, adjusted.target, qty, fee, margin,
+                            initial_qty=qty, initial_risk=gap, peak=entry, step=filt.step)
     unrealized = 0.0
     if position and small:
         close = small[-1].close
-        sign = 1 if position["side"] == "LONG" else -1
-        unrealized = sign * (close - position["entry"]) * position["qty"]
-        unrealized -= close * position["qty"] * cfg.fee_rate
+        sign = 1 if position.side == "LONG" else -1
+        unrealized = sign * (close - position.entry) * position.qty
+        unrealized -= close * position.qty * cfg.fee_rate
     return {"symbol": symbol, "start_equity": cfg.starting_equity,
             "wallet": round(wallet, 4), "equity_with_unrealized": round(wallet + unrealized, 4),
             "closed_trades": wins + losses, "wins": wins, "losses": losses,

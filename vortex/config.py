@@ -14,7 +14,7 @@ class Settings:
     starting_equity: float = 1000.0
     risk_per_trade: float = 0.01
     max_daily_loss: float = 0.05
-    max_consecutive_losses: int = 4
+    max_consecutive_losses: int = 5
     max_positions: int = 3
     max_leverage: int = 5
     max_margin_fraction: float = 0.25
@@ -65,7 +65,7 @@ class Settings:
             starting_equity=float(f("STARTING_EQUITY", "1000")),
             risk_per_trade=float(f("RISK_PER_TRADE", "0.01")),
             max_daily_loss=float(f("MAX_DAILY_LOSS", "0.05")),
-            max_consecutive_losses=int(f("MAX_CONSECUTIVE_LOSSES", "4")),
+            max_consecutive_losses=int(f("MAX_CONSECUTIVE_LOSSES", "5")),
             max_positions=int(f("MAX_POSITIONS", "3")),
             max_leverage=int(f("MAX_LEVERAGE", "5")),
             max_margin_fraction=float(f("MAX_MARGIN_FRACTION", "0.25")),

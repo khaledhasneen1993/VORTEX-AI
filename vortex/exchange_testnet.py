@@ -18,7 +18,8 @@ READ_PATHS = {
     "/fapi/v1/time", "/fapi/v1/exchangeInfo",
     "/fapi/v1/positionSide/dual", "/fapi/v3/positionRisk",
     "/fapi/v2/balance", "/fapi/v1/order", "/fapi/v1/openAlgoOrders",
-    "/fapi/v1/algoOrder",
+    "/fapi/v1/algoOrder", "/fapi/v1/openOrders",
+    "/fapi/v1/symbolConfig",
 }
 WRITE_PATHS = {"/fapi/v1/order", "/fapi/v1/algoOrder", "/fapi/v1/leverage"}
 
@@ -111,6 +112,13 @@ class TestnetGateway:
 
     def open_algos(self, symbol: str) -> list[dict]:
         return self.request("GET", "/fapi/v1/openAlgoOrders", {"symbol": symbol})
+
+    def symbol_config(self, symbol: str) -> dict:
+        matches = [s for s in self.request("GET", "/fapi/v1/symbolConfig",
+                                           {"symbol": symbol}) if s["symbol"] == symbol]
+        if len(matches) != 1:
+            raise ExchangeRejected("Missing symbol configuration")
+        return matches[0]
 
     def usdt_balance(self) -> float:
         matches = [x for x in self.request("GET", "/fapi/v2/balance") if x["asset"] == "USDT"]

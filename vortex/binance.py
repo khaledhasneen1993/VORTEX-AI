@@ -58,7 +58,7 @@ class Market:
         return Filters.from_exchange(self.metadata()[symbol])
 
     def candles(self, symbol: str, interval: str, limit: int, now_ms: int) -> list[Candle]:
-        if symbol not in self.metadata() or interval not in {"5m", "15m"} or not 1 <= limit <= 1500:
+        if symbol not in self.metadata() or interval not in {"5m", "15m", "1h"} or not 1 <= limit <= 1500:
             raise MarketError("Invalid symbol, timeframe or limit")
         raw = self.get("/fapi/v1/klines", {"symbol": symbol, "interval": interval, "limit": limit})
         data = [Candle.from_binance(row) for row in raw]
@@ -87,9 +87,9 @@ class Market:
 
         Binance rows must be strictly contiguous (fail rather than silently mask gaps).
         """
-        if symbol not in self.metadata() or interval not in {"5m", "15m"} or not 1 <= days <= 45:
+        if symbol not in self.metadata() or interval not in {"5m", "15m", "1h"} or not 1 <= days <= 45:
             raise MarketError("Invalid history request")
-        step = 300_000 if interval == "5m" else 900_000
+        step = {"5m": 300_000, "15m": 900_000, "1h": 3_600_000}[interval]
         start = ((now_ms - (days + 2) * 86_400_000) // step) * step
         cursor = start
         end = now_ms - 1

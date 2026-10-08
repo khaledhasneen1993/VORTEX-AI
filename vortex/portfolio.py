@@ -5,22 +5,12 @@ Tie between stop and target resolves at stop. No imagined fills on missing bars.
 No funding/orderbook history/liquidations; these require separate historical data.
 """
 from __future__ import annotations
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from .models import Candle, Signal
+from .models import Candle, Signal, Position
+from .exits import levels_for_bar
 from .config import Settings
 from .risk import Filters, RiskGate, size_trade
 from .strategy import analyze
-
-
-@dataclass
-class Active:
-    signal: Signal
-    qty: float
-    margin: float
-    entry: float
-    fee: float
-    opened: int
 
 
 def run_portfolio(
@@ -47,7 +37,7 @@ def run_portfolio(
     if any(b - a != expected for a, b in zip(stamps, stamps[1:])):
         raise ValueError("Historical gaps detected")
     wallet = config.starting_equity
-    active: dict[str, Active] = {}
+    active: dict[str, Position] = {}
     pending: dict[str, Signal] = {}
     trades: list[dict] = []
     risk = RiskGate(config, wallet)
@@ -74,7 +64,7 @@ def run_portfolio(
                          px - sign * gap, px + sign * abs(sig.target - sig.entry),
                          sig.score, sig.reason)
             mark = wallet + sum(
-                (bar[s].open - p.entry) * p.qty * (1 if p.signal.side == "LONG" else -1)
+                (bar[s].open - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
                 for s, p in active.items())
             allowed, _ = risk.can_open(mark, len(active))
             committed = sum(p.margin for p in active.values())
@@ -84,36 +74,39 @@ def run_portfolio(
                 fee = qty * px * config.fee_rate
                 fees_total += fee
                 wallet -= fee
-                active[sym] = Active(new, qty, margin, px, fee, ts)
+                active[sym] = Position(sym, sig.side, ts, px, new.stop, new.target, qty, fee, margin,
+                                       initial_qty=qty, initial_risk=gap, peak=px, step=filters[sym].step)
             del pending[sym]
-        # Evaluate same-bar stop and target; stop FIRST if both touched.
+        # Same staged-exit engine as paper; OHLC stop wins intrabar ties.
         for sym, p in list(active.items()):
             b = bar[sym]
-            is_long = p.signal.side == "LONG"
-            stop_hit = b.low <= p.signal.stop if is_long else b.high >= p.signal.stop
-            take_hit = b.high >= p.signal.target if is_long else b.low <= p.signal.target
-            if not (stop_hit or take_hit):
-                continue
-            fill = p.signal.stop if stop_hit else p.signal.target
-            if stop_hit:
-                fill = min(fill, b.open) if is_long else max(fill, b.open)
-            px = fill * (1 - slip if is_long else 1 + slip)
-            fee = px * p.qty * config.fee_rate
-            fees_total += fee
-            realized = (px - p.entry) * p.qty * (1 if is_long else -1)
-            net = realized - fee - p.fee
-            wallet += realized - fee
-            risk.closed(net)
-            trades.append({"symbol": sym, "side": p.signal.side,
-                           "entry_ts": p.opened, "exit_ts": ts,
-                           "entry": round(p.entry, 8), "exit": round(px, 8),
-                           "net_pnl": round(net, 8),
-                           "reason": "stop" if stop_hit else "target"})
-            cool[sym] = ts + config.cooldown_minutes * 60_000
-            del active[sym]
+            for action in levels_for_bar(p, b.low, b.high, b.open):
+                px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
+                proportion = action.qty / p.qty
+                entry_fee = p.entry_fee * proportion
+                exit_fee = px * action.qty * config.fee_rate
+                fees_total += exit_fee
+                realized = (px - p.entry) * action.qty * (1 if p.side == "LONG" else -1)
+                net = realized - exit_fee - entry_fee
+                wallet += realized - exit_fee
+                p.entry_fee -= entry_fee
+                p.qty = max(0., p.qty - action.qty)
+                p.margin *= max(0., 1. - proportion)
+                p.accumulated_net += net
+                if action.final:
+                    final_net = p.accumulated_net
+                    risk.closed(final_net)
+                    trades.append({"symbol": sym, "side": p.side,
+                                   "entry_ts": p.opened_ts, "exit_ts": ts,
+                                   "entry": round(p.entry, 8), "exit": round(px, 8),
+                                   "net_pnl": round(final_net, 8),
+                                   "reason": action.reason})
+                    cool[sym] = ts + config.cooldown_minutes * 60_000
+                    del active[sym]
+                    break
         # Use marks for continuous drawdown & daily loss without crediting fantasy fills.
         equity = wallet + sum(
-            (bar[s].close - p.entry) * p.qty * (1 if p.signal.side == "LONG" else -1)
+            (bar[s].close - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
             - bar[s].close * p.qty * config.fee_rate for s, p in active.items())
         highwater = max(highwater, equity)
         maxdd = max(maxdd, (highwater - equity) / highwater if highwater else 0)

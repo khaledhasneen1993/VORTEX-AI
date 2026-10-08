@@ -25,7 +25,6 @@ def test_environment_defaults_and_all_controls(monkeypatch):
     assert defaults.max_positions == 3
     assert defaults.max_margin_fraction == pytest.approx(0.25)
     assert defaults.max_daily_loss == pytest.approx(0.50)
-    assert defaults.max_consecutive_losses == 5
 
     monkeypatch.setenv("RISK_PER_TRADE", "0.10")
     monkeypatch.setenv("MAX_LEVERAGE", "5")
@@ -104,16 +103,17 @@ def test_margin_cap_dominates_without_forcing_full_ten_percent_loss():
     assert second[1] <= 50 + 1e-8
 
 
-def test_daily_stop_and_consecutive_losses_preserved():
+def test_daily_stop_preserved_but_losing_streak_does_not_halt():
     cfg = Settings()
     gate = RiskGate(cfg, 1000)
     assert gate.can_open(501, 0)[0]
     assert not gate.can_open(500, 0)[0]
     assert gate.blocked
     second = RiskGate(cfg, 1000)
-    for _ in range(5):
+    for _ in range(20):
         second.closed(-1)
-    assert not second.can_open(1000, 0)[0]
+    assert second.consecutive_losses == 20
+    assert second.can_open(1000, 0) == (True, "ok")
 
 
 def test_two_r_atr_trailing_never_widens():
@@ -136,8 +136,6 @@ def test_risk_gates_cannot_be_relaxed_through_environment(monkeypatch):
         Settings(max_margin_fraction=.251)
     with pytest.raises(ValueError):
         Settings(max_daily_loss=.60)
-    with pytest.raises(ValueError):
-        Settings(max_consecutive_losses=6)
 
 
 def test_max_leverage_setting_ten_never_increases_trade_above_five_x():

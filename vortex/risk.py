@@ -65,21 +65,17 @@ class RiskGate:
 
     def can_open(self, equity: float, count: int) -> tuple[bool, str]:
         if self.blocked:
-            return False, "risk halt: requires manual restart after losses"
+            return False, "portfolio daily loss halt: operator reset required"
         if equity <= self.day_start_equity * (1 - self.cfg.max_daily_loss):
             self.blocked = True
             return False, "daily loss circuit breaker"
-        if self.consecutive_losses >= self.cfg.max_consecutive_losses:
-            self.blocked = True
-            return False, "consecutive losses circuit breaker"
         if count >= self.cfg.max_positions:
             return False, "max positions"
         return True, "ok"
 
     def closed(self, pnl: float) -> None:
+        # Diagnostic count only; losing streaks do NOT trigger a portfolio halt.
         self.consecutive_losses = self.consecutive_losses + 1 if pnl < 0 else 0
-        if self.consecutive_losses >= self.cfg.max_consecutive_losses:
-            self.blocked = True
 
     def new_day(self, today: str, equity: float) -> None:
         if today != self.date:

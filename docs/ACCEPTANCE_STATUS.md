@@ -21,7 +21,7 @@ portfolio/single-symbol reports and TESTNET-only guarded orders.
   inflate training labels.
 - [x] Risk defaults updated to **10% maximum modeled trade-risk budget**
   (`risk_per_trade=0.10`), **5x leverage**, 3 simultaneous PAPER positions,
-  25% aggregate margin cap, **50% daily drawdown halt**, 5 successive-loss halt.
+  25% aggregate margin cap, **50% daily drawdown halt**, no losing-streak halt.
   Quantity is the MINIMUM of loss-budget and margin/leverage caps; modelled
   round-trip fees and slippage count towards its loss budget.
 - [x] `RUN_MODE=live` and actual funds remain unsupported.
@@ -77,7 +77,7 @@ execution. Read README.md for CLI usage.
 - [x] `size_trade()` includes expected entry+exit fees and slippage in the
   10% risk ceiling and limits maximum total margin to 25% of marked equity.
   A position may legitimately use *less* risk when the margin limit binds.
-- [x] `MAX_DAILY_LOSS=0.50` and the five-consecutive-loss halt remain enabled.
+- [x] `MAX_DAILY_LOSS=0.50` remains enabled; no consecutive-loss breaker is enforced.
   With an opening equity of 1000, new entries stop at equity <= 500;
   at 501 the daily-loss rule alone permits entry. This threshold does NOT
   limit per-trade losses or close an open position.
@@ -85,9 +85,8 @@ execution. Read README.md for CLI usage.
   account without operator-provided testnet credentials.
 
 - [x] Hard invariant checks: leverage setting validates within 1..10, but
-  every trading execution is additionally limited to **5x**. No more than
-  three positions, 25% aggregate margin, **50% daily drawdown breaker**, or five
-  consecutive losses can be configured.
+  every trading execution is additionally limited to **5x**. The hard limits
+  remain three positions, 25% aggregate margin and a **50% daily breaker**.
 
 ## Final end-to-end audit of the 10% settings
 
@@ -121,7 +120,7 @@ execution. Read README.md for CLI usage.
 - [x] `Settings.max_daily_loss` defaults to `0.50` and `Settings.from_env()` reads `MAX_DAILY_LOSS`, default `0.50`. Values outside `0 < max_daily_loss <= 0.50` are rejected.
 - [x] `data`-backed PAPER and both historical modes use the same `RiskGate.can_open()` threshold: `equity <= day_start_equity * (1 - max_daily_loss)`, blocking **new entries** at a daily drawdown of at least 50%.
 - [x] Tests verify 1000 -> 501 remains allowed by the daily rule, 1000 -> 500 triggers a latched halt, and configurations greater than 0.50 fail.
-- [x] Unchanged: 10% planned stop risk per position, 5x maximum execution leverage, three open positions, five consecutive-loss halt, 1.5-ATR initial stop and all staged exit/strategy rules.
+- [x] Unchanged: 10% planned stop risk per position, 5x maximum execution leverage, three open positions, no consecutive-loss breaker, 1.5-ATR initial stop and all staged exit/strategy rules.
 - [ ] Signed Binance TESTNET behavior remains unverified on an actual Testnet account. No real-money route exists.
 
 ## Approved risk relationship (50% daily vs 10% per trade)
@@ -131,3 +130,11 @@ execution. Read README.md for CLI usage.
 - **One position can lose approximately 10%** of equity at its planned stop **before the 50% portfolio breaker fires**. Gaps, costs or liquidation may cause greater actual loss; the daily breaker does not itself liquidate or close positions.
 - [x] Unit coverage: `MAX_DAILY_LOSS=0.50` accepted; `MAX_DAILY_LOSS=0.60` rejected via both `Settings` and `Settings.from_env()`; starting equity 1000 permits 501 and halts at 500.
 - [ ] Real signed Binance TESTNET behavior remains unverified; production Live mode is not available.
+
+## Losing-streak halt disabled for full-month September replay
+
+- [x] Removed `MAX_CONSECUTIVE_LOSSES` configuration/env setting and the `RiskGate` entry-block/latched halt triggered by losing streaks. This applies to PAPER and historical replay; TESTNET's separate order-safety HALT remains untouched.
+- [x] A loss-streak counter may still be recorded in existing PAPER state for diagnostics and backward compatibility; it no longer changes eligibility for new trades.
+- [x] Other limits unchanged: 10% planned position risk, 5× leverage, maximum three positions, 25% aggregate margin and a latched daily 50% equity breaker. Individual ATR stops and staged exits remain unchanged.
+- [x] Regression coverage checks 10/20 successive losing trades still allow new entries, but the daily 50% breaker still halts them.
+- [ ] Legacy local PAPER states previously halted by the old breaker stay halted until an explicit operator reset. Never reset old halted states automatically, because the halt reason might be daily risk.

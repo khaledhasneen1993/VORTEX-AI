@@ -48,15 +48,15 @@ def test_bad_stop_and_margin_rejected():
     assert size_trade(SIG, 100, Settings(), FILTER, committed_margin=100) is None
 
 
-def test_gate_consecutive_loss_halts():
-    cfg = Settings(max_consecutive_losses=2)
-    gate = RiskGate(cfg, 100)
-    gate.closed(-1)
-    assert gate.can_open(100, 0)[0]
-    gate.closed(-2)
-    assert not gate.can_open(100, 0)[0]
+def test_consecutive_losses_never_halt_entries():
+    gate = RiskGate(Settings(), 100)
+    for count in range(1, 11):
+        gate.closed(-1)
+        assert gate.consecutive_losses == count
+        assert gate.can_open(100, 0) == (True, "ok")
     gate.closed(1)
-    assert not gate.can_open(100, 0)[0]  # latch must not auto-clear
+    assert gate.consecutive_losses == 0
+    assert gate.can_open(100, 0)[0]
 
 
 def test_gate_daily_drawdown_halts():

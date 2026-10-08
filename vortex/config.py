@@ -15,7 +15,6 @@ class Settings:
     starting_equity: float = 1000.0
     risk_per_trade: float = 0.10
     max_daily_loss: float = 0.50
-    max_consecutive_losses: int = 5
     max_positions: int = 3
     max_leverage: int = 5
     max_margin_fraction: float = 0.25
@@ -44,8 +43,8 @@ class Settings:
                 or not isfinite(self.risk_per_trade)
                 or not 0 < self.risk_per_trade <= 0.10):
             raise ValueError("Equity or risk cap invalid")
-        if not 0 < self.max_daily_loss <= 0.50 or not 1 <= self.max_consecutive_losses <= 5:
-            raise ValueError("Daily loss or consecutive loss cap invalid")
+        if not 0 < self.max_daily_loss <= 0.50:
+            raise ValueError("Daily loss cap invalid")
         if not 1 <= self.max_positions <= 3 or not 1 <= self.max_leverage <= 10:
             raise ValueError("Position/leverage limit invalid")
         if not isfinite(self.max_margin_fraction) or not 0 < self.max_margin_fraction <= 0.25:
@@ -82,7 +81,6 @@ class Settings:
             starting_equity=float(f("STARTING_EQUITY", "1000")),
             risk_per_trade=float(f("RISK_PER_TRADE", "0.10")),
             max_daily_loss=float(f("MAX_DAILY_LOSS", "0.50")),
-            max_consecutive_losses=int(f("MAX_CONSECUTIVE_LOSSES", "5")),
             max_positions=int(f("MAX_POSITIONS", "3")),
             max_leverage=int(f("MAX_LEVERAGE", "5")),
             max_margin_fraction=float(f("MAX_MARGIN_FRACTION", "0.25")),

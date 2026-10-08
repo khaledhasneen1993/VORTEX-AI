@@ -90,7 +90,11 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         # triggers; never quietly resume on a later day.
         allowed, _ = gate.can_open(equity, 1 if position else 0)
         if gate.blocked:
-            break
+            # No NEW entries after a risk halt, but continue processing the
+            # already-open position through future bars and its protective stop.
+            if position is None:
+                break
+            continue
         if position or exited or candle.ts <= cooldown or i == len(small) - 1:
             continue
         h_end = bisect_right(upper_closes, candle.close_ts)

@@ -1,6 +1,7 @@
 """Command-line entrypoint: status, historical backtest, or read-only paper."""
 from __future__ import annotations
 import argparse
+import os
 import json
 import logging
 import sys
@@ -17,13 +18,14 @@ log = logging.getLogger("vortex")
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="VORTEX AI / paper trading")
-    parser.add_argument("command", choices=("paper", "backtest", "status", "dashboard", "reset-paper-halt"))
+    parser.add_argument("command", choices=("paper", "backtest", "portfolio-backtest", "status", "dashboard", "reset-paper-halt", "testnet-doctor", "testnet-once", "testnet-watch"))
     parser.add_argument("--symbol", default="BTCUSDT", help="Backtest symbol")
     parser.add_argument("--bars", type=int, default=1200, help="Backtest candle count 300-1500")
     parser.add_argument("--days", type=int, default=None, help="Paginated backtest span 1-45 days")
     parser.add_argument("--once", action="store_true", help="Run one polling cycle")
     parser.add_argument("--port", type=int, default=8765, help="Dashboard loopback port")
     parser.add_argument("--ack-risk", action="store_true", help="Acknowledge a manual paper risk reset")
+    parser.add_argument("--ack-testnet", action="store_true", help="Acknowledge TESTNET-only order; requires matching env gate")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     cfg = Settings.from_env()
@@ -42,7 +44,30 @@ def main(argv: list[str] | None = None) -> int:
         from .dashboard import serve
         serve(cfg, args.port)
         return 0
+    if args.command in {"testnet-doctor", "testnet-once", "testnet-watch"}:
+        from .testnet_runner import prepare, doctor, once
+        if args.command == "testnet-doctor":
+            print(json.dumps(doctor(cfg), indent=2))
+            return 0
+        if args.command == "testnet-once":
+            print(json.dumps(once(cfg, args.symbol, acknowledge=args.ack_testnet), indent=2))
+            return 0
+        api, guardian = prepare(cfg)
+        while True:
+            # Read-only audit, except emergency flatten if on-exchange guards disappear.
+            print(json.dumps(guardian.audit(), indent=2))
+            time.sleep(10)
     market = Market()
+    if args.command == "portfolio-backtest":
+        from .portfolio import run_portfolio
+        if args.days is None or not 1 <= args.days <= 45:
+            parser.error("Portfolio backtest requires --days 1..45")
+        now = market.server_ms()
+        data = {s: market.history(s, cfg.timeframe, args.days, now) for s in cfg.symbols}
+        higher = {s: market.history(s, "15m", args.days, now) for s in cfg.symbols}
+        filters = {s: market.symbol_filters(s) for s in cfg.symbols}
+        print(json.dumps(run_portfolio(data, higher, filters, cfg), indent=2))
+        return 0
     if args.command == "backtest":
         if (args.days is None and not 300 <= args.bars <= 1500) or (args.days is not None and not 1 <= args.days <= 45) or args.symbol not in market.metadata():
             parser.error("bars=300..1500 and a valid futures symbol required")
@@ -55,6 +80,14 @@ def main(argv: list[str] | None = None) -> int:
     if cfg.mode != "paper":
         raise ValueError("paper command requires RUN_MODE=paper")
     broker = PaperBroker(cfg)
+    use_stream = os.getenv("USE_WEBSOCKET", "false").lower() == "true"
+    use_micro = os.getenv("USE_MICROSTRUCTURE", "false").lower() == "true"
+    stream = None
+    if use_stream:
+        from .stream import QuoteStream
+        stream = QuoteStream(cfg.symbols)
+        stream.start()
+    from .alerts import notify
     symbols = [s for s in cfg.symbols if s in market.metadata()]
     if len(symbols) != len(cfg.symbols):
         raise ValueError("One or more symbols inactive / not USDT perpetuals")
@@ -64,9 +97,10 @@ def main(argv: list[str] | None = None) -> int:
     while True:
         try:
             now = market.server_ms()
-            quotes = market.quotes()
+            quotes = stream.snapshot() if stream else market.quotes()
             for closed in broker.mark(quotes, now):
                 log.info("CLOSED: %s", json.dumps(closed))
+                notify("Closed paper trade: " + json.dumps(closed))
             equity = broker.equity(quotes)
             today = datetime.fromtimestamp(now / 1000, timezone.utc).date().isoformat()
             broker.gate.new_day(today, equity)
@@ -83,11 +117,19 @@ def main(argv: list[str] | None = None) -> int:
                         # Never enter on an old signal (e.g. after a stalled connection).
                         if now - data[-1].close_ts > 90_000:
                             continue
+                        if use_micro:
+                            from .microstructure import collect_micro
+                            micro = collect_micro(market, symbol, signal.side, now)
+                            if not micro.accepted:
+                                log.info("MICRO FILTER %s: %s", symbol, micro.reason)
+                                continue
                         bid, ask = quotes[symbol]
                         ok, reason = broker.open(signal, bid, ask,
                                                   market.symbol_filters(symbol), quotes, now)
                         log.info("SIGNAL %s score=%s accepted=%s: %s (%s)",
                                  symbol, signal.score, ok, reason, signal.reason)
+                        if ok:
+                            notify(f"Paper entry: {symbol}, score={signal.score}, {reason}")
                 last_bucket = bucket
             broker.save()
             log.info("PAPER equity=%.2f USDT positions=%d risk_halted=%s",

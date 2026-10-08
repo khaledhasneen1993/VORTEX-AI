@@ -21,7 +21,7 @@ class Market:
         self._exchange: dict | None = None
 
     def get(self, path: str, params: dict | None = None):
-        if not path.startswith("/fapi/v1/"):
+        if path not in {"/fapi/v1/time", "/fapi/v1/exchangeInfo", "/fapi/v1/klines", "/fapi/v1/ticker/bookTicker"}:
             raise MarketError("Public endpoints only")
         for n in range(3):
             try:

@@ -166,3 +166,19 @@ def test_partial_close_replay_stop_first_under_ambiguous_candle():
     # manufacture same-bar "winning" partial fills.
     actions = levels_for_bar(p, low=97.5, high=104, opening=100)
     assert len(actions) == 1 and actions[0].reason == "stop" and actions[0].final
+
+
+def test_ws_rejects_delayed_and_out_of_order_ticks():
+    from vortex.stream import QuoteStream
+    timestamp = [2_000_000_000_000]
+    stream = QuoteStream(("BTCUSDT",), wall_ms=lambda: timestamp[0])
+    def msg(event_ms, bid="100", ask="100.1"):
+        return json.dumps({"data": {"s": "BTCUSDT", "b": bid, "a": ask, "E": event_ms}})
+    stream.ingest(msg(timestamp[0] - 500))
+    assert stream.snapshot()["BTCUSDT"] == (100., 100.1)
+    stream.ingest(msg(timestamp[0] - 4000, "200", "200.1"))
+    stream.ingest(msg(timestamp[0] - 900, "300", "300.1"))
+    assert stream.snapshot()["BTCUSDT"] == (100., 100.1)
+    timestamp[0] += 4_001
+    with pytest.raises(ValueError):
+        stream.snapshot()

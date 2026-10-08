@@ -64,9 +64,20 @@ def main(argv: list[str] | None = None) -> int:
         if not args.ack_testnet or os.getenv("VORTEX_TESTNET_ARM") != "TESTNET_ONLY":
             raise PermissionError("Testnet watchdog requires explicit arming for emergency close")
         api, guardian = prepare(cfg, armed=True)
+        from .binance import TESTNET
+        from .testnet_stages import maintain
+        testnet_market = Market(base=TESTNET)
         while True:
-            # Read-only audit, except emergency flatten if on-exchange guards disappear.
-            print(json.dumps(guardian.audit(may_flatten=True), indent=2))
+            # TESTNET-only armed watchdog: reconcile before any partial close.
+            observed = guardian.audit(may_flatten=True)
+            if observed.get("phase") == "PROTECTED":
+                symbol = observed["symbol"]
+                fresh_quote = testnet_market.quotes()
+                if symbol not in fresh_quote:
+                    raise ValueError("No TESTNET bid/ask; no staged actions")
+                bid, ask = fresh_quote[symbol]
+                observed["management"] = maintain(guardian, bid, ask)
+            print(json.dumps(observed, indent=2))
             time.sleep(10)
     market = Market()
     if args.command == "portfolio-backtest":

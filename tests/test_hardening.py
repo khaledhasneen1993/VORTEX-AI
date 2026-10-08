@@ -183,11 +183,11 @@ def test_orderbook_uses_real_buyer_maker_flags():
 
 def test_websocket_rejects_stale_or_invalid_quotes():
     t = [10.]
-    tape = QuoteStream(("BTCUSDT",), clock=lambda: t[0])
+    tape = QuoteStream(("BTCUSDT",), clock=lambda: t[0], wall_ms=lambda: 1000)
     with pytest.raises(ValueError):
         tape.snapshot()
     tape.ingest(json.dumps({"stream": "btcusdt@bookTicker",
-                            "data": {"s": "BTCUSDT", "b": "100", "a": "100.1", "E": 123}}))
+                            "data": {"s": "BTCUSDT", "b": "100", "a": "100.1", "E": 999}}))
     assert tape.snapshot()["BTCUSDT"] == (100., 100.1)
     t[0] = 14
     with pytest.raises(ValueError):

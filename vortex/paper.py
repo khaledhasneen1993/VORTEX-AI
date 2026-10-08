@@ -134,3 +134,12 @@ class PaperBroker:
             self.gate.closed(net)
             self.save()
         return exits
+
+
+    def reset_halt(self, acknowledge: bool) -> None:
+        """Explicit local operator action; does NOT reset wallet or daily loss floor."""
+        if not acknowledge or self.positions:
+            raise ValueError("Risk reset needs operator acknowledgement and zero open positions")
+        self.gate.blocked = False
+        self.gate.consecutive_losses = 0
+        self.save()

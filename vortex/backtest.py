@@ -6,6 +6,7 @@ No funding, bid/ask history, liquidation or order queue; results NOT forecasts.
 """
 from __future__ import annotations
 from bisect import bisect_right
+from datetime import datetime, timezone
 from .config import Settings
 from .models import Candle, Signal, Position
 from .exits import levels_for_bar
@@ -28,6 +29,16 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
     minute_closes = [x.close_ts for x in minute] if minute is not None else []
     for i in range(65, len(small)):
         candle = small[i]
+        # Historical risk limits use historical UTC days, never host wall-clock date.
+        # Carry open exposure across UTC boundaries and reset only the daily
+        # measurement floor; a previously latched risk halt stays latched.
+        beginning_equity = wallet
+        if position:
+            sign = 1 if position.side == "LONG" else -1
+            beginning_equity += sign * (candle.open - position.entry) * position.qty
+            beginning_equity -= candle.open * position.qty * cfg.fee_rate
+        gate.new_day(datetime.fromtimestamp(candle.ts / 1000, timezone.utc).date().isoformat(),
+                     beginning_equity)
         exited = False
         if position:
             p = position
@@ -57,9 +68,17 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
                     exited = True
                     cooldown = candle.ts + cfg.cooldown_minutes * 60000
                     break
-        peak = max(peak, wallet)
-        max_dd = max(max_dd, (peak - wallet) / peak if peak else 0)
-        if gate.blocked or wallet <= gate.day_start_equity * (1 - cfg.max_daily_loss):
+        equity = wallet
+        if position:
+            sign = 1 if position.side == "LONG" else -1
+            equity += sign * (candle.close - position.entry) * position.qty
+            equity -= candle.close * position.qty * cfg.fee_rate
+        peak = max(peak, equity)
+        max_dd = max(max_dd, (peak - equity) / peak if peak else 0)
+        # Stop the entire replay once a portfolio/equity drawdown breaker
+        # triggers; never quietly resume on a later day.
+        allowed, _ = gate.can_open(equity, 1 if position else 0)
+        if gate.blocked:
             break
         if position or exited or candle.ts <= cooldown or i == len(small) - 1:
             continue
@@ -92,7 +111,9 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         adjusted = Signal(symbol, signal.side, signal.ts, entry,
                           entry - sign * gap, entry + sign * target_gap,
                           signal.score, signal.reason)
-        sized = size_trade(adjusted, wallet, cfg, filt)
+        if not allowed:
+            continue
+        sized = size_trade(adjusted, equity, cfg, filt)
         if sized is None:
             continue
         qty, margin = sized
@@ -111,7 +132,7 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
             "wallet": round(wallet, 4), "equity_with_unrealized": round(wallet + unrealized, 4),
             "closed_trades": wins + losses, "wins": wins, "losses": losses,
             "win_rate_pct": round(100 * wins / (wins + losses), 2) if wins + losses else 0.0,
-            "max_closed_equity_drawdown_pct": round(100 * max_dd, 2),
+            "max_mark_to_market_drawdown_pct": round(100 * max_dd, 2),
             "open_position": bool(position), "halted": gate.blocked,
             "warnings": ["OHLC conservative intrabar tie handling; funding and liquidation not simulated",
                          "Single historical sample; profits cannot be assumed to persist"],

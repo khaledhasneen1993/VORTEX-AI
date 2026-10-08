@@ -83,3 +83,8 @@ execution. Read README.md for CLI usage.
   NOT a guarantee no single trade loses over 5%.
 - [x] No Live path or real funds; Testnet remains unverified on a real Testnet
   account without operator-provided testnet credentials.
+
+- [x] Hard invariant checks: leverage setting validates within 1..10, but
+  every trading execution is additionally limited to **5x**. No more than
+  three positions, 25% aggregate margin, 5% daily drawdown breaker, or five
+  consecutive losses can be configured.

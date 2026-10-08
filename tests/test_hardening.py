@@ -117,7 +117,8 @@ class FakeExchange:
             raise ExchangeUncertain("network uncertain")
         self.algos.append({"symbol": symbol, "side": side,
                            "orderType": kind, "clientAlgoId": client_id,
-                           "closePosition": True, "positionSide": "BOTH"})
+                           "closePosition": True, "positionSide": "BOTH",
+                           "triggerPrice": str(trigger)})
         return {"algoId": len(self.algos)}
 
     def open_algos(self, symbol):

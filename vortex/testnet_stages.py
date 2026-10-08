@@ -98,7 +98,7 @@ def maintain(guard, bid: float, ask: float, *,
     symbol = st["symbol"]
     amount = guard.api.position(symbol)
     if not amount:
-        return {"status": "exchange flat: stop management skipped"}
+        guard.halt("Position appears flat between audit and update; human reconciliation required")
     if not guard.verify_protection(symbol, st["side"]):
         guard.emergency_flatten(symbol)
         guard.halt("Missing protective order before staged update")

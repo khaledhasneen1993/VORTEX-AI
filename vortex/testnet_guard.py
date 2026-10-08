@@ -155,7 +155,8 @@ class TestnetSupervisor:
                 except (AttributeError, ExchangeRejected, ExchangeUncertain):
                     avg = 0.
             self.persist(phase="PROTECTING", filled_qty=abs(actual),
-                         actual_entry=avg, initial_risk=abs(signal.entry - stop),
+                         actual_entry=avg, initial_risk=abs(avg - stop) if avg > 0 else 0,
+                         initial_qty=abs(actual),
                          step=filt.step, tick=filt.tick, peak=avg,
                          tp1_done=False, tp2_done=False, stage_intent=None,
                          stop_replace_intent=None, old_stop_cancel=None)

@@ -164,3 +164,22 @@ def test_testnet_flat_during_stages_latches_halt_instead_of_silent_skip():
 
     with pytest.raises(ProtectionError, match="reconciliation"):
         maintain(FakeGuard(), 100., 100.01, atr_value=1., trailing_atr_mult=1.)
+
+
+
+def test_testnet_supervisor_rejects_leverage_over_five_before_signed_write(tmp_path):
+    from vortex.testnet_guard import TestnetSupervisor
+
+    class NoWrites:
+        def symbol_config(self, symbol):
+            return {"marginType": "ISOLATED"}
+        def market_order(self, *args, **kwargs):
+            raise AssertionError("No signed order allowed")
+
+    api = NoWrites()
+    supervisor = TestnetSupervisor(api, tmp_path / "intent.json")
+    supervisor.start_check = lambda: True
+    signal = Signal("BTCUSDT", "LONG", 1, 100., 98., 106., 7, "mock")
+    with pytest.raises(ValueError, match="entry parameters"):
+        supervisor.enter(signal, 1., FILTERS, 6)
+    assert supervisor.state["phase"] == "IDLE"

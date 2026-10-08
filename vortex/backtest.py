@@ -23,6 +23,8 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
     gate = RiskGate(cfg, wallet)
     position: Position | None = None
     cooldown = 0
+    upper_closes = [x.close_ts for x in higher]
+    macro_closes = [x.close_ts for x in macro] if macro is not None else []
     minute_closes = [x.close_ts for x in minute] if minute is not None else []
     for i in range(65, len(small)):
         candle = small[i]
@@ -61,9 +63,13 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
             break
         if position or exited or candle.ts <= cooldown or i == len(small) - 1:
             continue
-        upper = [h for h in higher if h.close_ts <= candle.close_ts][-120:]
-        macro_upper = ([m for m in macro if m.close_ts <= candle.close_ts][-120:]
-                       if macro is not None else None)
+        h_end = bisect_right(upper_closes, candle.close_ts)
+        upper = higher[max(0, h_end-120):h_end]
+        if macro is not None:
+            m_end = bisect_right(macro_closes, candle.close_ts)
+            macro_upper = macro[max(0, m_end-250):m_end]
+        else:
+            macro_upper = None
         minute_window = (minute[max(0, bisect_right(minute_closes, candle.close_ts) - 90):
                                 bisect_right(minute_closes, candle.close_ts)]
                          if minute is not None else None)

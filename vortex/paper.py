@@ -15,6 +15,7 @@ class PaperBroker:
         self.folder.mkdir(parents=True, exist_ok=True)
         self.state_file = self.folder / "paper_state.json"
         self.trades_file = self.folder / "closed_trades.jsonl"
+        self.events_file = self.folder / "partial_exits.jsonl"
         self.wallet = cfg.starting_equity
         self.positions: dict[str, Position] = {}
         self.last_trade_ts: dict[str, int] = {}
@@ -47,16 +48,17 @@ class PaperBroker:
             self.save()
 
     def _write_journal(self, event: dict) -> None:
+        target = self.trades_file if event.get("final", True) else self.events_file
         existing = set()
-        if self.trades_file.exists():
-            with self.trades_file.open("r", encoding="utf-8") as fp:
+        if target.exists():
+            with target.open("r", encoding="utf-8") as fp:
                 for line in fp:
                     if line.strip():
                         old = json.loads(line)
                         if old.get("event_id"):
                             existing.add(old["event_id"])
         if event["event_id"] not in existing:
-            with self.trades_file.open("a", encoding="utf-8") as fp:
+            with target.open("a", encoding="utf-8") as fp:
                 fp.write(json.dumps(event) + "\n")
                 fp.flush()
                 os.fsync(fp.fileno())
@@ -123,48 +125,69 @@ class PaperBroker:
                                                  entry, adjusted.stop, adjusted.target,
                                                  qty, fee, margin,
                                                  features=dict(signal.features),
-                                                 initial_qty=qty, initial_risk=stop_gap, peak=entry)
+                                                 initial_qty=qty, initial_risk=stop_gap, peak=entry, step=filters.step)
         self.last_trade_ts[signal.symbol] = now_ms
         self.last_signal[signal.symbol] = signal.ts
         self.save()
         return True, f"{signal.side} quantity={qty:g} entry={entry:.6g} SL={adjusted.stop:.6g} TP={adjusted.target:.6g}"
 
     def mark(self, quotes: dict[str, tuple[float, float]], now_ms: int) -> list[dict]:
-        exits: list[dict] = []
+        """Paper close and partial stages; each journal event survives a crash."""
+        from .exits import decide_tick
+        events: list[dict] = []
         for symbol, p in list(self.positions.items()):
             if symbol not in quotes:
                 continue
             bid, ask = quotes[symbol]
             raw = bid if p.side == "LONG" else ask
-            hit_stop = raw <= p.stop if p.side == "LONG" else raw >= p.stop
-            hit_target = raw >= p.target if p.side == "LONG" else raw <= p.target
-            if not (hit_stop or hit_target):
+            action = decide_tick(p, raw)
+            if action is None:
+                # May have raised the trailing stop.
+                self.save()
                 continue
+            qty = action.qty
+            if qty <= 0 or qty > p.qty:
+                raise ValueError("Invalid exit quantity")
             slip = self.cfg.slippage_bps / 10000
-            px = raw * (1 - slip if p.side == "LONG" else 1 + slip)
+            px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
             sign = 1 if p.side == "LONG" else -1
-            exit_fee = px * p.qty * self.cfg.fee_rate
-            net = sign * (px - p.entry) * p.qty - p.entry_fee - exit_fee
-            self.wallet += sign * (px - p.entry) * p.qty - exit_fee
-            item = {"event_id": f"{symbol}:{p.opened_ts}:{now_ms}",
-                    "symbol": symbol, "side": p.side, "opened_ts": p.opened_ts,
-                    "closed_ts": now_ms, "entry": p.entry, "exit": px,
-                    "quantity": p.qty, "net_pnl": round(net, 8),
-                    "entry_ts": p.opened_ts, "exit_ts": now_ms,
-                    "y": int(net > 0), "features": dict(p.features), "source": "paper",
-                    "reason": "stop" if hit_stop else "target", "wallet": round(self.wallet, 8)}
-            exits.append(item)
-            del self.positions[symbol]
-            self.closed_count += 1
-            self.gate.closed(net)
-            # First atomically persist the closed position AND pending journal event.
-            self.pending_journal = item
+            ratio = qty / p.qty
+            entry_cost = p.entry_fee * ratio
+            exit_cost = px * qty * self.cfg.fee_rate
+            gross = sign * (px - p.entry) * qty
+            stage_net = gross - entry_cost - exit_cost
+            self.wallet += gross - exit_cost
+            p.entry_fee -= entry_cost
+            p.margin *= max(0, 1 - ratio)
+            p.qty = max(0., p.qty - qty)
+            p.accumulated_net += stage_net
+            p.filled_stage_count += 1
+            final = action.final or p.qty < max(1e-12, p.step * .5)
+            if final and p.qty > p.step * .5:
+                raise ValueError("Final exit must flatten the entire position")
+            all_net = p.accumulated_net
+            event = {
+                "event_id": f"{symbol}:{p.opened_ts}:{p.filled_stage_count}",
+                "symbol": symbol, "side": p.side, "opened_ts": p.opened_ts,
+                "closed_ts": now_ms, "entry": p.entry, "exit": px,
+                "quantity": qty, "net_pnl": round(all_net if final else stage_net, 8),
+                "stage_net_pnl": round(stage_net, 8), "final": bool(final),
+                "entry_ts": p.opened_ts, "exit_ts": now_ms,
+                "features": dict(p.features), "source": "paper",
+                "reason": action.reason, "wallet": round(self.wallet, 8),
+            }
+            if final:
+                event["y"] = int(all_net > 0)
+                self.closed_count += 1
+                self.gate.closed(all_net)
+                del self.positions[symbol]
+            self.pending_journal = event
             self.save()
-            self._write_journal(item)
+            self._write_journal(event)
             self.pending_journal = None
             self.save()
-        return exits
-
+            events.append(event)
+        return events
 
     def reset_halt(self, acknowledge: bool) -> None:
         """Explicit local operator action; does NOT reset wallet or daily loss floor."""

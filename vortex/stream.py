@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 from websocket import WebSocketApp
 
-STREAM_URL = "wss://fstream.binance.com/market/stream?streams="
+STREAM_URL = "wss://fstream.binance.com/public/stream?streams="
 
 
 @dataclass(frozen=True)

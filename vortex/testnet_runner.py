@@ -67,7 +67,7 @@ def _once_locked(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
             return {"ok": False, "reason": "Claude signal confirmation unavailable"}
         if not approved:
             return {"ok": False, "reason": f"Claude veto: {explanation[:60]}"}
-    quotes = market.quotes()
+    quotes = market.quotes(now_ms=now)
     if symbol not in quotes:
         return {"ok": False, "reason": "No valid TESTNET book"}
     bid, ask = quotes[symbol]

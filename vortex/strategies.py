@@ -135,7 +135,8 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
         return None
     # Strong historical ATR protection, not excessive notional.
     stop = s.close - sign * 1.5 * volatility
-    target = s.close + sign * 3.0 * volatility
+    # 1.5 ATR stop / 4.5 ATR target = 3:1 gross R:R; allows trailing after +2R.
+    target = s.close + sign * 4.5 * volatility
     score = min(10, 4 + len(agreed) + (1 if relative_vol >= 2 else 0) + (1 if a >= 30 else 0))
     if score < min_score or stop <= 0 or target <= 0:
         return None

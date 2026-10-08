@@ -39,7 +39,7 @@ def evaluate(model: dict, features: dict[str, float]) -> float | None:
     if not all(math.isfinite(x) for x in values):
         return None
     means, scales = model["mean"], model["scale"]
-    zs = [(v - m) / s for v, m, s in zip(values, means, scales)]
+    zs = [max(-8, min(8, (v - m) / s)) for v, m, s in zip(values, means, scales)]
     return sigmoid(model["bias"] + sum(w * z for w, z in zip(model["weights"], zs)))
 
 

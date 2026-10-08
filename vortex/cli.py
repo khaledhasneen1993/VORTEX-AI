@@ -75,8 +75,9 @@ def main(argv: list[str] | None = None) -> int:
         now = market.server_ms()
         data = {s: market.history(s, cfg.timeframe, args.days, now) for s in cfg.symbols}
         higher = {s: market.history(s, "15m", args.days, now) for s in cfg.symbols}
+        macro = {s: market.history(s, "1h", args.days, now) for s in cfg.symbols}
         filters = {s: market.symbol_filters(s) for s in cfg.symbols}
-        print(json.dumps(run_portfolio(data, higher, filters, cfg), indent=2))
+        print(json.dumps(run_portfolio(data, higher, filters, cfg, macro=macro), indent=2))
         return 0
     if args.command == "backtest":
         if (args.days is None and not 300 <= args.bars <= 1500) or (args.days is not None and not 1 <= args.days <= 45) or args.symbol not in market.metadata():
@@ -84,7 +85,9 @@ def main(argv: list[str] | None = None) -> int:
         server = market.server_ms()
         bars = (market.history(args.symbol, cfg.timeframe, args.days, server) if args.days else market.candles(args.symbol, cfg.timeframe, args.bars, server))
         upper = (market.history(args.symbol, "15m", args.days, server) if args.days else market.candles(args.symbol, "15m", 1500, server))
-        report = backtest(args.symbol, bars, upper, market.symbol_filters(args.symbol), cfg)
+        macro = (market.history(args.symbol, "1h", args.days, server)
+                 if args.days else market.candles(args.symbol, "1h", 500, server))
+        report = backtest(args.symbol, bars, upper, market.symbol_filters(args.symbol), cfg, macro=macro)
         print(json.dumps(report, indent=2))
         return 0
     if cfg.mode != "paper":
@@ -130,9 +133,10 @@ def main(argv: list[str] | None = None) -> int:
                 for symbol in symbols:
                     data = market.candles(symbol, cfg.timeframe, 220, now)
                     upper = market.candles(symbol, "15m", 120, now)
-                    if not data or not upper:
+                    macro = market.candles(symbol, "1h", 120, now)
+                    if not data or not upper or not macro:
                         continue
-                    signal = analyze(symbol, data, upper, cfg.min_score)
+                    signal = analyze(symbol, data, upper, cfg.min_score, macro=macro)
                     if signal and symbol in quotes:
                         if use_ai:
                             from .ml import feature_snapshot, evaluate

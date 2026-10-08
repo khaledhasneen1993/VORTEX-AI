@@ -22,7 +22,7 @@ class Quote:
 
 
 class QuoteStream:
-    def __init__(self, symbols: tuple[str, ...], *, clock=time.monotonic, ws_factory=WebSocketApp,
+    def __init__(self, symbols: tuple[str, ...], *, clock=time.monotonic, wall_ms=None, ws_factory=WebSocketApp,
                  stale_seconds: float = 3.0):
         if not symbols or any(not s.isalnum() or not s.endswith("USDT") for s in symbols):
             raise ValueError("Invalid stream symbols")
@@ -30,6 +30,7 @@ class QuoteStream:
             raise ValueError("Invalid staleness bound")
         self.symbols = symbols
         self.clock = clock
+        self.wall_ms = wall_ms or (lambda: int(time.time() * 1000))
         self.factory = ws_factory
         self.stale_seconds = stale_seconds
         self._quotes: dict[str, Quote] = {}
@@ -54,9 +55,16 @@ class QuoteStream:
             event_ms = int(data["E"]) if "E" in data else None
         except (ValueError, TypeError, KeyError):
             return
-        if not (0 < bid <= ask):
+        if not (0 < bid <= ask) or event_ms is None:
+            return
+        # Refuse delayed, future-dated and out-of-order exchange events.
+        lag = self.wall_ms() - event_ms
+        if lag < -1000 or lag > 3000:
             return
         with self._lock:
+            prior = self._quotes.get(symbol)
+            if prior is not None and prior.exchange_ms is not None and event_ms <= prior.exchange_ms:
+                return
             self._quotes[symbol] = Quote(bid, ask, self.clock(), event_ms)
 
     def snapshot(self, symbols: tuple[str, ...] | None = None):
@@ -64,7 +72,9 @@ class QuoteStream:
         needed = symbols or self.symbols
         with self._lock:
             if any(s not in self._quotes or now - self._quotes[s].received_monotonic >
-                   self.stale_seconds for s in needed):
+                   self.stale_seconds or
+                   self.wall_ms() - self._quotes[s].exchange_ms > 3000 or
+                   self.wall_ms() < self._quotes[s].exchange_ms - 1000 for s in needed):
                 raise ValueError("Missing/stale WebSocket quote: refuse trading")
             return {s: (self._quotes[s].bid, self._quotes[s].ask) for s in needed}
 

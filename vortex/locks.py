@@ -52,3 +52,7 @@ class ProcessLock:
 
     def __exit__(self, *_):
         self.release()
+
+    def __del__(self):
+        # Handles CLI returns; the OS also releases flock after a crash.
+        self.release()

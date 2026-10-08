@@ -60,10 +60,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "testnet-once":
             print(json.dumps(once(cfg, args.symbol, acknowledge=args.ack_testnet), indent=2))
             return 0
-        api, guardian = prepare(cfg)
+        if not args.ack_testnet or os.getenv("VORTEX_TESTNET_ARM") != "TESTNET_ONLY":
+            raise PermissionError("Testnet watchdog requires explicit arming for emergency close")
+        api, guardian = prepare(cfg, armed=True)
         while True:
             # Read-only audit, except emergency flatten if on-exchange guards disappear.
-            print(json.dumps(guardian.audit(), indent=2))
+            print(json.dumps(guardian.audit(may_flatten=True), indent=2))
             time.sleep(10)
     market = Market()
     if args.command == "portfolio-backtest":

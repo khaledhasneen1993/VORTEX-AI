@@ -18,7 +18,7 @@ VORTEX AI v0.1 is an original Python 3.11 project built around the ideas of fast
 
 ## Quick start (Linux / Windows / Termux with Python 3.11+)
 
-\`\`\`sh
+```sh
 git clone https://github.com/khaledhasneen1993/VORTEX-AI.git
 cd VORTEX-AI
 python -m pip install -e .
@@ -27,21 +27,21 @@ vortex status
 vortex backtest --symbol BTCUSDT --bars 1200
 vortex paper --once
 vortex paper
-\`\`\`
+```
 
 If using Termux, install Python and git first. On Windows copy the example file with the File Explorer or PowerShell.
 
-Change settings in \`.env\` BEFORE first paper run. **Never** upload \`.env\` to GitHub. Keys are unnecessary and ignored in v0.1. \`RUN_MODE=live\` deliberately fails.
+Change settings in `.env` BEFORE first paper run. **Never** upload `.env` to GitHub. Keys are unnecessary and ignored in v0.1. `RUN_MODE=live` deliberately fails.
 
 ## Run with Docker on a VPS
 
-\`\`\`sh
+```sh
 cp .env.example .env
 docker compose up -d --build
 docker compose logs -f vortex
-\`\`\`
+```
 
-A running, network-connected host is required. Keep the persistent \`data\` volume safe. On a local shell, \`vortex status\` reads \`data/paper_state.json\`; the journal is \`data/closed_trades.jsonl\`. Paper equity is separate from real Binance account equity.
+A running, network-connected host is required. Keep the persistent `data` volume safe. On a local shell, `vortex status` reads `data/paper_state.json`; the journal is `data/closed_trades.jsonl`. Paper equity is separate from real Binance account equity.
 
 ## Strategy
 

@@ -60,10 +60,11 @@ def test_gate_consecutive_loss_halts():
 
 
 def test_gate_daily_drawdown_halts():
-    gate = RiskGate(Settings(max_daily_loss=0.05), 1000)
-    assert not gate.can_open(949, 0)[0]
+    gate = RiskGate(Settings(max_daily_loss=0.50), 1000)
+    assert gate.can_open(501, 0)[0]
+    assert gate.can_open(500, 0) == (False, "daily loss circuit breaker")
     gate.new_day("2099-01-01", 1100)
-    assert not gate.can_open(1100, 0)[0]
+    assert not gate.can_open(1100, 0)[0]  # halt stays latched
 
 
 def test_no_duplicate_signals_or_reset_balance(tmp_path):

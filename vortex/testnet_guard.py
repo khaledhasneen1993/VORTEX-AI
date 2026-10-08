@@ -106,13 +106,18 @@ class TestnetSupervisor:
         if not (signal.stop < signal.entry < signal.target if signal.side == "LONG"
                 else signal.target < signal.entry < signal.stop):
             raise ValueError("Stop/target wrong side of entry")
-        # Bias stop rounding away from price to avoid immediate trigger; reject if risk widens.
-        stop = floor_step(signal.stop, filt.tick) if signal.side == "LONG" else (
-            -floor_step(-signal.stop, filt.tick) if signal.stop % filt.tick == 0 else
-            floor_step(signal.stop, filt.tick) + filt.tick)
-        take = floor_step(signal.target, filt.tick)
-        if signal.side == "SHORT":
-            take = floor_step(signal.target, filt.tick)
+        # Round SL *toward* entry (risk must never widen just to meet tick rules).
+        # Round TP conservatively. Check again after rounding.
+        from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
+        tick = Decimal(str(filt.tick))
+        def quantize(price: float, rule) -> float:
+            x = Decimal(str(price))
+            return float((x / tick).to_integral_value(rounding=rule) * tick)
+        stop = quantize(signal.stop, ROUND_CEILING if signal.side == "LONG" else ROUND_FLOOR)
+        take = quantize(signal.target, ROUND_FLOOR if signal.side == "LONG" else ROUND_CEILING)
+        if not (stop < signal.entry < take if signal.side == "LONG"
+                else take < signal.entry < stop):
+            raise ValueError("Protective prices invalid after tick rounding")
         if stop <= 0 or take <= 0:
             raise ValueError("Invalid rounded protective level")
         entry_id = self.client_id("in")

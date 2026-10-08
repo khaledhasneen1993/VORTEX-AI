@@ -54,8 +54,8 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
             break
         if position or exited or candle.ts <= cooldown or i == len(small) - 1:
             continue
-        upper = [h for h in higher if h.close_ts <= candle.close_ts]
-        signal = analyze(symbol, small[:i + 1], upper, cfg.min_score)
+        upper = [h for h in higher if h.close_ts <= candle.close_ts][-120:]
+        signal = analyze(symbol, small[max(0, i - 219):i + 1], upper, cfg.min_score)
         if signal is None:
             continue
         future = small[i + 1]

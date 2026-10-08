@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vortex-ai"
+version = "0.1.0"
+description = "Risk-first aggressive Binance USD-M Futures paper trading engine"
+requires-python = ">=3.11"
+dependencies = ["requests>=2.31,<3", "python-dotenv>=1.0,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.9,<1"]
+
+[project.scripts]
+vortex = "vortex.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["vortex*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"

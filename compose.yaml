@@ -1,0 +1,20 @@
+services:
+  vortex:
+    build: .
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    command: ["paper"]
+    volumes:
+      - vortex-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  vortex-data:

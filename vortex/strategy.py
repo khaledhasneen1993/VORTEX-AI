@@ -14,4 +14,4 @@ def analyze(symbol: str, candles: list[Candle], higher: list[Candle],
             derivatives: Derivatives | None = None,
             decision_ms: int | None = None) -> Signal | None:
     return vote(symbol, candles, higher, macro=macro, deriv=derivatives,
-                min_score=min_score)
+                min_score=min_score, decision_ms=decision_ms)

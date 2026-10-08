@@ -144,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
                 for symbol in symbols:
                     data = market.candles(symbol, cfg.timeframe, 220, now)
                     upper = market.candles(symbol, "15m", 120, now)
-                    macro = market.candles(symbol, "1h", 120, now)
+                    macro = market.candles(symbol, "1h", 260, now)
                     if not data or not upper or not macro:
                         continue
                     try:

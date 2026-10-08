@@ -121,7 +121,9 @@ class PaperBroker:
         self.wallet -= fee
         self.positions[signal.symbol] = Position(signal.symbol, signal.side, now_ms,
                                                  entry, adjusted.stop, adjusted.target,
-                                                 qty, fee, margin)
+                                                 qty, fee, margin,
+                                                 features=dict(signal.features),
+                                                 initial_qty=qty, initial_risk=stop_gap, peak=entry)
         self.last_trade_ts[signal.symbol] = now_ms
         self.last_signal[signal.symbol] = signal.ts
         self.save()
@@ -148,6 +150,8 @@ class PaperBroker:
                     "symbol": symbol, "side": p.side, "opened_ts": p.opened_ts,
                     "closed_ts": now_ms, "entry": p.entry, "exit": px,
                     "quantity": p.qty, "net_pnl": round(net, 8),
+                    "entry_ts": p.opened_ts, "exit_ts": now_ms,
+                    "y": int(net > 0), "features": dict(p.features), "source": "paper",
                     "reason": "stop" if hit_stop else "target", "wallet": round(self.wallet, 8)}
             exits.append(item)
             del self.positions[symbol]

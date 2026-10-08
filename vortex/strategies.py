@@ -59,7 +59,7 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
     s, h = small[-1], higher[-1]
     if s.close_ts <= 0 or h.close_ts > s.close_ts:
         return None
-    if macro and (len(macro) < 50 or macro[-1].close_ts > s.close_ts):
+    if macro and (len(macro) < 210 or macro[-1].close_ts > s.close_ts):
         return None
     if any(b.ts <= a.ts for a, b in zip(small[-70:], small[-69:])):
         return None
@@ -68,7 +68,12 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
     mp = [x.close for x in macro] if macro else hp
     if len(mp) < 36:
         return None
-    trend = 1 if ema(mp, 9) > ema(mp, 21) else -1 if ema(mp, 9) < ema(mp, 21) else 0
+    # Literal original Quant macro filter: hourly EMA50 versus EMA200.
+    if macro is not None:
+        short_macro, long_macro = ema(mp, 50), ema(mp, 200)
+    else:
+        short_macro, long_macro = ema(mp, 9), ema(mp, 21)
+    trend = 1 if short_macro > long_macro else -1 if short_macro < long_macro else 0
     volatility = atr(small)
     vol_pct = volatility / s.close
     if not (0.0008 <= vol_pct <= 0.045):

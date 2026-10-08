@@ -130,3 +130,39 @@ def test_two_independent_votes_enforced(monkeypatch):
     x = small[-1]
     small[-1] = Candle(x.ts,x.open,x.high,x.low,x.close,100,x.close_ts)
     assert vote("BTCUSDT", small, high, macro=macro) is None
+
+
+
+def test_funding_fade_is_real_vote_and_stale_reading_abstains(monkeypatch):
+    import vortex.strategies as st
+    def series(n, step, offset, mult):
+        xs = []
+        for i in range(n):
+            close = 100 + i * mult
+            ts = (i - offset) * step
+            xs.append(Candle(ts, close-.05, close+.05, close-.1, close, 100,
+                             ts+step-1))
+        return xs
+    small = series(120, 300000, 0, .2)
+    higher = series(80, 900000, 40, .3)
+    macro = series(60, 3600000, 50, .5)
+    monkeypatch.setattr(st, "adx", lambda x, period=14: 30.)
+    monkeypatch.setattr(st, "_macd_hist", lambda x: 1.)
+    close_time = small[-1].close_ts
+    fresh = Derivatives(-.0016, 1.5, close_time)
+    stale = Derivatives(-.0016, 1.5, close_time - 500_000)
+    confirmed = vote("BTCUSDT", small, higher, macro, fresh,
+                     decision_ms=close_time + 5000)
+    assert confirmed is not None and confirmed.side == "LONG"
+    assert "funding_fade" in confirmed.reason and "trend" in confirmed.reason
+    assert vote("BTCUSDT", small, higher, macro, stale,
+                decision_ms=close_time + 5000) is None
+
+
+def test_partial_close_replay_stop_first_under_ambiguous_candle():
+    p = Position("BTCUSDT", "LONG", 1, 100, 98, 106, 1, 0, 20.,
+                 initial_qty=1, initial_risk=2, step=.001)
+    # Both partial milestones and the initial stop touched: refuse to
+    # manufacture same-bar "winning" partial fills.
+    actions = levels_for_bar(p, low=97.5, high=104, opening=100)
+    assert len(actions) == 1 and actions[0].reason == "stop" and actions[0].final

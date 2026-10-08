@@ -9,7 +9,7 @@ VORTEX AI v0.1 is an original Python 3.11 project built around the ideas of fast
 - Live quote spread filter, signal age limit, adverse-move rejection and per-symbol cooldown.
 - Market-order-style paper fills at bid/ask plus configurable adverse slippage; taker fees on entry and exit.
 - Risk-weighted position sizing; respects exchange MARKET_LOT_SIZE, step size, min quantity and MIN_NOTIONAL.
-- Per-trade risk budget (default 1% of equity), 5x notional leverage **simulation**, 25% total margin allowance, max three positions; 5% daily loss breaker, four successive losses circuit breaker.
+- Per-trade risk budget (default 1% of equity), 5x notional leverage **simulation**, 25% total margin allowance, max three positions; 5% daily loss breaker, five successive losses circuit breaker.
 - Durable paper portfolio snapshots and JSONL journal of closed trades.
 - Single-symbol OHLC backtest using next-bar open, conservative stop-first ties, fees and slippage.
 - Tests in GitHub Actions and a nonroot Docker image.
@@ -24,9 +24,11 @@ cd VORTEX-AI
 python -m pip install -e .
 cp .env.example .env
 vortex status
-vortex backtest --symbol BTCUSDT --bars 1200
+vortex backtest --symbol BTCUSDT --days 30
 vortex paper --once
 vortex paper
+# On another shell, to open a localhost-only paper dashboard:
+vortex dashboard --port 8765
 ```
 
 If using Termux, install Python and git first. On Windows copy the example file with the File Explorer or PowerShell.
@@ -41,7 +43,7 @@ docker compose up -d --build
 docker compose logs -f vortex
 ```
 
-A running, network-connected host is required. Keep the persistent `data` volume safe. On a local shell, `vortex status` reads `data/paper_state.json`; the journal is `data/closed_trades.jsonl`. Paper equity is separate from real Binance account equity.
+A running, network-connected host is required. Keep the persistent `data` volume safe. Inside Docker, `docker compose exec vortex vortex status` reads its persistent named `vortex-data` volume. In a local Python installation, `vortex status` reads `data/paper_state.json`; journal is `data/closed_trades.jsonl`. Paper equity is separate from real Binance account equity.
 
 ## Strategy
 
@@ -54,7 +56,7 @@ A running, network-connected host is required. Keep the persistent `data` volume
 
 Risk is estimated using stop distance PLUS round-trip taker fee and slip budget. Real loss can exceed the budget on a gap, outage or liquidation. The 5x factor changes notional exposure but does not multiply profits for free. The risk circuit breaker *latches*; it requires an intentional process restart. After restarting, risk limits persist from state; do not delete the state to bypass a halt. Cooling rules and exchange filters are applied before every new paper trade.
 
-Backtesting cannot prove future profitability and excludes funding, mark-price triggers, spreads from historical order books, gap liquidity, maintenance margin and liquidation. Report open positions separately from closed profits. Backtest is single-symbol; it is NOT valid as a multi-symbol portfolio return.
+Backtesting cannot prove future profitability and excludes funding, mark-price triggers, spreads from historical order books, gap liquidity, maintenance margin and liquidation. Report open positions separately from closed profits. Backtest is single-symbol; it is NOT valid as a multi-symbol portfolio return. Historical candles can be fetched for up to 45 days with `--days 30` (includes a 2-day warmup).
 
 ## Deployment and verification checklist
 

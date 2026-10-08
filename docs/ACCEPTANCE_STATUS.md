@@ -52,3 +52,12 @@ portfolio/single-symbol reports and TESTNET-only guarded orders.
 
 These statements deliberately distinguish TESTED MOCK LOGIC from actual exchange
 execution. Read README.md for CLI usage.
+
+## Seven-point user-specified update (implementation)
+
+- STRICT_VOTES=true defaults to two agreeing strategies; false can permit a single uncontested vote only with score >= MIN_STRONG_SCORE (default 7), fresh higher-timeframe alignment, and relative volume >=1.5 or ADX >=25.
+- TRAILING_ATR_MULT=1.0 uses current observed ATR after +2R with at least +1R and a small buffer protected; 25 percent at +1R and +1.5R remain.
+- Historical single-symbol and portfolio summaries now include win rate, profit factor, average R, max drawdown and sampled equity curves. CLI writes full JSON to data/backtests.
+- Closed paper events include entry-time indicators, approved votes, initial stop/target, net PnL and R. Partials remain separate, not duplicate training rows.
+- Mainnet API variable aliases are rejected and an authenticated Testnet read is required before Testnet-only signed writes. Unexpected or partially confirmed writes latch journal HALTED.
+- **Not proven:** actual signed TESTNET trading, partial-fill reconciliation with real exchange orders, backtest profitability, long-running PAPER performance, or ML predictive accuracy. No Live mode or real funds have been enabled.

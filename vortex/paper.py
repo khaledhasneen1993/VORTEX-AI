@@ -111,9 +111,11 @@ class PaperBroker:
         if stop_gap <= 0 or abs(entry - signal.entry) > stop_gap * 0.35:
             return False, "price ran too far from signal"
         sign = 1 if signal.side == "LONG" else -1
-        adjusted = Signal(signal.symbol, signal.side, signal.ts, entry,
-                          entry - sign * stop_gap, entry + sign * target_gap,
-                          signal.score, signal.reason)
+        # Preserve all entry-time metadata after adapting to executable prices.
+        from dataclasses import replace
+        adjusted = replace(signal, entry=entry,
+                           stop=entry - sign * stop_gap,
+                           target=entry + sign * target_gap)
         margin_in_use = sum(p.margin for p in self.positions.values())
         sized = size_trade(adjusted, equity, self.cfg, filters, margin_in_use)
         if sized is None:

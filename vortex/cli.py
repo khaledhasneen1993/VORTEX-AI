@@ -76,9 +76,10 @@ def main(argv: list[str] | None = None) -> int:
         now = market.server_ms()
         data = {s: market.history(s, cfg.timeframe, args.days, now) for s in cfg.symbols}
         higher = {s: market.history(s, "15m", args.days, now) for s in cfg.symbols}
-        macro = {s: market.history(s, "1h", args.days, now) for s in cfg.symbols}
+        macro = {s: market.history(s, "1h", max(10, args.days), now) for s in cfg.symbols}
+        minute = {s: market.history(s, "1m", args.days, now) for s in cfg.symbols}
         filters = {s: market.symbol_filters(s) for s in cfg.symbols}
-        print(json.dumps(run_portfolio(data, higher, filters, cfg, macro=macro), indent=2))
+        print(json.dumps(run_portfolio(data, higher, filters, cfg, macro=macro, minute=minute), indent=2))
         return 0
     if args.command == "backtest":
         if (args.days is None and not 300 <= args.bars <= 1500) or (args.days is not None and not 1 <= args.days <= 45) or args.symbol not in market.metadata():
@@ -86,9 +87,12 @@ def main(argv: list[str] | None = None) -> int:
         server = market.server_ms()
         bars = (market.history(args.symbol, cfg.timeframe, args.days, server) if args.days else market.candles(args.symbol, cfg.timeframe, args.bars, server))
         upper = (market.history(args.symbol, "15m", args.days, server) if args.days else market.candles(args.symbol, "15m", 1500, server))
-        macro = (market.history(args.symbol, "1h", args.days, server)
+        macro = (market.history(args.symbol, "1h", max(10, args.days), server)
                  if args.days else market.candles(args.symbol, "1h", 500, server))
-        report = backtest(args.symbol, bars, upper, market.symbol_filters(args.symbol), cfg, macro=macro)
+        duration_days = args.days or max(1, (args.bars * (5 if cfg.timeframe == "5m" else 15) + 1439) // 1440)
+        minute = market.history(args.symbol, "1m", min(45, duration_days), server)
+        report = backtest(args.symbol, bars, upper, market.symbol_filters(args.symbol), cfg,
+                          macro=macro, minute=minute)
         print(json.dumps(report, indent=2))
         return 0
     if cfg.mode != "paper":
@@ -145,6 +149,7 @@ def main(argv: list[str] | None = None) -> int:
                     data = market.candles(symbol, cfg.timeframe, 220, now)
                     upper = market.candles(symbol, "15m", 120, now)
                     macro = market.candles(symbol, "1h", 260, now)
+                    minute = market.candles(symbol, "1m", 120, now)
                     if not data or not upper or not macro:
                         continue
                     try:
@@ -153,7 +158,8 @@ def main(argv: list[str] | None = None) -> int:
                         log.warning("Unavailable derivative snapshot for %s: %s", symbol, exc)
                         deriv = None  # funding strategy abstains; other votes remain valid
                     signal = analyze(symbol, data, upper, cfg.min_score,
-                                     macro=macro, derivatives=deriv, decision_ms=now)
+                                     macro=macro, derivatives=deriv, decision_ms=now,
+                                     minute=minute)
                     if signal and symbol in quotes:
                         from .ml import feature_snapshot, evaluate
                         # Capture only features observable at this completed entry signal.

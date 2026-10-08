@@ -130,10 +130,17 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
         if deriv.funding_rate >= 0.0015:
             votes["funding_fade"] = -1
     # Explain every individual vote, including abstentions, to the debug log.
+    details = {
+        "trend": f"15m EMA9/21 + MACD direction; ADX={a:.1f}; hourly={trend}",
+        "reversion": f"5m RSI7={rv:.1f}, Bollinger/VWAP and completed 1m divergence/StochRSI",
+        "breakout": f"20-bar extreme, OBV direction, 5m ADX={adx(small):.1f}, volume={relative_vol:.2f}x",
+        "funding_fade": ("fresh funding and rising OI confirmed"
+                         if deriv and deriv.valid(decision_ms if decision_ms is not None else s.close_ts)
+                         else "missing or stale actual funding/OI observations"),
+    }
     for name in ("trend", "reversion", "breakout", "funding_fade"):
         detail = ("LONG" if votes[name] == 1 else "SHORT") if name in votes else "ABSTAIN"
-        log.debug("VOTE %s %s=%s (relative_volume=%.2f, adx=%.1f, macro=%s)",
-                  symbol, name, detail, relative_vol, a, trend)
+        log.debug("VOTE %s %s=%s reason=%s", symbol, name, detail, details[name])
     longs = sorted(k for k, direction in votes.items() if direction == 1)
     shorts = sorted(k for k, direction in votes.items() if direction == -1)
     score = min(10, 4 + max(len(longs), len(shorts)) +

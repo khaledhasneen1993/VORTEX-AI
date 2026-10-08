@@ -77,7 +77,7 @@ execution. Read README.md for CLI usage.
 - [x] `size_trade()` includes expected entry+exit fees and slippage in the
   10% risk ceiling and limits maximum total margin to 25% of marked equity.
   A position may legitimately use *less* risk when the margin limit binds.
-- [x] `MAX_DAILY_LOSS=0.50` , with no losing-streak circuit breaker.
+- [x] `MAX_DAILY_LOSS=0.50` remains enabled; no consecutive-loss breaker is enforced.
   With an opening equity of 1000, new entries stop at equity <= 500;
   at 501 the daily-loss rule alone permits entry. This threshold does NOT
   limit per-trade losses or close an open position.
@@ -85,9 +85,8 @@ execution. Read README.md for CLI usage.
   account without operator-provided testnet credentials.
 
 - [x] Hard invariant checks: leverage setting validates within 1..10, but
-  every trading execution is additionally limited to **5x**. No more than
-  three positions, 25% aggregate margin, **50% daily drawdown breaker**, or five
-  consecutive losses can be configured.
+  every trading execution is additionally limited to **5x**. The hard limits
+  remain three positions, 25% aggregate margin and a **50% daily breaker**.
 
 ## Final end-to-end audit of the 10% settings
 
@@ -121,7 +120,7 @@ execution. Read README.md for CLI usage.
 - [x] `Settings.max_daily_loss` defaults to `0.50` and `Settings.from_env()` reads `MAX_DAILY_LOSS`, default `0.50`. Values outside `0 < max_daily_loss <= 0.50` are rejected.
 - [x] `data`-backed PAPER and both historical modes use the same `RiskGate.can_open()` threshold: `equity <= day_start_equity * (1 - max_daily_loss)`, blocking **new entries** at a daily drawdown of at least 50%.
 - [x] Tests verify 1000 -> 501 remains allowed by the daily rule, 1000 -> 500 triggers a latched halt, and configurations greater than 0.50 fail.
-- [x] Unchanged: 10% planned stop risk per position, 5x maximum execution leverage, three open positions, no losing-streak halt halt, 1.5-ATR initial stop and all staged exit/strategy rules.
+- [x] Unchanged: 10% planned stop risk per position, 5x maximum execution leverage, three open positions, no consecutive-loss breaker, 1.5-ATR initial stop and all staged exit/strategy rules.
 - [ ] Signed Binance TESTNET behavior remains unverified on an actual Testnet account. No real-money route exists.
 
 ## Approved risk relationship (50% daily vs 10% per trade)

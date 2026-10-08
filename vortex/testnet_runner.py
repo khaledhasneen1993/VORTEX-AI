@@ -50,6 +50,17 @@ def once(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
     sig = analyze(symbol, candles, higher, cfg.min_score, macro=macro, minute=minute)
     if not sig or now - candles[-1].close_ts > 90_000:
         return {"ok": False, "reason": "No fresh qualified setup; no order sent"}
+    if os.getenv("USE_CLAUDE", "false").lower() == "true":
+        from dataclasses import replace
+        from .ml import feature_snapshot
+        from .claude_review import confirm, ReviewUnavailable
+        sig = replace(sig, features=feature_snapshot(candles, sig))
+        try:
+            approved, confidence, explanation = confirm(sig)
+        except ReviewUnavailable:
+            return {"ok": False, "reason": "Claude signal confirmation unavailable"}
+        if not approved:
+            return {"ok": False, "reason": f"Claude veto: {explanation[:60]}"}
     quotes = market.quotes()
     if symbol not in quotes:
         return {"ok": False, "reason": "No valid TESTNET book"}

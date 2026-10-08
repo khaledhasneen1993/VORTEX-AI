@@ -60,7 +60,6 @@ def _once_locked(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
     if not sig or now - candles[-1].close_ts > 90_000:
         return {"ok": False, "reason": "No fresh qualified setup; no order sent"}
     if os.getenv("USE_CLAUDE", "false").lower() == "true":
-        from dataclasses import replace
         from .ml import feature_snapshot
         from .claude_review import confirm, ReviewUnavailable
         sig = replace(sig, features=feature_snapshot(candles, sig))

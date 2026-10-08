@@ -120,3 +120,10 @@ vortex paper --once
 vortex backtest --symbol BTCUSDT --days 30
 vortex portfolio-backtest --days 30
 ```
+
+**Non-bypassable policy limits:** configuration accepts `MAX_LEVERAGE` 1..10 as
+requested for compatibility, but PAPER/BACKTEST sizing and TESTNET commissioning
+always cap the **effective** trading leverage at **5x**. Values above
+`MAX_POSITIONS=3`, `MAX_MARGIN_FRACTION=0.25`, `MAX_DAILY_LOSS=0.05` or
+`MAX_CONSECUTIVE_LOSSES=5` are rejected by `Settings` instead of loosening
+the approved protections.

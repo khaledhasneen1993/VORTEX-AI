@@ -53,7 +53,7 @@ def _vwap(bars: list[Candle]) -> float:
 
 def vote(symbol: str, small: list[Candle], higher: list[Candle],
          macro: list[Candle] | None = None, deriv: Derivatives | None = None,
-         *, min_score: int = 5) -> Signal | None:
+         *, min_score: int = 5, decision_ms: int | None = None) -> Signal | None:
     if len(small) < 70 or len(higher) < 70:
         return None
     s, h = small[-1], higher[-1]

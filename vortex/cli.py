@@ -101,6 +101,9 @@ def main(argv: list[str] | None = None) -> int:
         ai_model = load_model(cfg.data_dir / "ai_model.json")  # fails closed without validated model
     use_stream = os.getenv("USE_WEBSOCKET", "false").lower() == "true"
     use_micro = os.getenv("USE_MICROSTRUCTURE", "false").lower() == "true"
+    use_radar = os.getenv("USE_RADAR", "false").lower() == "true"
+    if use_radar and use_stream:
+        raise ValueError("Dynamic radar is incompatible with the fixed-symbol WS stream; disable one")
     stream = None
     if use_stream:
         from .stream import QuoteStream
@@ -131,6 +134,11 @@ def main(argv: list[str] | None = None) -> int:
             bucket = now // step
             # 5s into the new period; market data must have CLOSE time < server now.
             if bucket != last_bucket and now % step >= 5000:
+                if use_radar:
+                    from .radar import discover
+                    candidates = discover(market, limit=12)
+                    symbols = [candidate.symbol for candidate in candidates]
+                    log.info("RADAR ranked liquid movers: %s", symbols)
                 for symbol in symbols:
                     data = market.candles(symbol, cfg.timeframe, 220, now)
                     upper = market.candles(symbol, "15m", 120, now)

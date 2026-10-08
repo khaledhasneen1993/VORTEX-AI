@@ -5,6 +5,7 @@ Tie between stop and target resolves at stop. No imagined fills on missing bars.
 No funding/orderbook history/liquidations; these require separate historical data.
 """
 from __future__ import annotations
+from bisect import bisect_right
 from datetime import datetime, timezone
 from .models import Candle, Signal, Position
 from .exits import levels_for_bar
@@ -19,9 +20,13 @@ def run_portfolio(
     filters: dict[str, Filters],
     config: Settings,
     macro: dict[str, list[Candle]] | None = None,
+    minute: dict[str, list[Candle]] | None = None,
 ) -> dict:
     if not candles or set(candles) != set(higher) or set(candles) != set(filters) or (macro is not None and set(candles) != set(macro)):
         raise ValueError("Each portfolio symbol requires bars, HTF and exchange filters")
+    if minute is not None and set(candles) != set(minute):
+        raise ValueError("1m history missing for portfolio symbols")
+    minute_closes = {s: [b.close_ts for b in bars] for s, bars in minute.items()} if minute is not None else {}
     symbols = sorted(candles)
     by_symbol: dict[str, dict[int, Candle]] = {}
     for sym in symbols:
@@ -122,8 +127,14 @@ def run_portfolio(
             history = [c for c in candles[sym] if c.ts <= ts][-220:]
             upper = [h for h in higher[sym] if h.close_ts <= bar[sym].close_ts][-120:]
             macro_upper = [m for m in macro[sym] if m.close_ts <= bar[sym].close_ts][-120:] if macro is not None else None
-            sig = (analyze(sym, history, upper, config.min_score, macro=macro_upper)
-                   if macro is not None else analyze(sym, history, upper, config.min_score))
+            if minute is not None:
+                ix = bisect_right(minute_closes[sym], bar[sym].close_ts)
+                minute_window = minute[sym][max(0, ix - 90):ix]
+                sig = analyze(sym, history, upper, config.min_score, macro=macro_upper,
+                              minute=minute_window)
+            else:
+                sig = (analyze(sym, history, upper, config.min_score, macro=macro_upper)
+                       if macro is not None else analyze(sym, history, upper, config.min_score))
             if sig:
                 pending[sym] = sig
     pnl = [t["net_pnl"] for t in trades]

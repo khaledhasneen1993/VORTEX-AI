@@ -109,7 +109,7 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
         if s.close < min(c.low for c in lookback) and obv < 0:
             votes["breakout"] = -1
     # Funding fade only from real timestamped exchange derivative readings.
-    if deriv and deriv.valid(s.close_ts) and deriv.oi_change_pct > 0:
+    if deriv and deriv.valid(decision_ms if decision_ms is not None else s.close_ts) and deriv.oi_change_pct > 0:
         if deriv.funding_rate <= -0.0015:
             votes["funding_fade"] = 1
         if deriv.funding_rate >= 0.0015:

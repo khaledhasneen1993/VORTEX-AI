@@ -53,9 +53,20 @@ def run_portfolio(
     highwater = wallet
     maxdd = 0.0
     fees_total = 0.0
+    ending_equity = wallet
     for i, ts in enumerate(stamps):
         bar = {s: by_symbol[s][ts] for s in symbols}
         slip = config.slippage_bps / 10_000
+        # UTC risk reset occurs BEFORE next-bar entries. Previous-day losses
+        # cannot be mistaken for current-day drawdowns.
+        opening_equity = wallet + sum(
+            (bar[s].open - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
+            - bar[s].open * p.qty * config.fee_rate for s, p in active.items())
+        risk.new_day(datetime.fromtimestamp(ts / 1000, timezone.utc).date().isoformat(),
+                     opening_equity)
+        risk.can_open(opening_equity, len(active))
+        if risk.blocked:
+            break
         # The decision to enter is from the *previous completed* candle.
         for sym, sig in sorted(list(pending.items()), key=lambda p: -p[1].score):
             if sym in active:
@@ -117,8 +128,8 @@ def run_portfolio(
             (bar[s].close - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
             - bar[s].close * p.qty * config.fee_rate for s, p in active.items())
         highwater = max(highwater, equity)
+        ending_equity = equity
         maxdd = max(maxdd, (highwater - equity) / highwater if highwater else 0)
-        risk.new_day(datetime.fromtimestamp(ts / 1000, timezone.utc).date().isoformat(), equity)
         if not risk.can_open(equity, len(active))[0] and risk.blocked:
             break
         # After bar close, queue signals for next bar only; forbid final-bar entries.
@@ -151,6 +162,8 @@ def run_portfolio(
     gross_loss = -sum(x for x in pnl if x < 0)
     return {
         "start_equity": config.starting_equity, "cash_wallet": round(wallet, 6),
+        "equity_with_unrealized": round(ending_equity, 6),
+        "open_positions_unrealized_net": round(ending_equity-wallet, 6),
         "open_positions": sorted(active),
         "realized_net_pnl": round(sum(pnl), 6),
         "closed_trades": len(pnl),

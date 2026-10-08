@@ -240,3 +240,31 @@ def test_paper_close_journal_crash_is_recoverable(monkeypatch, tmp_path):
     after = PaperBroker(Settings(data_dir=tmp_path))
     assert after.closed_count == 1
     assert len((tmp_path / "closed_trades.jsonl").read_text().splitlines()) == 1
+
+
+
+def test_emergency_close_must_confirm_exchange_is_flat(tmp_path):
+    class PartialEmergency(FakeExchange):
+        def market_order(self, symbol, side, qty, client_id, reduce_only=False):
+            super().market_order(symbol, side, qty, client_id, reduce_only=reduce_only)
+            if reduce_only:
+                self.amount = .05  # Simulate an acknowledged PARTIAL close.
+            return {"status": "PARTIALLY_FILLED"}
+    api = PartialEmergency()
+    api.amount = .1
+    guardian = TestnetSupervisor(api, tmp_path / "partial.json")
+    with pytest.raises(ProtectionError, match="partially filled"):
+        guardian.emergency_flatten("BTCUSDT")
+    assert guardian.state["phase"] == "HALTED"
+    assert api.flatten_count == 1  # NEVER blindly retry after partial response.
+
+
+def test_testnet_rejects_unknown_manual_conditional_orders_after_entry(tmp_path):
+    api = FakeExchange()
+    guard = TestnetSupervisor(api, tmp_path / "orphan.json")
+    guard.enter(S, .1, F, 5)
+    api.algos.append({"clientAlgoId": "MANUAL-UNKNOWN",
+                      "orderType": "STOP_MARKET", "side": "SELL",
+                      "closePosition": True, "triggerPrice": "98",
+                      "positionSide": "BOTH"})
+    assert not guard.verify_protection("BTCUSDT", "LONG")

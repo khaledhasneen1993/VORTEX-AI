@@ -13,6 +13,7 @@ from .config import Settings
 from .paper import PaperBroker
 from .backtest import run as backtest
 from .strategy import analyze
+from .locks import ProcessLock
 
 log = logging.getLogger("vortex")
 
@@ -39,8 +40,9 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(train_jsonl(Path(args.dataset), cfg.data_dir / "ai_model.json"), indent=2))
         return 0
     if args.command == "reset-paper-halt":
-        broker = PaperBroker(cfg)
-        broker.reset_halt(args.ack_risk)
+        with ProcessLock(cfg.data_dir / "paper.lock"):
+            broker = PaperBroker(cfg)
+            broker.reset_halt(args.ack_risk)
         print("Paper risk halt reset; daily loss floor remains enforced")
         return 0
     if args.command == "status":
@@ -63,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if not args.ack_testnet or os.getenv("VORTEX_TESTNET_ARM") != "TESTNET_ONLY":
             raise PermissionError("Testnet watchdog requires explicit arming for emergency close")
+        testnet_lock = ProcessLock(cfg.data_dir / "testnet.lock").acquire()
         api, guardian = prepare(cfg, armed=True)
         from .binance import TESTNET
         from .testnet_stages import maintain
@@ -108,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if cfg.mode != "paper":
         raise ValueError("paper command requires RUN_MODE=paper")
+    paper_lock = ProcessLock(cfg.data_dir / "paper.lock").acquire()
     broker = PaperBroker(cfg)
     use_ai = os.getenv("USE_AI_MODEL", "false").lower() == "true"
     use_claude = os.getenv("USE_CLAUDE", "false").lower() == "true"
@@ -137,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
     while True:
         try:
             now = market.server_ms()
-            quotes = stream.snapshot() if stream else market.quotes()
+            quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
             was_halted = broker.gate.blocked
             for closed in broker.mark(quotes, now):
                 log.info("CLOSED: %s", json.dumps(closed))

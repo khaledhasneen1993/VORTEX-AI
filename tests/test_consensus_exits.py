@@ -90,10 +90,12 @@ def test_radar_only_liquid_exchanged_contracts():
 class PublicMarket:
     def __init__(self):
         self.oi = 1000
+        self.now = 1_000_000
     def get(self, path, params):
         if path.endswith("premiumIndex"):
-            return {"symbol": "BTCUSDT", "lastFundingRate": "-0.002"}
-        return {"symbol": "BTCUSDT", "openInterest": str(self.oi)}
+            return {"symbol": "BTCUSDT", "lastFundingRate": "-0.002",
+                    "time": self.now}
+        return {"symbol": "BTCUSDT", "openInterest": str(self.oi), "time": self.now}
 
 
 def test_derivatives_need_two_separated_observations():
@@ -101,8 +103,10 @@ def test_derivatives_need_two_separated_observations():
     tr = DerivativesTracker()
     assert tr.sample(market, "BTCUSDT", 1000000) is None
     market.oi = 1010
+    market.now = 1_010_000
     assert tr.sample(market, "BTCUSDT", 1010000) is None
     market.oi = 1020
+    market.now = 1_100_000
     d = tr.sample(market, "BTCUSDT", 1100000)
     assert d is not None and d.funding_rate == -.002 and d.oi_change_pct > 0
     assert d.valid(1100000) and not d.valid(1500000)

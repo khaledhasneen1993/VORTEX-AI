@@ -69,6 +69,11 @@ class TestnetSupervisor:
         if (amount > 0) != (expected_side == "LONG"):
             self.halt("Exchange side mismatches journal")
         orders = self.api.open_algos(symbol)
+        recorded = {self.state.get("stop_id"), self.state.get("take_id")}
+        # Never silently accept an additional manual/unknown conditional
+        # order as a safe operating state, even if our two guards still exist.
+        if any(o.get("clientAlgoId") not in recorded for o in orders):
+            return False
         protective_side = "SELL" if amount > 0 else "BUY"
         # Find only OUR named orders, reject accidentally counting manual protective orders.
         own = [o for o in orders if o.get("clientAlgoId") in
@@ -101,6 +106,15 @@ class TestnetSupervisor:
                                   abs(amount), close_id, reduce_only=True)
         except (ExchangeUncertain, ExchangeRejected) as exc:
             self.halt(f"EMERGENCY CLOSE UNCERTAIN: {type(exc).__name__}; operator must reconcile")
+        try:
+            remaining = abs(self.api.position(symbol))
+        except (ExchangeUncertain, ExchangeRejected, ValueError, KeyError):
+            self.halt("EMERGENCY CLOSE unconfirmed: exchange position read failed")
+        # The first fill acknowledgement is NOT proof that the exchange is flat.
+        # Never issue a second market order after an ambiguous partial result.
+        if remaining > 1e-12:
+            self.halt("EMERGENCY CLOSE partially filled: MANUAL POSITION RECONCILIATION REQUIRED")
+        self.persist(reason="Emergency close exchange-flat confirmed; HALTED until manual review")
 
     def enter(self, signal: Signal, qty: float, filt: Filters, leverage: int) -> dict:
         if self.state["phase"] != "IDLE":

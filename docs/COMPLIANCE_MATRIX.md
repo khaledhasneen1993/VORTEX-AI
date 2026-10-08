@@ -1,7 +1,7 @@
 # VORTEX AI — strict four-source compliance matrix
 
-Audit target: PR #2 branch feat/vortex-pre-simulation-hardening (not main).
-This document distinguishes IMPLEMENTED CODE from VERIFIED LIVE PERFORMANCE.
+Audit target: current main plus acceptance fixes in PR #3. Compare the exact commit and GitHub Actions SHA before using.
+This document distinguishes IMPLEMENTED CODE from VERIFIED LIVE PERFORMANCE. Historical UTC daily drawdown, marked open positions, signed Testnet emergency-close confirmation, REST/WS freshness checks and single-writer locks were strengthened in PR #3.
 No proprietary/private bot source code has been copied into VORTEX.
 
 ## Source 1 — Neko Futures Trader
@@ -38,6 +38,6 @@ No proprietary/private bot source code has been copied into VORTEX.
 - RUN_MODE remains paper/backtest only. Production funds MUST NOT be wired to repo.
 - TESTNET is an explicitly armed single-entry commissioning path and MUST be verified against the actual exchange before use.
 - TESTNET now has a guarded, explicitly armed single-position staged TP1/TP2 and tighter stop replacement, but this order lifecycle has only MOCK validation and no TESTNET integration evidence. It is NOT yet an autonomous multi-position production engine.
-- No actual market simulation, real testnet orders, server deployment or model fitting has occurred in this development review.
+- No actual market simulation, real testnet orders, server deployment or model fitting has occurred in this development review. Public REST quotes and funding/OI snapshots now require fresh exchange timestamps.
 - Before simulation: verify recorded signal counts on actual historical candles, then record fee/slippage sensitivity and forward paper fills.
 - Only TESTNET-issued credentials; never commit tokens to GitHub.

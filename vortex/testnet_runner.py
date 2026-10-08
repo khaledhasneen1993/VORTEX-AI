@@ -31,6 +31,12 @@ def doctor(cfg: Settings) -> dict:
 
 
 def once(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
+    from .locks import ProcessLock
+    with ProcessLock(cfg.data_dir / "testnet.lock"):
+        return _once_locked(cfg, symbol, acknowledge=acknowledge)
+
+
+def _once_locked(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
     if not acknowledge or os.getenv("VORTEX_TESTNET_ARM") != "TESTNET_ONLY":
         raise PermissionError("Testnet order requires --ack-testnet AND VORTEX_TESTNET_ARM=TESTNET_ONLY")
     if symbol not in cfg.symbols:
@@ -61,7 +67,7 @@ def once(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
             return {"ok": False, "reason": "Claude signal confirmation unavailable"}
         if not approved:
             return {"ok": False, "reason": f"Claude veto: {explanation[:60]}"}
-    quotes = market.quotes()
+    quotes = market.quotes(now_ms=now)
     if symbol not in quotes:
         return {"ok": False, "reason": "No valid TESTNET book"}
     bid, ask = quotes[symbol]

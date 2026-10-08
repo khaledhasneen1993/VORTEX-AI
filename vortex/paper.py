@@ -74,7 +74,7 @@ class PaperBroker:
         allowed, reason = self.gate.can_open(equity, len(self.positions))
         if not allowed:
             return False, reason
-        if now_ms - self.last_trade_ts.get(signal.symbol, 0) < self.cfg.cooldown_minutes * 60000:
+        if signal.symbol in self.last_trade_ts and now_ms - self.last_trade_ts[signal.symbol] < self.cfg.cooldown_minutes * 60000:
             return False, "cooldown"
         if not (0 < bid <= ask):
             return False, "invalid quote"

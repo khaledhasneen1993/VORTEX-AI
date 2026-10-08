@@ -41,6 +41,7 @@ def decimal_text(value: float) -> str:
 
 
 class TestnetGateway:
+    __test__ = False  # pytest must not treat service classes as test cases
     def __init__(self, key: str, secret: str, session=None, *,
                  armed: bool = False, clock=None):
         if not key or not secret:

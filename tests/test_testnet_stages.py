@@ -109,19 +109,15 @@ def test_unarmed_or_unconfirmed_state_cannot_send_partial(tmp_path):
     assert len(exchange.requests) == 1  # initial order only
 
 
-def test_flat_exchange_cleanup_does_not_cancel_unrelated_orders(tmp_path):
+def test_flat_testnet_read_halts_without_cancelling_any_protection(tmp_path):
     exchange = Exchange()
     supervisor = TestnetSupervisor(exchange, tmp_path / "journal.json")
     supervisor.enter(S, .100, F, 5)
+    old_orders = [o["clientAlgoId"] for o in exchange.algos]
     exchange.qty = 0
     with pytest.raises(ProtectionError):
-        supervisor.audit(may_flatten=False)
-    # Inspection mode halted intentionally; simulate operator creating a new
-    # clean journal for a separate fixture.
-    exchange = Exchange()
-    supervisor = TestnetSupervisor(exchange, tmp_path / "other.json")
-    supervisor.enter(S, .100, F, 5)
-    exchange.qty = 0
-    exchange.algos.append({"clientAlgoId": "manual_other", "orderType": "STOP_MARKET"})
-    assert supervisor.audit(may_flatten=True)["phase"] == "IDLE"
-    assert {x["clientAlgoId"] for x in exchange.algos} == {"manual_other"}
+        supervisor.audit(may_flatten=True)
+    assert supervisor.state["phase"] == "HALTED"
+    assert [o["clientAlgoId"] for o in exchange.algos] == old_orders
+    with pytest.raises(ProtectionError):
+        TestnetSupervisor(exchange, tmp_path / "journal.json").audit()

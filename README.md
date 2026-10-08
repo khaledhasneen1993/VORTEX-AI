@@ -1,4 +1,4 @@
-# VORTEX AI — Pre-Simulation Release Candidate
+# VORTEX AI — Canonical main: paper/testnet validation only
 
 Binance USDT-M futures multistrategy market scanner, persisted PAPER broker, strict historical replay, and a separate TESTNET-ONLY guarded exchange adaptor.
 
@@ -23,7 +23,7 @@ Binance USDT-M futures multistrategy market scanner, persisted PAPER broker, str
 
 ## Local developer install
 
-1. Clone https://github.com/khaledhasneen1993/VORTEX-AI and select the reviewed branch if PR #2 remains open.
+1. Clone https://github.com/khaledhasneen1993/VORTEX-AI and use the canonical main branch.
 2. Install Python 3.11+ and run: python -m pip install -e '.[dev]'
 3. Copy .env.example to .env, edit only locally (never publish keys).
 4. Run tests: python -m pytest -q
@@ -62,7 +62,8 @@ No production API keys are accepted in signed order paths. Testnet orders are ne
 
 Green mocked tests do NOT certify real exchange compatibility, fund safety, live uptime or future profit. External real-world gates remain: signed TESTNET order integration, edge-case partial-fill/trigger testing, actual public WS latency/resume, month-scale portfolio results, forward PAPER trial, model training and independent security review before separate REAL-money code may even be considered.
 
-Details: docs/COMPLIANCE_MATRIX.md and docs/REVIEW.md.
+Details: docs/COMPLIANCE_MATRIX.md and docs/ACCEPTANCE_STATUS.md.
+
 ## Latest risk/accuracy acceptance changes
 
 - Historic UTC daily loss baselines reset before a day's first entry in BOTH individual and synchronized portfolio replay. An already-triggered halt stays latched.
@@ -72,3 +73,7 @@ Details: docs/COMPLIANCE_MATRIX.md and docs/REVIEW.md.
 - A partially filled TESTNET emergency reduction remains a HALTED state until manual reconciliation; it is never automatically repeated.
 - Concurrent PAPER workers and TESTNET signing processes using one state directory are blocked with POSIX `flock` (Linux, Termux and Linux Docker). Stateful operation requires POSIX locking and is not supported natively on Windows.
 - For a complete pre-simulation honesty/acceptance review, read **docs/ACCEPTANCE_STATUS.md**. Passing mocked tests does not certify real Testnet orders or production trading.
+
+## Version and build retention
+
+Only `main` is maintained. The CI publishes no binary artifacts or releases. It retains the latest successful main workflow run; older run records and unchanged, merged feature branches are pruned by the main workflow after the quality checks succeed. Git commit history remains available for source recovery.

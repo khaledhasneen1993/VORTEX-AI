@@ -1,6 +1,6 @@
 # VORTEX AI — strict four-source compliance matrix
 
-Audit target: current main plus acceptance fixes in PR #3. Compare the exact commit and GitHub Actions SHA before using.
+Audit target: canonical main branch only. The merged prior branches have been superseded; review git history if needed.
 This document distinguishes IMPLEMENTED CODE from VERIFIED LIVE PERFORMANCE. Historical UTC daily drawdown, marked open positions, signed Testnet emergency-close confirmation, REST/WS freshness checks and single-writer locks were strengthened in PR #3.
 No proprietary/private bot source code has been copied into VORTEX.
 

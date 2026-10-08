@@ -24,7 +24,7 @@ def test_environment_defaults_and_all_controls(monkeypatch):
     assert defaults.trailing_atr_mult == 1.0
     assert defaults.max_positions == 3
     assert defaults.max_margin_fraction == pytest.approx(0.25)
-    assert defaults.max_daily_loss == pytest.approx(0.05)
+    assert defaults.max_daily_loss == pytest.approx(0.50)
     assert defaults.max_consecutive_losses == 5
 
     monkeypatch.setenv("RISK_PER_TRADE", "0.10")
@@ -107,7 +107,8 @@ def test_margin_cap_dominates_without_forcing_full_ten_percent_loss():
 def test_daily_stop_and_consecutive_losses_preserved():
     cfg = Settings()
     gate = RiskGate(cfg, 1000)
-    assert not gate.can_open(949, 0)[0]
+    assert gate.can_open(501, 0)[0]
+    assert not gate.can_open(500, 0)[0]
     assert gate.blocked
     second = RiskGate(cfg, 1000)
     for _ in range(5):
@@ -134,7 +135,7 @@ def test_risk_gates_cannot_be_relaxed_through_environment(monkeypatch):
     with pytest.raises(ValueError):
         Settings(max_margin_fraction=.251)
     with pytest.raises(ValueError):
-        Settings(max_daily_loss=.051)
+        Settings(max_daily_loss=.501)
     with pytest.raises(ValueError):
         Settings(max_consecutive_losses=6)
 
@@ -159,3 +160,20 @@ def test_no_martingale_and_margin_reduces_additional_trade_size():
     assert constrained[0] < first[0]
     assert constrained[1] <= 20 + 1e-8
     assert size_trade(sig, 1000, cfg, F, committed_margin=250) is None
+
+
+
+def test_daily_loss_fifty_percent_env_threshold_and_latch(monkeypatch):
+    from vortex.config import Settings
+    from vortex.risk import RiskGate
+    monkeypatch.setenv("MAX_DAILY_LOSS", "0.50")
+    cfg = Settings.from_env()
+    assert cfg.max_daily_loss == pytest.approx(.50)
+    gate = RiskGate(cfg, 1000.)
+    assert gate.can_open(501., 0) == (True, "ok")
+    assert gate.can_open(500., 0) == (False, "daily loss circuit breaker")
+    assert not gate.can_open(1000., 0)[0]  # halt stays latched
+    with pytest.raises(ValueError, match="Daily loss"):
+        Settings(max_daily_loss=.501)
+    with pytest.raises(ValueError, match="Daily loss"):
+        Settings(max_daily_loss=0)

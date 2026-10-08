@@ -7,7 +7,7 @@ services:
       - .env
     command: ["paper"]
     volumes:
-      - ./data:/app/data
+      - vortex-data:/app/data
     read_only: true
     tmpfs:
       - /tmp
@@ -15,3 +15,6 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+
+volumes:
+  vortex-data:

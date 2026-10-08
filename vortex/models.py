@@ -51,3 +51,6 @@ class Position:
     peak: float = 0.0
     tp1_done: bool = False
     tp2_done: bool = False
+    step: float = 0.0
+    accumulated_net: float = 0.0
+    filled_stage_count: int = 0

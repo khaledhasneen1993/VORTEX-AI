@@ -3,12 +3,12 @@
 Status: **PRE-SIMULATION CODE REVIEW**. No production trading is authorized.
 
 ## Implemented modules
-- [x] Four independent strategy voters, TWO-vote confluence, completed 1h macro
+- [x] Four independent strategy voters, TWO-vote confluence, completed hourly EMA50/EMA200 macro
 - [x] Funding/OI vote requires real, timestamped and time-separated public derivatives
 - [x] Liquidity/momentum candidate radar with opt-in compatibility gate
-- [x] Paper quarter TP1/TP2 + inward-only trailing, mirrored in OHLC replay
+- [x] Paper quarter TP1/TP2 + inward-only trailing, mirrored in OHLC replay. Entry stop 1.5 ATR and terminal target 4.5 ATR (3R).
 - [x] Paper position entry features + one completed-roundtrip ML training label
-- [x] Fixed Binance 2026 /public/stream bookTicker route
+- [x] Fixed Binance 2026 /public/stream bookTicker route and added real exchange event-time freshness/order checks
 - [x] Python package, CLI, CI test suite
 - [x] Optional Binance WebSocket bid/ask with staleness rejection
 - [x] Optional real depth/aggregate trade flow filter; no invented whale classifications
@@ -26,7 +26,7 @@ Status: **PRE-SIMULATION CODE REVIEW**. No production trading is authorized.
 - [ ] Verify the four-voter signal frequency and parameter robustness on observed historical candles (no simulation performed yet)
 - [ ] Archive historical funding and open-interest data to include vote #4 in backtests; current OHLC replay omits vote #4
 - [ ] Real-time integration validation for dynamic radar and WebSocket on actual Binance public streams
-- [ ] Extend testnet order management to paper-equivalent TP1/TP2 and trailing only after protected replace/cancel lifecycle is tested
+- [x] Implement Testnet-only TP1/TP2, guarded reduce-only fills and replacement stop create-verify-before-cancel **in code/mocks only**; genuine TESTNET order validation remains a separate gate
 - [ ] Model historical opportunity ranking and microstructure with honest archived depth/trades (currently unavailable)
 - [ ] Genuine TESTNET signed API/order integration with testnet-only keys
 - [ ] Exchange partial-fill, timeout and liquidation edge cases on a running testnet account

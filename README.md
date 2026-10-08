@@ -127,3 +127,28 @@ always cap the **effective** trading leverage at **5x**. Values above
 `MAX_POSITIONS=3`, `MAX_MARGIN_FRACTION=0.25`, `MAX_DAILY_LOSS=0.05` or
 `MAX_CONSECUTIVE_LOSSES=5` are rejected by `Settings` instead of loosening
 the approved protections.
+
+## Current end-to-end verification
+
+The canonical Settings defaults are `risk_per_trade=0.10`,
+`max_leverage=5`, `strict_votes=True`, `min_strong_score=7`,
+and `trailing_atr_mult=1.0`. `Settings.from_env()` reads their
+`.env` equivalents and rejects 0.15 trade risk or Live mode.
+
+Execution safeguards: conservative SHORT stop-side fee/slippage budgets,
+updated ATR from completed PAPER candles before managing already-open
+positions, and preservation of all voted/ATR signal metadata on TESTNET
+repricing. On a tick through the terminal 4.5 ATR target, the entire
+remaining PAPER position exits at the executable quote rather than
+delaying the final exit behind staged profit-taking.
+
+Use local commands:
+```bash
+python -m pytest -q
+vortex paper --once
+vortex portfolio-backtest --days 30
+```
+
+**Genuine Binance TESTNET execution remains unverified**, and the 5% daily
+breaker cannot guarantee that an individual 10%-risk position loses
+no more than 5%. PAPER and historical simulation are not proof of profit.

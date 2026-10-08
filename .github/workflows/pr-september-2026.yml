@@ -1,0 +1,28 @@
+name: September 2026 genuine market backtest
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  september:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install identical VORTEX engine
+        run: python -m pip install -e '.[dev]'
+      - name: Check strategy tests
+        run: python -m pytest -q
+      - name: Download September 2026 OHLC, reject missing bars, simulate 6 symbols
+        run: python -m tools.september_2026_portfolio --output data/backtests/september_2026.json
+      - name: Publish full transaction report
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vortex-2026-09-paper-backtest
+          path: data/backtests/september_2026.json
+          retention-days: 14

@@ -196,25 +196,9 @@ class TestnetSupervisor:
         sym, side = self.state["symbol"], self.state["side"]
         amount = self.api.position(sym)
         if not amount:
-            # If exchange closed position, orphan conditional orders may remain.
-            algos = self.api.open_algos(sym)
-            own = [o for o in algos if o.get("clientAlgoId") in
-                   {self.state.get("stop_id"), self.state.get("take_id")}]
-            if own:
-                if not may_flatten:
-                    self.halt("Flat but orphan TP/SL exists; manual cleanup required")
-                # Only cancel the two recorded orders when the exchange is FLAT.
-                for o in own:
-                    try:
-                        self.api.cancel_algo(o["clientAlgoId"])
-                    except (ExchangeRejected, ExchangeUncertain):
-                        self.halt("Flat orphan cancellation uncertain; reconcile manually")
-                if any(o.get("clientAlgoId") in {self.state.get("stop_id"), self.state.get("take_id")}
-                       for o in self.api.open_algos(sym)):
-                    self.halt("Orphan protective orders remain")
-            self.persist(phase="IDLE", entry_id=None, symbol=None, side=None,
-                         stop_id=None, take_id=None, close_id=None, reason="Exchange flat")
-            return {"ok": True, "phase": "IDLE"}
+            # Zero/missing position rows can be briefly stale. NEVER cancel protective
+            # orders or reset the journal based on a single unsigned-timing assumption.
+            self.halt("TESTNET position appears flat: inspect exchange fills and remaining protective orders manually")
         if not self.verify_protection(sym, side):
             if may_flatten:
                 self.emergency_flatten(sym)

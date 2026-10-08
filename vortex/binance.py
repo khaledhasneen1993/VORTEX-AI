@@ -67,7 +67,16 @@ class Market:
             raise MarketError("Non-monotone candles; reject market data")
         return closed
 
-    def quotes(self) -> dict[str, tuple[float, float]]:
+    def quotes(self, *, now_ms: int | None = None,
+               max_age_ms: int = 4000) -> dict[str, tuple[float, float]]:
+        """Return ONLY fresh exchange-timestamped executable REST quotes.
+
+        Do not silently accept a stale cached bookTicker from an idle contract.
+        The USD-M endpoint publishes exchange transaction time in `time`.
+        """
+        if not 500 <= max_age_ms <= 10000:
+            raise ValueError("Invalid market data freshness bound")
+        now = self.server_ms() if now_ms is None else now_ms
         raw = self.get("/fapi/v1/ticker/bookTicker")
         if isinstance(raw, dict):
             raw = [raw]
@@ -75,7 +84,9 @@ class Market:
         for row in raw:
             try:
                 bid, ask = float(row["bidPrice"]), float(row["askPrice"])
-                if bid > 0 and ask >= bid:
+                event_ms = int(row["time"])
+                lag = now - event_ms
+                if 0 < bid <= ask and -1000 <= lag <= max_age_ms:
                     out[row["symbol"]] = (bid, ask)
             except (KeyError, ValueError, TypeError):
                 continue

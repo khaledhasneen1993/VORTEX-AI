@@ -8,7 +8,7 @@ No proprietary/private bot source code has been copied into VORTEX.
 
 - DONE: EMA/RSI/ATR/ADX and relative-volume signal scoring, protective stop/target policy, per-trade sizing, daily risk halt.
 - DONE in paper and OHLC replay: stage TP1 at 1R for 25% original size, TP2 at 1.5R for 25%, break-even stop after TP1, then trailing remaining exposure once 2R favorable reached; best-quote fill versus OHLC stop-first fill modeling.
-- NOT done on Binance testnet: live order replacement and partial exits. Testnet supports single guarded entry plus server-side close-all stop/target only; there is no autonomous order manager for multiple production trades.
+- TESTNET staged exits now implemented under an *explicitly armed guardian* for a single commissioned position. It uses confirmed reduce-only partial fills and replacement STOP create-verify-before-cancel. NOT yet proven with real testnet credentials, order latency, outage or mark-price trigger behavior.
 - Deliberately NOT inherited: disabled daily loss breaker, unverified win-rate claims, unsafe cancel-before-replace of stops.
 
 ## Source 2 — Professional Quantitative Trading Bot
@@ -24,7 +24,7 @@ No proprietary/private bot source code has been copied into VORTEX.
 - DONE: ATR-based exits and an offline logistic classifier training workflow with purged time-ordered holdout validation; an unvalidated model is rejected.
 - DONE: entry-time feature recording with final closed PAPER round-trip labels; partial executions are journaled separately to prevent duplicate training labels.
 - NOT trained: no 250+ independent labeled trade outcomes exist as of this review. An ML feature is NOT proof that useful predictive AI is active.
-- NOT implemented: Claude or another LLM as autonomous market confirmation. That remains outside production trade permission until independently validated.
+- Implemented optional Claude API veto with strict JSON schema, bounded timeout, no financial/account credentials exposed in the prompt, and no risk/size/stop authority. Disabled by default; cannot be validated without the user's own API key.
 
 ## Source 4 — StrikeChart
 

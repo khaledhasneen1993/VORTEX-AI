@@ -7,7 +7,7 @@ name = "vortex-ai"
 version = "0.1.0"
 description = "Risk-first aggressive Binance USD-M Futures paper trading engine"
 requires-python = ">=3.11"
-dependencies = ["requests>=2.31,<3", "python-dotenv>=1.0,<2"]
+dependencies = ["requests>=2.31,<3", "python-dotenv>=1.0,<2", "websocket-client>=1.8,<2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "ruff>=0.9,<1"]

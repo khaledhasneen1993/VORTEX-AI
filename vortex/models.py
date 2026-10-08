@@ -1,6 +1,6 @@
 """Domain objects; timestamp is Binance candle opening time in milliseconds."""
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,7 @@ class Signal:
     target: float
     score: int
     reason: str
+    features: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -44,3 +45,12 @@ class Position:
     qty: float
     entry_fee: float
     margin: float
+    features: dict[str, float] = field(default_factory=dict)
+    initial_qty: float = 0.0
+    initial_risk: float = 0.0
+    peak: float = 0.0
+    tp1_done: bool = False
+    tp2_done: bool = False
+    step: float = 0.0
+    accumulated_net: float = 0.0
+    filled_stage_count: int = 0

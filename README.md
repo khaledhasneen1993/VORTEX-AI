@@ -1,72 +1,65 @@
-# VORTEX AI — Binance Futures aggressive *paper* engine
+# VORTEX AI — Pre-Simulation Release Candidate
 
-VORTEX AI v0.1 is an original Python 3.11 project built around the ideas of fast market surveillance, independent risk controls and honest testing. **It does not trade real money.** No exchange keys are needed. "AI" is a project name, **not** a claim of trained AI predicting prices.
+Binance USDT-M futures multistrategy market scanner, persisted PAPER broker, strict historical replay, and a separate TESTNET-ONLY guarded exchange adaptor.
 
-## Current functionality
+**No real-money/production order route exists. No historical performance simulation or real Testnet API-order integration was run while preparing this release. Profitability is unknown.**
 
-- Binance USD-M PERPETUAL public market data for up to six configurable USDT pairs.
-- Deterministic 5m breakout + momentum / trend filter: EMA(9/21), RSI(7), ADX(14), ATR(14), relative volume, 15m EMA confirmation.
-- Live quote spread filter, signal age limit, adverse-move rejection and per-symbol cooldown.
-- Market-order-style paper fills at bid/ask plus configurable adverse slippage; taker fees on entry and exit.
-- Risk-weighted position sizing; respects exchange MARKET_LOT_SIZE, step size, min quantity and MIN_NOTIONAL.
-- Per-trade risk budget (default 1% of equity), 5x notional leverage **simulation**, 25% total margin allowance, max three positions; 5% daily loss breaker, five successive losses circuit breaker.
-- Durable paper portfolio snapshots and JSONL journal of closed trades.
-- Single-symbol OHLC backtest using next-bar open, conservative stop-first ties, fees and slippage.
-- Tests in GitHub Actions and a nonroot Docker image.
+## Strategy — four independent voters
 
-**Important limitations:** NOT order-ready for real Binance trading; no API order signing, server-side STOP_MARKET orders, reconciliation or emergency liquidation. Paper stops depend on polling uptime and may slip. No user-data WebSocket, streaming depth, real liquidation tape, trained ML/Claude model, multi-symbol portfolio backtest, funding payments, or dashboard authentication. Actual return and win rate are **unknown** until tested. A GitHub repository does not host a bot 24/7.
+- Hourly completed EMA **50/200** market regime and 15m EMA/MACD/ADX trend.
+- Five-minute mean reversion (Bollinger/RSI/VWAP) with real completed **1-minute RSI divergence and Stochastic RSI** confirmation.
+- Five-minute volume breakout with directional OBV and relative volume.
+- Live extreme funding-rate fade using authentic Binance premiumIndex and two independent, time-separated open-interest readings. Unavailable readings ABSTAIN.
+- At least **TWO independent LONG or SHORT strategy votes** must agree. Hourly macro cannot oppose the decision.
+- Optional liquid-mover radar (top 12), order-book/taker-flow filter, and exchange-timestamp-validated WebSocket bookTicker quotes.
+- Optional Claude review (veto-only, no order/risk authority). Optional local logistic ML model needs real trade labels and chronological holdout validation.
 
-## Quick start (Linux / Windows / Termux with Python 3.11+)
+## Risk and exits
 
-```sh
-git clone https://github.com/khaledhasneen1993/VORTEX-AI.git
-cd VORTEX-AI
-python -m pip install -e .
-cp .env.example .env
-vortex status
-vortex backtest --symbol BTCUSDT --days 30
-vortex paper --once
-vortex paper
-# On another shell, to open a localhost-only paper dashboard:
-vortex dashboard --port 8765
-```
+- Default 1% risk per trade, max three concurrent PAPER positions, 5x modeled leverage, total margin cap 25%. No martingale.
+- Halt new PAPER entries after five consecutively losing completed positions or daily portfolio drawdown >=5%.
+- PAPER and OHLC replay: 25% TP1 at +1R, 25% TP2 at +1.5R, inward-only stop to breakeven after TP1 and tighter trailing after +2R. The remaining position exits at stop or main target.
+- TESTNET commissioning: manually armed, single-entry position with exchange-side STOP_MARKET and TAKE_PROFIT_MARKET via Algo Orders. The armed guardian supports exchange-confirmed reduce-only quarter exits and create-verify-before-cancel stop replacement. Uncertain writes persist and require manual reconciliation. It has NOT been verified using a real Testnet API account.
 
-If using Termux, install Python and git first. On Windows copy the example file with the File Explorer or PowerShell.
+## Local developer install
 
-Change settings in `.env` BEFORE first paper run. **Never** upload `.env` to GitHub. Keys are unnecessary and ignored in v0.1. `RUN_MODE=live` deliberately fails.
+1. Clone https://github.com/khaledhasneen1993/VORTEX-AI and select the reviewed branch if PR #2 remains open.
+2. Install Python 3.11+ and run: python -m pip install -e '.[dev]'
+3. Copy .env.example to .env, edit only locally (never publish keys).
+4. Run tests: python -m pytest -q
+5. PAPER status: vortex status; readonly local dashboard: vortex dashboard
 
-## Run with Docker on a VPS
+## Commands (not run while building this release)
 
-```sh
-cp .env.example .env
-docker compose up -d --build
-docker compose logs -f vortex
-```
+- vortex paper --once — read public Binance prices and run ONE paper polling cycle
+- vortex paper — continuous PAPER scanner on YOUR own host
+- vortex backtest --symbol BTCUSDT --days 30 — honest one-symbol historical OHLC test
+- vortex portfolio-backtest --days 30 — multi-symbol historical OHLC test
+- vortex train-ai --dataset data/closed_trades.jsonl — requires 250+ genuinely completed labeled PAPER positions
 
-A running, network-connected host is required. Keep the persistent `data` volume safe. Inside Docker, `docker compose exec vortex vortex status` reads its persistent named `vortex-data` volume. In a local Python installation, `vortex status` reads `data/paper_state.json`; journal is `data/closed_trades.jsonl`. Paper equity is separate from real Binance account equity.
+Backtests may download tens of thousands of completed 1m candles per symbol; Binance throttling can slow or block requests. Historical data cannot recreate live funding/open-interest snapshots, dynamic radar selection or historical orderbook/taker-fill data from OHLC alone, so these live filters are not counted as historically validated. No market returns are claimed.
 
-## Strategy
+## TESTNET-only commissioning (may place orders with FAKE funds)
 
-- Entry candidate: last fully closed 5m bar breaks preceding 12-bar high/low, aligns with both EMA trends (5m, 15m), ADX >=18, relative volume >=1.15x, ATR volatility within bounds and RSI direction filter.
-- Score >=5 for a candidate; upper-timeframe bars cannot contain future data.
-- Stop = 1.5 ATR and target = 2.5 ATR relative to the signal. At fill, distances are preserved and adapted to actual simulated entry price.
-- No martingale, no averaging into a loser, no leverage increase on losses.
+Keep credentials in local environment, never GitHub: VORTEX_TESTNET_KEY and VORTEX_TESTNET_SECRET issued for Binance TESTNET ONLY.
 
-## Risk and model accuracy
+- vortex testnet-doctor — read-only check of isolated/one-way Testnet account
+- Set VORTEX_TESTNET_ARM=TESTNET_ONLY and run vortex testnet-once --symbol BTCUSDT --ack-testnet only after reviewing the safeguards.
+- vortex testnet-watch --ack-testnet — explicitly armed active TESTNET watchdog, may reduce open testnet positions and update protective STOP orders.
 
-Risk is estimated using stop distance PLUS round-trip taker fee and slip budget. Real loss can exceed the budget on a gap, outage or liquidation. The 5x factor changes notional exposure but does not multiply profits for free. The risk circuit breaker *latches*; it requires an intentional process restart. After restarting, risk limits persist from state; do not delete the state to bypass a halt. Cooling rules and exchange filters are applied before every new paper trade.
+No production API keys are accepted in signed order paths. Testnet orders are never fired by running tests or starting the paper server. Avoid deleting or bypassing the persistent testnet order journal after an uncertain write.
 
-Backtesting cannot prove future profitability and excludes funding, mark-price triggers, spreads from historical order books, gap liquidity, maintenance margin and liquidation. Report open positions separately from closed profits. Backtest is single-symbol; it is NOT valid as a multi-symbol portfolio return. Historical candles can be fetched for up to 45 days with `--days 30` (includes a 2-day warmup).
+## Optional configuration
 
-## Deployment and verification checklist
+- USE_WEBSOCKET=true — fixed-symbol public book quotes, reject out-of-order and stale exchange event time.
+- USE_RADAR=true — liquid/fast-mover discovery (mutually exclusive with fixed-symbol WebSocket in current code).
+- USE_MICROSTRUCTURE=true — real public depth and aggressor flow check.
+- USE_CLAUDE=true — requires ANTHROPIC_API_KEY and optional VORTEX_CLAUDE_MODEL, veto-only; errors skip the signal.
+- USE_AI_MODEL=true — requires a genuinely validated model in the private data directory. Invalid/missing model aborts the runner.
+- Telegram alerting: VORTEX_TELEGRAM_TOKEN, VORTEX_TELEGRAM_CHAT_ID; keep both secret.
 
-1. Confirm GitHub Actions compilation + all tests are green.
-2. Test with a month of historical bars (paginated history is **not** yet supported; backtest limit is 1500 bars).
-3. Run paper 24/7 on a real host with a persistent writable data volume and capture signal/exit timestamps for weeks.
-4. Confirm ticker freshness, alerting, exchange connection failures, fee schedule, drawdowns and crash recovery.
-5. Implement and independently test exchange-side exits, order reconciliation, position mode, liquidation checks and kill-switches on Binance **testnet**.
-6. Only after successful testnet operation consider an explicitly enabled, separately reviewed production adapter.
+## Acceptance limitations
 
-## Attribution
+Green mocked tests do NOT certify real exchange compatibility, fund safety, live uptime or future profit. External real-world gates remain: signed TESTNET order integration, edge-case partial-fill/trigger testing, actual public WS latency/resume, month-scale portfolio results, forward PAPER trial, model training and independent security review before separate REAL-money code may even be considered.
 
-This repository contains independently written code, informed by architecture ideas in previously reviewed Neko Futures Trader, Professional Quantitative Bot, Futures AI Bot and StrikeChart. No third-party source files are copied. Data provided by Binance public USD-M endpoints. All strategies are experimental.
+Details: docs/COMPLIANCE_MATRIX.md and docs/REVIEW.md.

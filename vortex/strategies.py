@@ -146,12 +146,13 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
         ("LONG", longs, shorts, trend == -1),
         ("SHORT", shorts, longs, trend == 1),
     ):
-        if macro_opposition or other or not group:
+        if macro_opposition or not group:
             continue
-        if len(group) >= 2 and score >= min_score:
+        # Preserve the original two-vote majority rule (e.g. 2:1).
+        if len(group) >= 2 and len(group) > len(other) and score >= min_score:
             side, agreed = direction, group
             break
-        if (not strict_votes and len(group) == 1 and
+        if (not strict_votes and len(group) == 1 and not other and
                 score >= max(min_score, min_strong_score) and
                 (relative_vol >= 1.5 or a >= 25)):
             side, agreed = direction, group

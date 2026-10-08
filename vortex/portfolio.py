@@ -56,6 +56,16 @@ def run_portfolio(
     for i, ts in enumerate(stamps):
         bar = {s: by_symbol[s][ts] for s in symbols}
         slip = config.slippage_bps / 10_000
+        # UTC risk reset occurs BEFORE next-bar entries. Previous-day losses
+        # cannot be mistaken for current-day drawdowns.
+        opening_equity = wallet + sum(
+            (bar[s].open - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
+            - bar[s].open * p.qty * config.fee_rate for s, p in active.items())
+        risk.new_day(datetime.fromtimestamp(ts / 1000, timezone.utc).date().isoformat(),
+                     opening_equity)
+        risk.can_open(opening_equity, len(active))
+        if risk.blocked:
+            break
         # The decision to enter is from the *previous completed* candle.
         for sym, sig in sorted(list(pending.items()), key=lambda p: -p[1].score):
             if sym in active:
@@ -118,7 +128,6 @@ def run_portfolio(
             - bar[s].close * p.qty * config.fee_rate for s, p in active.items())
         highwater = max(highwater, equity)
         maxdd = max(maxdd, (highwater - equity) / highwater if highwater else 0)
-        risk.new_day(datetime.fromtimestamp(ts / 1000, timezone.utc).date().isoformat(), equity)
         if not risk.can_open(equity, len(active))[0] and risk.blocked:
             break
         # After bar close, queue signals for next bar only; forbid final-bar entries.

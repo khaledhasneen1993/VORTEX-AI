@@ -88,3 +88,30 @@ execution. Read README.md for CLI usage.
   every trading execution is additionally limited to **5x**. No more than
   three positions, 25% aggregate margin, 5% daily drawdown breaker, or five
   consecutive losses can be configured.
+
+## Final end-to-end audit of the 10% settings
+
+- [x] `Settings.from_env()` returns real fields for `risk_per_trade=0.10`,
+  `max_leverage=5`, `strict_votes=true`, `min_strong_score=7`,
+  `trailing_atr_mult=1.0`. A trade-risk value over 0.10, non-finite
+  configuration, and `RUN_MODE=live` are rejected.
+- [x] Effective sizing caps leverage at 5x, aggregate margin at 25%,
+  and conservative STOP-side round-trip fees/slippage inside the 10%
+  maximum modeled loss budget (including SHORT stops above entry).
+- [x] PAPER refreshes ATR from the latest completed candles for open
+  positions **before** evaluating exits, with the last observed ATR
+  preserved if market-data refresh is unavailable.
+- [x] Repriced PAPER/TESTNET entry signals preserve vote IDs, technical
+  indicator features and signal ATR. In TESTNET this supplies the staged
+  trailing engine with its real, entry-time ATR.
+- [x] A PAPER tick beyond the 4.5-ATR final target exits the entire
+  remaining position instead of deferring to 25% partial orders.
+- [x] Manual TESTNET supervisor rejects attempts above 5x, and if the
+  exchange position disappears between audit and a staged update,
+  HALTS for manual reconciliation instead of silently skipping it.
+- [x] Regression tests include environment parsing, rejected 0.15 risk,
+  effective 5x exposure, conservative SHORT stop costs, live-mode rejection,
+  PAPER completed-ATR refresh and TESTNET metadata preservation.
+- [ ] **Genuine TESTNET signed order integration still unverified.**
+  No TESTNET credentials have been connected or orders issued here.
+- [ ] No production trading or real-money Live mode exists.

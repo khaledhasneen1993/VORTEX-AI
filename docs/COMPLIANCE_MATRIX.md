@@ -14,9 +14,9 @@ No proprietary/private bot source code has been copied into VORTEX.
 ## Source 2 — Professional Quantitative Trading Bot
 
 - DONE: four independent voted strategies — trend following, mean reversion, volume breakout and timestamped funding + open-interest fade — requiring TWO independent agreement votes before taking a signal.
-- DONE: 1h completed macro trend gate, 15m confirmation, market-data-only funding and OI snapshots when available; otherwise funding strategy abstains.
+- DONE: completed 1h EMA50/EMA200 macro trend gate, 15m confirmation, market-data-only funding and OI snapshots when available; otherwise funding strategy abstains.
 - DONE: shared risk gates, ledger and multi-symbol OHLC portfolio replay.
-- PARTIAL: strategy performance weighting is NOT enabled; no trustworthy evidence yet for adaptive weights.
+- PARTIAL: strategy performance weighting is intentionally NOT enabled without genuine out-of-sample evidence. One-minute RSI divergence and StochRSI now confirm the mean-reversion vote; historical 1m data is downloaded independently.
 - LIMITATION: funding/OI strategy cannot be historically replayed by current OHLC backtester because the required historical derivative snapshots are not recorded. Therefore historical performance evaluates the first 3 strategies only; NEVER claim complete parity with live funding filtering.
 
 ## Source 3 — Binance Futures AI Bot
@@ -37,7 +37,7 @@ No proprietary/private bot source code has been copied into VORTEX.
 
 - RUN_MODE remains paper/backtest only. Production funds MUST NOT be wired to repo.
 - TESTNET is an explicitly armed single-entry commissioning path and MUST be verified against the actual exchange before use.
-- Current testnet order manager does not support autonomous staged trailing like paper mode; do not call the two equivalent.
+- TESTNET now has a guarded, explicitly armed single-position staged TP1/TP2 and tighter stop replacement, but this order lifecycle has only MOCK validation and no TESTNET integration evidence. It is NOT yet an autonomous multi-position production engine.
 - No actual market simulation, real testnet orders, server deployment or model fitting has occurred in this development review.
 - Before simulation: verify recorded signal counts on actual historical candles, then record fee/slippage sensitivity and forward paper fills.
 - Only TESTNET-issued credentials; never commit tokens to GitHub.

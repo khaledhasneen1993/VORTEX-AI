@@ -12,11 +12,11 @@ from vortex.models import Candle
 from vortex.binance import Market
 
 DAY = 86_400_000
-START = int(datetime(2026, 10, 8, 20, tzinfo=timezone.utc).timestamp() * 1000)
+START = int(datetime(2026, 10, 8, 10, tzinfo=timezone.utc).timestamp() * 1000)
 FILTERS = Filters(.001, .001, 5., .01)
 
 
-def bars(n=80, start=START, step=300000):
+def bars(n=200, start=START, step=300000):
     return [Candle(start + i*step, 100., 101., 99., 100., 100.,
                    start + (i+1)*step - 1) for i in range(n)]
 

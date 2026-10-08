@@ -101,6 +101,15 @@ class TestnetSupervisor:
                                   abs(amount), close_id, reduce_only=True)
         except (ExchangeUncertain, ExchangeRejected) as exc:
             self.halt(f"EMERGENCY CLOSE UNCERTAIN: {type(exc).__name__}; operator must reconcile")
+        try:
+            remaining = abs(self.api.position(symbol))
+        except (ExchangeUncertain, ExchangeRejected, ValueError, KeyError):
+            self.halt("EMERGENCY CLOSE unconfirmed: exchange position read failed")
+        # The first fill acknowledgement is NOT proof that the exchange is flat.
+        # Never issue a second market order after an ambiguous partial result.
+        if remaining > 1e-12:
+            self.halt("EMERGENCY CLOSE partially filled: MANUAL POSITION RECONCILIATION REQUIRED")
+        self.persist(reason="Emergency close exchange-flat confirmed; HALTED until manual review")
 
     def enter(self, signal: Signal, qty: float, filt: Filters, leverage: int) -> dict:
         if self.state["phase"] != "IDLE":

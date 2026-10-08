@@ -164,7 +164,7 @@ def main() -> None:
             "max_positions": cfg.max_positions,
             "max_margin_fraction": cfg.max_margin_fraction,
             "max_daily_loss": cfg.max_daily_loss,
-            "max_consecutive_losses": cfg.max_consecutive_losses,
+            "consecutive_loss_breaker_enabled": False,
             "strict_votes": cfg.strict_votes,
             "min_strong_score": cfg.min_strong_score,
             "trailing_atr_mult": cfg.trailing_atr_mult,

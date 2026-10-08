@@ -9,6 +9,8 @@ from bisect import bisect_right
 from datetime import datetime, timezone
 from .models import Candle, Signal, Position
 from .exits import levels_for_bar
+from .indicators import atr
+from .reports import summary
 from .config import Settings
 from .risk import Filters, RiskGate, size_trade
 from .strategy import analyze
@@ -54,6 +56,7 @@ def run_portfolio(
     maxdd = 0.0
     fees_total = 0.0
     ending_equity = wallet
+    curve: list[dict] = [{"ts": stamps[0], "equity": wallet}]
     for i, ts in enumerate(stamps):
         bar = {s: by_symbol[s][ts] for s in symbols}
         slip = config.slippage_bps / 10_000
@@ -66,9 +69,11 @@ def run_portfolio(
                      opening_equity)
         risk.can_open(opening_equity, len(active))
         if risk.blocked:
-            break
+            pending.clear()  # keep managing open stops, but prohibit new entries
         # The decision to enter is from the *previous completed* candle.
         for sym, sig in sorted(list(pending.items()), key=lambda p: -p[1].score):
+            if risk.blocked:
+                break
             if sym in active:
                 del pending[sym]
                 continue
@@ -94,12 +99,19 @@ def run_portfolio(
                 fees_total += fee
                 wallet -= fee
                 active[sym] = Position(sym, sig.side, ts, px, new.stop, new.target, qty, fee, margin,
-                                       initial_qty=qty, initial_risk=gap, peak=px, step=filters[sym].step)
+                                       initial_qty=qty, initial_risk=gap, peak=px,
+                                       step=filters[sym].step, votes=list(sig.votes),
+                                       atr_value=sig.atr_value or gap / 1.5,
+                                       initial_stop=new.stop, initial_target=new.target)
             del pending[sym]
         # Same staged-exit engine as paper; OHLC stop wins intrabar ties.
         for sym, p in list(active.items()):
             b = bar[sym]
-            for action in levels_for_bar(p, b.low, b.high, b.open):
+            last_bars = [by_symbol[sym][stamp] for stamp in stamps[max(0, i-50):i]]
+            prev_atr = atr(last_bars) if len(last_bars) >= 16 else None
+            for action in levels_for_bar(p, b.low, b.high, b.open,
+                                         atr_value=prev_atr,
+                                         trailing_atr_mult=config.trailing_atr_mult):
                 px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
                 proportion = action.qty / p.qty
                 entry_fee = p.entry_fee * proportion
@@ -119,6 +131,9 @@ def run_portfolio(
                                    "entry_ts": p.opened_ts, "exit_ts": ts,
                                    "entry": round(p.entry, 8), "exit": round(px, 8),
                                    "net_pnl": round(final_net, 8),
+                                   "r_multiple": round(final_net / (p.initial_qty * p.initial_risk), 6)
+                                                 if p.initial_qty * p.initial_risk > 0 else None,
+                                   "votes": list(p.votes),
                                    "reason": action.reason})
                     cool[sym] = ts + config.cooldown_minutes * 60_000
                     del active[sym]
@@ -129,9 +144,12 @@ def run_portfolio(
             - bar[s].close * p.qty * config.fee_rate for s, p in active.items())
         highwater = max(highwater, equity)
         ending_equity = equity
+        curve.append({"ts": bar[symbols[0]].close_ts, "equity": round(equity, 6)})
         maxdd = max(maxdd, (highwater - equity) / highwater if highwater else 0)
-        if not risk.can_open(equity, len(active))[0] and risk.blocked:
-            break
+        risk.can_open(equity, len(active))
+        if risk.blocked:
+            pending.clear()
+            continue  # continue monitoring stops, never open new positions
         # After bar close, queue signals for next bar only; forbid final-bar entries.
         if i + 1 >= len(stamps):
             continue
@@ -146,21 +164,28 @@ def run_portfolio(
                 macro_upper = macro[sym][max(0, m_end-250):m_end]
             else:
                 macro_upper = None
+            vote_options = ({"strict_votes": config.strict_votes,
+                             "min_strong_score": config.min_strong_score}
+                            if not config.strict_votes else {})
             if minute is not None:
                 ix = bisect_right(minute_closes[sym], bar[sym].close_ts)
                 minute_window = minute[sym][max(0, ix - 90):ix]
                 sig = analyze(sym, history, upper, config.min_score, macro=macro_upper,
-                              minute=minute_window)
+                              minute=minute_window, **vote_options)
             else:
-                sig = (analyze(sym, history, upper, config.min_score, macro=macro_upper)
-                       if macro is not None else analyze(sym, history, upper, config.min_score))
+                sig = (analyze(sym, history, upper, config.min_score, macro=macro_upper, **vote_options)
+                       if macro is not None else analyze(sym, history, upper, config.min_score, **vote_options))
             if sig:
                 pending[sym] = sig
+    stats = summary(trades, curve)
     pnl = [t["net_pnl"] for t in trades]
     wins = sum(x > 0 for x in pnl)
     gross_win = sum(x for x in pnl if x > 0)
     gross_loss = -sum(x for x in pnl if x < 0)
     return {
+        "metrics": stats, "equity_curve": stats["equity_curve"],
+        "average_r": stats["average_r"],
+        "max_drawdown_pct": max(round(maxdd * 100, 3), stats["max_drawdown_pct"]),
         "start_equity": config.starting_equity, "cash_wallet": round(wallet, 6),
         "equity_with_unrealized": round(ending_equity, 6),
         "open_positions_unrealized_net": round(ending_equity-wallet, 6),

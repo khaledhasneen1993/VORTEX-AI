@@ -262,10 +262,7 @@ def test_emergency_close_must_confirm_exchange_is_flat(tmp_path):
 def test_testnet_rejects_unknown_manual_conditional_orders_after_entry(tmp_path):
     api = FakeExchange()
     guard = TestnetSupervisor(api, tmp_path / "orphan.json")
-    guard.enter(SIG if "SIG" in globals() else
-                __import__("vortex.models", fromlist=["Signal"]).Signal(
-                    "BTCUSDT", "LONG", 300000, 100, 98, 103, 7, "test"),
-                .1, FILTER, 5)
+    guard.enter(S, .1, F, 5)
     api.algos.append({"clientAlgoId": "MANUAL-UNKNOWN",
                       "orderType": "STOP_MARKET", "side": "SELL",
                       "closePosition": True, "triggerPrice": "98",

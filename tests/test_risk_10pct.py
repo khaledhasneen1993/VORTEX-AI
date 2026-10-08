@@ -125,3 +125,37 @@ def test_two_r_atr_trailing_never_widens():
     decide_tick(p, 104.1, atr_value=3, trailing_atr_mult=3)
     assert p.stop >= old
     assert trailing_stop(100, 104, 2, 1, 1, "LONG") >= 102
+
+
+
+def test_risk_gates_cannot_be_relaxed_through_environment(monkeypatch):
+    with pytest.raises(ValueError):
+        Settings(max_positions=4)
+    with pytest.raises(ValueError):
+        Settings(max_margin_fraction=.251)
+    with pytest.raises(ValueError):
+        Settings(max_daily_loss=.051)
+    with pytest.raises(ValueError):
+        Settings(max_consecutive_losses=6)
+
+
+def test_max_leverage_setting_ten_never_increases_trade_above_five_x():
+    sig = Signal("BTCUSDT", "LONG", 123, 100, 98, 140, 7, "test")
+    cfg = Settings(risk_per_trade=.10, max_leverage=10)
+    order = size_trade(sig, 1000, cfg, F)
+    assert order is not None
+    qty, margin = order
+    assert qty == pytest.approx(12.5)
+    assert margin == pytest.approx(250)
+    assert qty * sig.entry <= 5 * margin + 1e-8
+
+
+def test_no_martingale_and_margin_reduces_additional_trade_size():
+    sig = Signal("BTCUSDT", "LONG", 123, 100, 98, 140, 7, "test")
+    cfg = Settings()
+    first = size_trade(sig, 1000, cfg, F, committed_margin=0)
+    constrained = size_trade(sig, 1000, cfg, F, committed_margin=230)
+    assert first is not None and constrained is not None
+    assert constrained[0] < first[0]
+    assert constrained[1] <= 20 + 1e-8
+    assert size_trade(sig, 1000, cfg, F, committed_margin=250) is None

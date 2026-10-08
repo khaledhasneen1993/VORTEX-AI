@@ -43,37 +43,6 @@ jobs:
       actions: write
       contents: write
     steps:
-      - name: Remove previously merged, unchanged work branches
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          while read -r pr branch expected; do
-            merged=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" --jq '.merged')
-            if [[ "$merged" != "true" ]]; then
-              echo "PR $pr not merged; preserving $branch"
-              continue
-            fi
-            if [[ "$expected" == "PR_HEAD" ]]; then
-              expected=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" --jq '.head.sha')
-            fi
-            actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)
-            if [[ -n "$actual" && "$actual" == "$expected" ]]; then
-              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
-              echo "Deleted merged branch $branch"
-            elif [[ -z "$actual" ]]; then
-              echo "Branch already absent: $branch"
-            else
-              echo "Branch changed since merge; preserving $branch"
-            fi
-          done <<'MERGED_BRANCHES'
-          1 feat/vortex-v1 acf51bdbe4dbfee22b8da77f2a7393bb8b732cdf
-          2 feat/vortex-pre-simulation-hardening 9554a2bda31beb9c553b4591676533add7ec30c5
-          3 fix/vortex-final-acceptance-gates f18da17fb7c720f08e6946d16e0461e69f9c4d8d
-          4 feat/vortex-seven-point-spec PR_HEAD
-          MERGED_BRANCHES
-
       - name: Preserve newest main build and delete older workflow runs
         env:
           GH_TOKEN: ${{ github.token }}

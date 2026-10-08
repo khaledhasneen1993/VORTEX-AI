@@ -63,3 +63,12 @@ No production API keys are accepted in signed order paths. Testnet orders are ne
 Green mocked tests do NOT certify real exchange compatibility, fund safety, live uptime or future profit. External real-world gates remain: signed TESTNET order integration, edge-case partial-fill/trigger testing, actual public WS latency/resume, month-scale portfolio results, forward PAPER trial, model training and independent security review before separate REAL-money code may even be considered.
 
 Details: docs/COMPLIANCE_MATRIX.md and docs/REVIEW.md.
+## Latest risk/accuracy acceptance changes
+
+- Historic UTC daily loss baselines reset before a day's first entry in BOTH individual and synchronized portfolio replay. An already-triggered halt stays latched.
+- Final portfolio reports include **equity_with_unrealized** and **open_positions_unrealized_net**; do not mistake the cash wallet for completed-profit equity.
+- Public REST `bookTicker` and WebSocket quotes must carry fresh Binance exchange timestamps; stale or untimestamped quotes cannot authorize a PAPER or TESTNET entry.
+- The funding/OI vote rejects missing or stale timestamps and duplicate OI observations.
+- A partially filled TESTNET emergency reduction remains a HALTED state until manual reconciliation; it is never automatically repeated.
+- Concurrent PAPER workers and TESTNET signing processes using one state directory are blocked with POSIX `flock` (Linux, Termux and Linux Docker). Stateful operation requires POSIX locking and is not supported natively on Windows.
+- For a complete pre-simulation honesty/acceptance review, read **docs/ACCEPTANCE_STATUS.md**. Passing mocked tests does not certify real Testnet orders or production trading.

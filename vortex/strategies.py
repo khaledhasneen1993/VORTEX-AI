@@ -179,4 +179,10 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
              symbol, kind, side, agreed, score, relative_vol, a, trend)
     return Signal(symbol, side, s.ts, s.close, stop, target, score,
                   f"{kind} votes={','.join(agreed)}; macro={trend}; vol={relative_vol:.2f}x; "
-                  f"ADX={a:.1f}", votes=tuple(agreed), atr_value=volatility)
+                  f"ADX={a:.1f}", votes=tuple(agreed), atr_value=volatility,
+                  features={"relative_volume": relative_vol, "adx_15m": a,
+                            "adx_5m": adx(small), "rsi_5m": rv,
+                            "signal_range_atr": (s.high - s.low) / volatility,
+                            "signal_body_atr": abs(s.close - s.open) / volatility,
+                            "ema9_distance_atr": abs(s.close - ema(p, 9)) / volatility,
+                            "macro_direction": float(trend)})

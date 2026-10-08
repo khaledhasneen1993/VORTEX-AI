@@ -23,7 +23,12 @@ def run_portfolio(
     config: Settings,
     macro: dict[str, list[Candle]] | None = None,
     minute: dict[str, list[Candle]] | None = None,
+    *, execution_interval: str = "5m", diagnostics: bool = False,
 ) -> dict:
+    if execution_interval not in {"5m", "1m"}:
+        raise ValueError("Execution interval must be 5m or 1m")
+    if execution_interval == "1m" and minute is None:
+        raise ValueError("1m execution requires actual minute candles")
     if not candles or set(candles) != set(higher) or set(candles) != set(filters) or (macro is not None and set(candles) != set(macro)):
         raise ValueError("Each portfolio symbol requires bars, HTF and exchange filters")
     if minute is not None and set(candles) != set(minute):
@@ -46,6 +51,15 @@ def run_portfolio(
     expected = 300_000 if config.timeframe == "5m" else 900_000
     if any(b - a != expected for a, b in zip(stamps, stamps[1:])):
         raise ValueError("Historical gaps detected")
+    execution = {}
+    if execution_interval == "1m":
+        for sym in symbols:
+            observed = {c.ts: c for c in minute[sym]}
+            required = range(stamps[0], stamps[-1] + expected, 60_000)
+            if any(t not in observed or observed[t].close_ts != t + 59_999 for t in required):
+                raise ValueError(f"Missing or malformed 1m execution data: {sym}")
+            execution[sym] = observed
+    traces: dict[str, dict] = {}
     wallet = config.starting_equity
     active: dict[str, Position] = {}
     pending: dict[str, Signal] = {}
@@ -103,40 +117,84 @@ def run_portfolio(
                                        step=filters[sym].step, votes=list(sig.votes),
                                        atr_value=sig.atr_value or gap / 1.5,
                                        initial_stop=new.stop, initial_target=new.target)
+                if diagnostics:
+                    traces[sym] = {
+                        "initial_stop": new.stop, "initial_target": new.target,
+                        "atr_at_signal": sig.atr_value, "score": sig.score,
+                        "initial_qty": qty, "initial_margin": margin,
+                        "entry_fee": fee, "total_fees": fee, "partial_exits": [],
+                        "mfe_price_before_exit_bar": 0.0, "mae_price_before_exit_bar": 0.0,
+                        "mfe_first_ts": None, "mae_first_ts": None,
+                        "exit_bar_ambiguous": False, "signal_features": dict(sig.features),
+                    }
             del pending[sym]
         # Same staged-exit engine as paper; OHLC stop wins intrabar ties.
         for sym, p in list(active.items()):
             b = bar[sym]
             last_bars = [by_symbol[sym][stamp] for stamp in stamps[max(0, i-50):i]]
             prev_atr = atr(last_bars) if len(last_bars) >= 16 else None
-            for action in levels_for_bar(p, b.low, b.high, b.open,
+            execution_bars = ([execution[sym][t] for t in range(ts, ts + expected, 60_000)]
+                              if execution_interval == "1m" else [b])
+            for eb in execution_bars:
+                existing_stop = p.stop
+                sign = 1 if p.side == "LONG" else -1
+                actions = levels_for_bar(p, eb.low, eb.high, eb.open,
                                          atr_value=prev_atr,
-                                         trailing_atr_mult=config.trailing_atr_mult):
-                px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
-                proportion = action.qty / p.qty
-                entry_fee = p.entry_fee * proportion
-                exit_fee = px * action.qty * config.fee_rate
-                fees_total += exit_fee
-                realized = (px - p.entry) * action.qty * (1 if p.side == "LONG" else -1)
-                net = realized - exit_fee - entry_fee
-                wallet += realized - exit_fee
-                p.entry_fee -= entry_fee
-                p.qty = max(0., p.qty - action.qty)
-                p.margin *= max(0., 1. - proportion)
-                p.accumulated_net += net
-                if action.final:
-                    final_net = p.accumulated_net
-                    risk.closed(final_net)
-                    trades.append({"symbol": sym, "side": p.side,
-                                   "entry_ts": p.opened_ts, "exit_ts": ts,
-                                   "entry": round(p.entry, 8), "exit": round(px, 8),
-                                   "net_pnl": round(final_net, 8),
-                                   "r_multiple": round(final_net / (p.initial_qty * p.initial_risk), 6)
-                                                 if p.initial_qty * p.initial_risk > 0 else None,
-                                   "votes": list(p.votes),
-                                   "reason": action.reason})
-                    cool[sym] = ts + config.cooldown_minutes * 60_000
-                    del active[sym]
+                                         trailing_atr_mult=config.trailing_atr_mult)
+                if diagnostics:
+                    trace = traces[sym]
+                    terminal = any(a.final for a in actions)
+                    stop_touch = eb.low <= existing_stop if sign == 1 else eb.high >= existing_stop
+                    one_r_touch = (eb.high - p.entry if sign == 1 else p.entry - eb.low) >= p.initial_risk
+                    trace["exit_bar_ambiguous"] = terminal and stop_touch and one_r_touch
+                    # Terminal-bar extremes may happen AFTER exit; never credit them as actual MFE/MAE.
+                    # These fields are lower bounds from completed pre-terminal bars, not tick paths.
+                    if not terminal:
+                        favorable = max(0., eb.high - p.entry if sign == 1 else p.entry - eb.low)
+                        adverse = max(0., p.entry - eb.low if sign == 1 else eb.high - p.entry)
+                        for name, value in (("mfe", favorable), ("mae", adverse)):
+                            field = name + "_price_before_exit_bar"
+                            if value > trace[field]:
+                                trace[field] = value
+                                trace[name + "_first_ts"] = eb.ts
+                    else:
+                        trace["terminal_bar"] = {"ts": eb.ts, "low": eb.low, "high": eb.high}
+                for action in actions:
+                    px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
+                    proportion = action.qty / p.qty
+                    entry_fee = p.entry_fee * proportion
+                    exit_fee = px * action.qty * config.fee_rate
+                    fees_total += exit_fee
+                    if diagnostics:
+                        trace = traces[sym]
+                        trace["total_fees"] += exit_fee
+                        trace["partial_exits"].append({"ts": eb.ts, "qty": action.qty,
+                            "price": px, "reason": action.reason, "final": action.final,
+                            "entry_fee_allocated": entry_fee, "exit_fee": exit_fee, "net_pnl": (px - p.entry) * action.qty * (1 if p.side == "LONG" else -1) - exit_fee - entry_fee})
+                    realized = (px - p.entry) * action.qty * (1 if p.side == "LONG" else -1)
+                    net = realized - exit_fee - entry_fee
+                    wallet += realized - exit_fee
+                    p.entry_fee -= entry_fee
+                    p.qty = max(0., p.qty - action.qty)
+                    p.margin *= max(0., 1. - proportion)
+                    p.accumulated_net += net
+                    if action.final:
+                        final_net = p.accumulated_net
+                        risk.closed(final_net)
+                        trades.append({"symbol": sym, "side": p.side,
+                                       "entry_ts": p.opened_ts, "exit_ts": eb.ts,
+                                       "entry": round(p.entry, 8), "exit": round(px, 8),
+                                       "net_pnl": round(final_net, 8),
+                                       "r_multiple": round(final_net / (p.initial_qty * p.initial_risk), 6)
+                                                     if p.initial_qty * p.initial_risk > 0 else None,
+                                       "votes": list(p.votes),
+                                       "reason": action.reason})
+                        if diagnostics:
+                            trades[-1]["diagnostics"] = traces.pop(sym)
+                        cool[sym] = ts + config.cooldown_minutes * 60_000
+                        del active[sym]
+                        break
+                if sym not in active:
                     break
         # Use marks for continuous drawdown & daily loss without crediting fantasy fills.
         equity = wallet + sum(
@@ -191,6 +249,7 @@ def run_portfolio(
         "open_positions_unrealized_net": round(ending_equity-wallet, 6),
         "open_positions": sorted(active),
         "realized_net_pnl": round(sum(pnl), 6),
+        "execution_interval": execution_interval, "diagnostics_enabled": diagnostics,
         "closed_trades": len(pnl),
         "win_rate": (wins / len(pnl) if pnl else None),
         "profit_factor": (gross_win / gross_loss if gross_loss else None),

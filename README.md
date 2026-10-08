@@ -18,7 +18,7 @@ Default: `STRICT_VOTES=true` requires two agreeing votes. Optional `STRICT_VOTES
 
 ## Risk and exits
 
-- Default 1% risk per trade, max three concurrent PAPER positions, 5x modeled leverage, total margin cap 25%. No martingale.
+- Default 10% **maximum modeled stop-risk budget** per trade, max three concurrent PAPER positions, 5x modeled leverage, total margin cap 25%. No martingale.
 - Halt new PAPER entries after five consecutively losing completed positions or daily portfolio drawdown >=5%.
 - PAPER and OHLC replay: 25% TP1 at +1R, 25% TP2 at +1.5R, then after +2R guarantee +1R plus a small buffer and trail by latest completed ATR x `TRAILING_ATR_MULT` (default 1.0). The remaining position exits at stop or main target.
 - TESTNET commissioning: manually armed, single-entry position with exchange-side STOP_MARKET and TAKE_PROFIT_MARKET via Algo Orders. The armed guardian supports exchange-confirmed reduce-only quarter exits and create-verify-before-cancel stop replacement. Uncertain writes persist and require manual reconciliation. It has NOT been verified using a real Testnet API account.
@@ -82,8 +82,48 @@ Only `main` is maintained. The CI publishes no binary artifacts or releases. It 
 
 ## Current seven-point controls and reporting
 
-- `STRICT_VOTES=true`, `MIN_STRONG_SCORE=7`, `TRAILING_ATR_MULT=1.0` are validated in `.env.example`. All original 1% risk, 3 positions, 5x cap, 5% daily breaker remain unchanged.
+- `STRICT_VOTES=true`, `MIN_STRONG_SCORE=7`, `TRAILING_ATR_MULT=1.0` are validated in `.env.example`. New 10% requested trade-risk budget, 3 positions, 5x maximum leverage and 5% daily breaker are validated.
 - `vortex backtest --symbol BTCUSDT --days 30` and `vortex portfolio-backtest --days 30` save full reports at `data/backtests/` with Win Rate, Profit Factor, Max Drawdown, Average R, and a compact Equity Curve. The CLI prints the path and summary.
 - `data/closed_trades.jsonl` stores entry-time votes and indicators, initial stop/target, entry/exit timestamps, PnL and R. Partial fills are journaled separately to keep one label per round-trip.
 - Manual TESTNET single-entry commissioning: `vortex testnet-once --symbol BTCUSDT --ack-testnet` with `VORTEX_TESTNET_ARM=TESTNET_ONLY` plus verified TESTNET-only credentials. Any ambiguous write halts for manual reconciliation; real TESTNET integration remains UNTESTED.
 - No Live mode, production order path, mainnet wallet or real-money keys are supported.
+
+
+## Config update: 10% risk, 5x leverage and hard margin cap
+
+```dotenv
+RISK_PER_TRADE=0.10
+MAX_LEVERAGE=5
+STRICT_VOTES=true
+MIN_STRONG_SCORE=7
+TRAILING_ATR_MULT=1.0
+```
+
+These values are loaded by `Settings.from_env()` and applied by `size_trade()`
+to PAPER, Backtest and explicitly armed TESTNET entries. `size_trade()`
+first determines a **maximum risk budget of 10% of current marked equity**
+including modelled round-trip fees and slippage, then **reduces the order size**
+if the aggregate 25% margin cap or 5x leverage would otherwise be exceeded.
+With a tight stop, this can yield **actual planned stop-risk below 10%**;
+the bot does not increase size or breach the margin cap to force exactly 10%.
+
+**Important risk incompatibility:** the 5% daily drawdown stop is an
+AFTER-THE-FACT circuit breaker, not a 5% per-trade guaranteed stop. A single
+position sized under the 10% risk budget can lose **more than 5% equity** before
+the daily circuit breaker blocks further entries. Slippage, gaps, funding and
+liquidations can cause realized losses above modelled limits. This is a highly
+aggressive PAPER/TESTNET setting; no live/real-money order path exists.
+
+Manual experiment commands (no command started automatically):
+```bash
+vortex paper --once
+vortex backtest --symbol BTCUSDT --days 30
+vortex portfolio-backtest --days 30
+```
+
+**Non-bypassable policy limits:** configuration accepts `MAX_LEVERAGE` 1..10 as
+requested for compatibility, but PAPER/BACKTEST sizing and TESTNET commissioning
+always cap the **effective** trading leverage at **5x**. Values above
+`MAX_POSITIONS=3`, `MAX_MARGIN_FRACTION=0.25`, `MAX_DAILY_LOSS=0.05` or
+`MAX_CONSECUTIVE_LOSSES=5` are rejected by `Settings` instead of loosening
+the approved protections.

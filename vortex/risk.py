@@ -41,12 +41,14 @@ def size_trade(signal: Signal, equity: float, cfg: Settings, filt: Filters,
     slippage_round_trip = 2 * cfg.slippage_bps / 10000
     cost_ratio = 2 * cfg.fee_rate + slippage_round_trip
     max_by_risk = equity * cfg.risk_per_trade / (stop_gap + signal.entry * cost_ratio)
+    # Config accepts 1..10 but this bot's trading policy never exceeds 5x.
+    leverage = min(cfg.max_leverage, 5)
     max_by_margin = max(0.0, equity * cfg.max_margin_fraction - committed_margin)
-    max_by_leverage = max_by_margin * cfg.max_leverage / signal.entry
+    max_by_leverage = max_by_margin * leverage / signal.entry
     qty = floor_step(min(max_by_risk, max_by_leverage), filt.step)
     if qty < filt.min_qty or qty * signal.entry < filt.min_notional:
         return None  # NEVER round upward across allowed risk to meet min notional
-    margin = qty * signal.entry / cfg.max_leverage
+    margin = qty * signal.entry / leverage
     return qty, margin
 
 

@@ -200,7 +200,7 @@ def test_env_voting_and_atr_settings_are_validated(monkeypatch):
     assert cfg.strict_votes is False
     assert cfg.trailing_atr_mult == 1.25
     assert cfg.min_strong_score == 8
-    assert cfg.risk_per_trade == .01 and cfg.max_positions == 3
+    assert cfg.risk_per_trade == .10 and cfg.max_positions == 3
     assert cfg.max_leverage == 5 and cfg.max_daily_loss == .05
     monkeypatch.setenv("STRICT_VOTES", "maybe")
     with pytest.raises(ValueError):

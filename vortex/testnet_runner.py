@@ -92,4 +92,4 @@ def _once_locked(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
     qty, _margin = sized
     # Persistent latch prevents firing another entry even after a successful close.
     guard.persist(ever_entered=True)
-    return guard.enter(adjusted, qty, filt, cfg.max_leverage)
+    return guard.enter(adjusted, qty, filt, min(cfg.max_leverage, 5))

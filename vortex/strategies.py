@@ -27,7 +27,7 @@ def _macd_hist(prices: list[float]) -> float:
     if len(prices) < 36:
         return 0.0
     # MACD histogram with real EMA9 on macd series, no future values.
-    a12, a26 = sum(prices[:12]) / 12, sum(prices[:26]) / 26
+    a12, a26 = ema(prices[:26], 12), sum(prices[:26]) / 26
     xs = []
     for i, x in enumerate(prices[26:], 26):
         a12 = x * (2 / 13) + a12 * (11 / 13)

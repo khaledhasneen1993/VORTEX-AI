@@ -41,11 +41,11 @@ class Settings:
             raise ValueError("Supported timeframe: 5m, 15m")
         if self.starting_equity <= 0 or not 0 < self.risk_per_trade <= 0.10:
             raise ValueError("Equity or risk cap invalid")
-        if not 0 < self.max_daily_loss <= 0.10 or self.max_consecutive_losses < 1:
+        if not 0 < self.max_daily_loss <= 0.05 or not 1 <= self.max_consecutive_losses <= 5:
             raise ValueError("Daily loss or consecutive loss cap invalid")
-        if not 1 <= self.max_positions <= 5 or not 1 <= self.max_leverage <= 10:
+        if not 1 <= self.max_positions <= 3 or not 1 <= self.max_leverage <= 10:
             raise ValueError("Position/leverage limit invalid")
-        if not 0 < self.max_margin_fraction <= 0.5:
+        if not 0 < self.max_margin_fraction <= 0.25:
             raise ValueError("Margin cap invalid")
         if not 0 < self.max_spread_bps <= 50:
             raise ValueError("Spread cap invalid")

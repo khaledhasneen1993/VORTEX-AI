@@ -27,6 +27,9 @@ def run_portfolio(
     if minute is not None and set(candles) != set(minute):
         raise ValueError("1m history missing for portfolio symbols")
     minute_closes = {s: [b.close_ts for b in bars] for s, bars in minute.items()} if minute is not None else {}
+    upper_times = {s: [x.close_ts for x in higher[s]] for s in candles}
+    macro_times = ({s: [x.close_ts for x in macro[s]] for s in candles}
+                   if macro is not None else {})
     symbols = sorted(candles)
     by_symbol: dict[str, dict[int, Candle]] = {}
     for sym in symbols:
@@ -124,9 +127,14 @@ def run_portfolio(
         for sym in symbols:
             if sym in active or sym in pending or ts < cool.get(sym, 0):
                 continue
-            history = [c for c in candles[sym] if c.ts <= ts][-220:]
-            upper = [h for h in higher[sym] if h.close_ts <= bar[sym].close_ts][-120:]
-            macro_upper = [m for m in macro[sym] if m.close_ts <= bar[sym].close_ts][-120:] if macro is not None else None
+            history = [by_symbol[sym][when] for when in stamps[max(0, i-219):i+1]]
+            hi_end = bisect_right(upper_times[sym], bar[sym].close_ts)
+            upper = higher[sym][max(0, hi_end-120):hi_end]
+            if macro is not None:
+                m_end = bisect_right(macro_times[sym], bar[sym].close_ts)
+                macro_upper = macro[sym][max(0, m_end-250):m_end]
+            else:
+                macro_upper = None
             if minute is not None:
                 ix = bisect_right(minute_closes[sym], bar[sym].close_ts)
                 minute_window = minute[sym][max(0, ix - 90):ix]

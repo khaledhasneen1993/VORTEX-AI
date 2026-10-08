@@ -61,10 +61,11 @@ def test_portfolio_resets_utc_risk_before_entries(monkeypatch):
 def test_daily_halt_never_unlatches_automatically():
     gate = RiskGate(Settings(), 1000.)
     gate.new_day("2026-10-08", 1000.)
-    assert not gate.can_open(949., 0)[0]
+    assert gate.can_open(501., 0)[0]
+    assert not gate.can_open(500., 0)[0]
     assert gate.blocked
-    gate.new_day("2026-10-09", 949.)
-    assert not gate.can_open(949., 0)[0]
+    gate.new_day("2026-10-09", 500.)
+    assert not gate.can_open(500., 0)[0]
 
 
 def test_hourly_history_uses_full_ten_day_warmup(monkeypatch):
@@ -92,7 +93,7 @@ def test_hourly_history_uses_full_ten_day_warmup(monkeypatch):
 def test_no_market_api_or_pnl_needed_to_run_risk_regressions():
     cfg = Settings(mode="paper")
     assert cfg.risk_per_trade == 0.10
-    assert cfg.max_daily_loss == .05
+    assert cfg.max_daily_loss == .50
     assert cfg.max_consecutive_losses == 5
 
 

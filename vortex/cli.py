@@ -14,6 +14,7 @@ from .paper import PaperBroker
 from .backtest import run as backtest
 from .strategy import analyze
 from .locks import ProcessLock
+from .reports import save_report
 
 log = logging.getLogger("vortex")
 
@@ -79,10 +80,25 @@ def main(argv: list[str] | None = None) -> int:
                 if symbol not in fresh_quote:
                     raise ValueError("No TESTNET bid/ask; no staged actions")
                 bid, ask = fresh_quote[symbol]
-                observed["management"] = maintain(guardian, bid, ask)
+                from .indicators import atr
+                now_testnet = testnet_market.server_ms()
+                observed_bars = testnet_market.candles(symbol, cfg.timeframe, 60, now_testnet)
+                current_atr = atr(observed_bars) if len(observed_bars) >= 16 else None
+                observed["management"] = maintain(
+                    guardian, bid, ask, atr_value=current_atr,
+                    trailing_atr_mult=cfg.trailing_atr_mult)
             print(json.dumps(observed, indent=2))
             time.sleep(10)
     market = Market()
+    def output_report(report: dict, kind: str, label: str) -> None:
+        path = save_report(cfg.data_dir, kind, report, symbol=label)
+        metrics = report["metrics"]
+        print(json.dumps({"file": str(path), "closed_trades": metrics["closed_trades"],
+                          "win_rate_pct": metrics["win_rate_pct"],
+                          "profit_factor": metrics["profit_factor"],
+                          "max_drawdown_pct": report["max_drawdown_pct"],
+                          "average_r": metrics["average_r"],
+                          "equity_curve": metrics["equity_curve"]}, indent=2))
     if args.command == "portfolio-backtest":
         from .portfolio import run_portfolio
         if args.days is None or not 1 <= args.days <= 45:
@@ -93,7 +109,8 @@ def main(argv: list[str] | None = None) -> int:
         macro = {s: market.history(s, "1h", max(10, args.days), now) for s in cfg.symbols}
         minute = {s: market.history(s, "1m", args.days, now) for s in cfg.symbols}
         filters = {s: market.symbol_filters(s) for s in cfg.symbols}
-        print(json.dumps(run_portfolio(data, higher, filters, cfg, macro=macro, minute=minute), indent=2))
+        report = run_portfolio(data, higher, filters, cfg, macro=macro, minute=minute)
+        output_report(report, "portfolio", "portfolio")
         return 0
     if args.command == "backtest":
         if (args.days is None and not 300 <= args.bars <= 1500) or (args.days is not None and not 1 <= args.days <= 45) or args.symbol not in market.metadata():
@@ -107,12 +124,13 @@ def main(argv: list[str] | None = None) -> int:
         minute = market.history(args.symbol, "1m", min(45, duration_days), server)
         report = backtest(args.symbol, bars, upper, market.symbol_filters(args.symbol), cfg,
                           macro=macro, minute=minute)
-        print(json.dumps(report, indent=2))
+        output_report(report, "backtest", args.symbol)
         return 0
     if cfg.mode != "paper":
         raise ValueError("paper command requires RUN_MODE=paper")
     paper_lock = ProcessLock(cfg.data_dir / "paper.lock").acquire()
     broker = PaperBroker(cfg)
+    latest_atr: dict[str, float] = {}
     use_ai = os.getenv("USE_AI_MODEL", "false").lower() == "true"
     use_claude = os.getenv("USE_CLAUDE", "false").lower() == "true"
     ai_model = None
@@ -143,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
             now = market.server_ms()
             quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
             was_halted = broker.gate.blocked
-            for closed in broker.mark(quotes, now):
+            for closed in broker.mark(quotes, now, latest_atr):
                 log.info("CLOSED: %s", json.dumps(closed))
                 notify("Closed paper trade: " + json.dumps(closed))
             equity = broker.equity(quotes)
@@ -168,6 +186,9 @@ def main(argv: list[str] | None = None) -> int:
                     minute = market.candles(symbol, "1m", 120, now)
                     if not data or not upper or not macro:
                         continue
+                    from .indicators import atr
+                    if len(data) >= 16:
+                        latest_atr[symbol] = atr(data)
                     try:
                         deriv = derivative_tracker.sample(market, symbol, now)
                     except (MarketError, KeyError, ValueError) as exc:
@@ -175,7 +196,9 @@ def main(argv: list[str] | None = None) -> int:
                         deriv = None  # funding strategy abstains; other votes remain valid
                     signal = analyze(symbol, data, upper, cfg.min_score,
                                      macro=macro, derivatives=deriv, decision_ms=now,
-                                     minute=minute)
+                                     minute=minute,
+                                     strict_votes=cfg.strict_votes,
+                                     min_strong_score=cfg.min_strong_score)
                     if signal and symbol in quotes:
                         from .ml import feature_snapshot, evaluate
                         # Capture only features observable at this completed entry signal.

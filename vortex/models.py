@@ -32,6 +32,8 @@ class Signal:
     score: int
     reason: str
     features: dict[str, float] = field(default_factory=dict)
+    votes: tuple[str, ...] = ()
+    atr_value: float = 0.0
 
 
 @dataclass
@@ -54,3 +56,7 @@ class Position:
     step: float = 0.0
     accumulated_net: float = 0.0
     filled_stage_count: int = 0
+    votes: list[str] = field(default_factory=list)
+    initial_stop: float = 0.0
+    initial_target: float = 0.0
+    atr_value: float = 0.0

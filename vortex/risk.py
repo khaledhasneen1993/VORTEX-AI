@@ -81,3 +81,20 @@ class RiskGate:
             self.date = today
             self.day_start_equity = equity
             # A halt remains latched until the process is explicitly restarted.
+
+
+def trailing_stop(entry: float, peak: float, initial_risk: float,
+                  atr_value: float, multiplier: float, side: str) -> float:
+    """After +2R, guarantee at least +1R plus a tiny ATR buffer.
+
+    ATR measures latest *completed* candles. Stops may tighten, never widen.
+    """
+    if side not in {"LONG", "SHORT"} or min(entry, initial_risk, atr_value, multiplier) <= 0:
+        raise ValueError("Trailing requires positive observed ATR, entry and risk")
+    sign = 1 if side == "LONG" else -1
+    if (peak - entry) * sign < 2 * initial_risk:
+        return entry
+    buffer = 0.02 * atr_value
+    one_r = entry + sign * (initial_risk + buffer)
+    atr_trail = peak - sign * (atr_value * multiplier)
+    return max(one_r, atr_trail) if sign == 1 else min(one_r, atr_trail)

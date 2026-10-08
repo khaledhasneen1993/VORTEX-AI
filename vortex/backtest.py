@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from .config import Settings
 from .models import Candle, Signal, Position
 from .exits import levels_for_bar
+from .indicators import atr
+from .reports import summary
 from .risk import Filters, RiskGate, size_trade
 from .strategy import analyze
 
@@ -21,6 +23,7 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
     peak, max_dd = wallet, 0.0
     wins = losses = 0
     trades: list[dict] = []
+    curve: list[dict] = [{"ts": small[0].ts if small else 0, "equity": wallet}]
     gate = RiskGate(cfg, wallet)
     position: Position | None = None
     cooldown = 0
@@ -42,7 +45,11 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         exited = False
         if position:
             p = position
-            actions = levels_for_bar(p, candle.low, candle.high, candle.open)
+            recent = small[max(0, i-50):i]  # completed BEFORE current bar
+            observed_atr = atr(recent) if len(recent) >= 16 else None
+            actions = levels_for_bar(p, candle.low, candle.high, candle.open,
+                                     atr_value=observed_atr,
+                                     trailing_atr_mult=cfg.trailing_atr_mult)
             for action in actions:
                 slip = cfg.slippage_bps / 10000
                 px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
@@ -63,6 +70,9 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
                                    "symbol": symbol, "side": p.side,
                                    "entry": p.entry, "exit": px,
                                    "qty": p.initial_qty, "net_pnl": round(final_net, 6),
+                                   "r_multiple": round(final_net / (p.initial_qty * p.initial_risk), 6)
+                                                 if p.initial_qty * p.initial_risk > 0 else None,
+                                   "votes": list(p.votes),
                                    "reason": action.reason, "wallet": round(wallet, 6)})
                     position = None
                     exited = True
@@ -73,13 +83,18 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
             sign = 1 if position.side == "LONG" else -1
             equity += sign * (candle.close - position.entry) * position.qty
             equity -= candle.close * position.qty * cfg.fee_rate
+        curve.append({"ts": candle.close_ts, "equity": round(equity, 6)})
         peak = max(peak, equity)
         max_dd = max(max_dd, (peak - equity) / peak if peak else 0)
         # Stop the entire replay once a portfolio/equity drawdown breaker
         # triggers; never quietly resume on a later day.
         allowed, _ = gate.can_open(equity, 1 if position else 0)
         if gate.blocked:
-            break
+            # No NEW entries after a risk halt, but continue processing the
+            # already-open position through future bars and its protective stop.
+            if position is None:
+                break
+            continue
         if position or exited or candle.ts <= cooldown or i == len(small) - 1:
             continue
         h_end = bisect_right(upper_closes, candle.close_ts)
@@ -92,13 +107,17 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         minute_window = (minute[max(0, bisect_right(minute_closes, candle.close_ts) - 90):
                                 bisect_right(minute_closes, candle.close_ts)]
                          if minute is not None else None)
+        vote_options = ({"strict_votes": cfg.strict_votes,
+                         "min_strong_score": cfg.min_strong_score}
+                        if not cfg.strict_votes else {})
         if minute is not None:
             signal = analyze(symbol, small[max(0, i - 219):i + 1], upper,
-                             cfg.min_score, macro=macro_upper, minute=minute_window)
+                             cfg.min_score, macro=macro_upper, minute=minute_window,
+                             **vote_options)
         else:
             signal = (analyze(symbol, small[max(0, i - 219):i + 1], upper,
-                              cfg.min_score, macro=macro_upper) if macro is not None else
-                      analyze(symbol, small[max(0, i - 219):i + 1], upper, cfg.min_score))
+                              cfg.min_score, macro=macro_upper, **vote_options) if macro is not None else
+                      analyze(symbol, small[max(0, i - 219):i + 1], upper, cfg.min_score, **vote_options))
         if signal is None:
             continue
         future = small[i + 1]
@@ -121,14 +140,21 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         wallet -= fee
         position = Position(symbol, signal.side, future.ts, entry,
                             adjusted.stop, adjusted.target, qty, fee, margin,
-                            initial_qty=qty, initial_risk=gap, peak=entry, step=filt.step)
+                            initial_qty=qty, initial_risk=gap, peak=entry, step=filt.step,
+                            votes=list(signal.votes),
+                            atr_value=signal.atr_value or gap / 1.5,
+                            initial_stop=adjusted.stop, initial_target=adjusted.target)
     unrealized = 0.0
     if position and small:
         close = small[-1].close
         sign = 1 if position.side == "LONG" else -1
         unrealized = sign * (close - position.entry) * position.qty
         unrealized -= close * position.qty * cfg.fee_rate
-    return {"symbol": symbol, "start_equity": cfg.starting_equity,
+    stats = summary(trades, curve)
+    return {"metrics": stats, "equity_curve": stats["equity_curve"],
+            "profit_factor": stats["profit_factor"], "average_r": stats["average_r"],
+            "max_drawdown_pct": round(max_dd * 100, 3),
+            "symbol": symbol, "start_equity": cfg.starting_equity,
             "wallet": round(wallet, 4), "equity_with_unrealized": round(wallet + unrealized, 4),
             "closed_trades": wins + losses, "wins": wins, "losses": losses,
             "win_rate_pct": round(100 * wins / (wins + losses), 2) if wins + losses else 0.0,

@@ -17,6 +17,7 @@ from .strategy import analyze
 def prepare(cfg: Settings, *, armed: bool = False):
     api = TestnetGateway.from_env(armed=armed)
     api.sync_clock()
+    api.usdt_balance()  # signed Testnet-only authentication challenge; invalid keys rejected
     guard = TestnetSupervisor(api, cfg.data_dir / "testnet_intent.json")
     return api, guard
 
@@ -53,7 +54,8 @@ def _once_locked(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
     higher = market.candles(symbol, "15m", 120, now)
     macro = market.candles(symbol, "1h", 260, now)
     minute = market.candles(symbol, "1m", 120, now)
-    sig = analyze(symbol, candles, higher, cfg.min_score, macro=macro, minute=minute)
+    sig = analyze(symbol, candles, higher, cfg.min_score, macro=macro, minute=minute,
+                  strict_votes=cfg.strict_votes, min_strong_score=cfg.min_strong_score)
     if not sig or now - candles[-1].close_ts > 90_000:
         return {"ok": False, "reason": "No fresh qualified setup; no order sent"}
     if os.getenv("USE_CLAUDE", "false").lower() == "true":

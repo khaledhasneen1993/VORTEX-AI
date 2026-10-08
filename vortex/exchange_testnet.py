@@ -41,6 +41,7 @@ def decimal_text(value: float) -> str:
 
 
 class TestnetGateway:
+    __test__ = False  # pytest must not treat service classes as test cases
     def __init__(self, key: str, secret: str, session=None, *,
                  armed: bool = False, clock=None):
         if not key or not secret:
@@ -54,6 +55,13 @@ class TestnetGateway:
 
     @classmethod
     def from_env(cls, *, armed: bool = False):
+        # Credentials cannot be typed as mainnet vs testnet by their shape.
+        # Refuse any configured mainnet aliases; the signed TESTNET challenge
+        # in prepare() rejects keys which do not authenticate on Testnet.
+        if any(os.getenv(name, "").strip() for name in
+               ("BINANCE_API_KEY", "BINANCE_API_SECRET",
+                "BINANCE_KEY", "BINANCE_SECRET")):
+            raise PermissionError("Production Binance key variables are forbidden for TESTNET")
         return cls(os.getenv("VORTEX_TESTNET_KEY", ""),
                    os.getenv("VORTEX_TESTNET_SECRET", ""), armed=armed)
 

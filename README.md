@@ -6,6 +6,8 @@ Binance USDT-M futures multistrategy market scanner, persisted PAPER broker, str
 
 ## Strategy — four independent voters
 
+Default: `STRICT_VOTES=true` requires two agreeing votes. Optional `STRICT_VOTES=false` permits one uncontested high-score vote (`MIN_STRONG_SCORE=7`) with hourly trend alignment and Relative Volume >=1.5 or ADX >=25; see `docs/ACCEPTANCE_STATUS.md`.
+
 - Hourly completed EMA **50/200** market regime and 15m EMA/MACD/ADX trend.
 - Five-minute mean reversion (Bollinger/RSI/VWAP) with real completed **1-minute RSI divergence and Stochastic RSI** confirmation.
 - Five-minute volume breakout with directional OBV and relative volume.
@@ -18,7 +20,7 @@ Binance USDT-M futures multistrategy market scanner, persisted PAPER broker, str
 
 - Default 1% risk per trade, max three concurrent PAPER positions, 5x modeled leverage, total margin cap 25%. No martingale.
 - Halt new PAPER entries after five consecutively losing completed positions or daily portfolio drawdown >=5%.
-- PAPER and OHLC replay: 25% TP1 at +1R, 25% TP2 at +1.5R, inward-only stop to breakeven after TP1 and tighter trailing after +2R. The remaining position exits at stop or main target.
+- PAPER and OHLC replay: 25% TP1 at +1R, 25% TP2 at +1.5R, then after +2R guarantee +1R plus a small buffer and trail by latest completed ATR x `TRAILING_ATR_MULT` (default 1.0). The remaining position exits at stop or main target.
 - TESTNET commissioning: manually armed, single-entry position with exchange-side STOP_MARKET and TAKE_PROFIT_MARKET via Algo Orders. The armed guardian supports exchange-confirmed reduce-only quarter exits and create-verify-before-cancel stop replacement. Uncertain writes persist and require manual reconciliation. It has NOT been verified using a real Testnet API account.
 
 ## Local developer install
@@ -77,3 +79,11 @@ Details: docs/COMPLIANCE_MATRIX.md and docs/ACCEPTANCE_STATUS.md.
 ## Version and build retention
 
 Only `main` is maintained. The CI publishes no binary artifacts or releases. It retains the latest successful main workflow run; older run records and unchanged, merged feature branches are pruned by the main workflow after the quality checks succeed. Git commit history remains available for source recovery.
+
+## Current seven-point controls and reporting
+
+- `STRICT_VOTES=true`, `MIN_STRONG_SCORE=7`, `TRAILING_ATR_MULT=1.0` are validated in `.env.example`. All original 1% risk, 3 positions, 5x cap, 5% daily breaker remain unchanged.
+- `vortex backtest --symbol BTCUSDT --days 30` and `vortex portfolio-backtest --days 30` save full reports at `data/backtests/` with Win Rate, Profit Factor, Max Drawdown, Average R, and a compact Equity Curve. The CLI prints the path and summary.
+- `data/closed_trades.jsonl` stores entry-time votes and indicators, initial stop/target, entry/exit timestamps, PnL and R. Partial fills are journaled separately to keep one label per round-trip.
+- Manual TESTNET single-entry commissioning: `vortex testnet-once --symbol BTCUSDT --ack-testnet` with `VORTEX_TESTNET_ARM=TESTNET_ONLY` plus verified TESTNET-only credentials. Any ambiguous write halts for manual reconciliation; real TESTNET integration remains UNTESTED.
+- No Live mode, production order path, mainnet wallet or real-money keys are supported.

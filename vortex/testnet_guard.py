@@ -19,6 +19,7 @@ class ProtectionError(RuntimeError):
 
 
 class TestnetSupervisor:
+    __test__ = False  # pytest must not treat service classes as test cases
     def __init__(self, api, state_path: Path):
         self.api = api
         self.path = Path(state_path)
@@ -99,7 +100,9 @@ class TestnetSupervisor:
         amount = self.api.position(symbol)
         if abs(amount) < 1e-12:
             return
-        close_id = self.state.get("close_id") or self.client_id("exit")
+        if self.state.get("close_id"):
+            self.halt("Emergency flatten already attempted: manual exchange reconciliation required")
+        close_id = self.client_id("exit")
         self.persist(close_id=close_id, phase="HALTED", reason="Emergency close attempted")
         try:
             self.api.market_order(symbol, "SELL" if amount > 0 else "BUY",
@@ -170,7 +173,7 @@ class TestnetSupervisor:
                     avg = 0.
             self.persist(phase="PROTECTING", filled_qty=abs(actual),
                          actual_entry=avg, initial_risk=abs(avg - stop) if avg > 0 else 0,
-                         initial_qty=abs(actual),
+                         initial_qty=abs(actual), atr_value=signal.atr_value or abs(signal.entry-stop)/1.5,
                          step=filt.step, tick=filt.tick, peak=avg,
                          tp1_done=False, tp2_done=False, stage_intent=None,
                          stop_replace_intent=None, old_stop_cancel=None)
@@ -186,6 +189,8 @@ class TestnetSupervisor:
             if abs(avg - signal.entry) > abs(signal.entry - stop) * .35:
                 self.emergency_flatten(signal.symbol)
                 self.halt("Actual fill deviated beyond preflight risk budget")
+            if acknowledgement.get("status") == "PARTIALLY_FILLED":
+                self.halt("Entry partially filled; protections placed; manual cancellation/reconciliation required")
             self.persist(phase="PROTECTED", reason="Two exchange-side close-all guards verified")
             return dict(self.state)
         except (ExchangeRejected, ExchangeUncertain) as exc:

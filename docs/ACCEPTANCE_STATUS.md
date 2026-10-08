@@ -19,8 +19,11 @@ portfolio/single-symbol reports and TESTNET-only guarded orders.
   direction, approved votes, timestamps, original entry STOP/TARGET, indicators,
   net PnL and R. Partials remain in `data/partial_exits.jsonl` and do not
   inflate training labels.
-- [x] Existing risk defaults remain: 1% stake risk, 3 max PAPER positions,
-  5x leverage cap, 5% daily drawdown, halt after 5 successive completed losses.
+- [x] Risk defaults updated to **10% maximum modeled trade-risk budget**
+  (`risk_per_trade=0.10`), **5x leverage**, 3 simultaneous PAPER positions,
+  25% aggregate margin cap, 5% daily drawdown halt, 5 successive-loss halt.
+  Quantity is the MINIMUM of loss-budget and margin/leverage caps; modelled
+  round-trip fees and slippage count towards its loss budget.
 - [x] `RUN_MODE=live` and actual funds remain unsupported.
 
 ## TESTNET-only guarded order path (code and MOCK tests)
@@ -61,3 +64,22 @@ execution. Read README.md for CLI usage.
 - Closed paper events include entry-time indicators, approved votes, initial stop/target, net PnL and R. Partials remain separate, not duplicate training rows.
 - Mainnet API variable aliases are rejected and an authenticated Testnet read is required before Testnet-only signed writes. Unexpected or partially confirmed writes latch journal HALTED.
 - **Not proven:** actual signed TESTNET trading, partial-fill reconciliation with real exchange orders, backtest profitability, long-running PAPER performance, or ML predictive accuracy. No Live mode or real funds have been enabled.
+
+
+## 2026-10-09 requested risk configuration change
+
+- [x] Settings default `risk_per_trade=0.10` / `max_leverage=5`,
+  loaded from `RISK_PER_TRADE` / `MAX_LEVERAGE`.
+- [x] `STRICT_VOTES`, `MIN_STRONG_SCORE` and `TRAILING_ATR_MULT` remain wired to
+  signal entry and staged exits in Paper, historical modes and guarded Testnet.
+- [x] Validate 0 < risk <= 0.10, 1 <= leverage <= 10, 3 <= strong score <= 10,
+  0.5 <= ATR multiplier <= 3.0.
+- [x] `size_trade()` includes expected entry+exit fees and slippage in the
+  10% risk ceiling and limits maximum total margin to 25% of marked equity.
+  A position may legitimately use *less* risk when the margin limit binds.
+- [x] `MAX_DAILY_LOSS=0.05` and five-consecutive-loss halt remain enabled.
+  **A 10% per-position risk budget can exceed a 5% daily loss limit in one
+  stopped-out position**. The daily breaker blocks later entries; it is
+  NOT a guarantee no single trade loses over 5%.
+- [x] No Live path or real funds; Testnet remains unverified on a real Testnet
+  account without operator-provided testnet credentials.

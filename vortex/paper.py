@@ -125,13 +125,17 @@ class PaperBroker:
                                                  entry, adjusted.stop, adjusted.target,
                                                  qty, fee, margin,
                                                  features=dict(signal.features),
-                                                 initial_qty=qty, initial_risk=stop_gap, peak=entry, step=filters.step)
+                                                 initial_qty=qty, initial_risk=stop_gap, peak=entry,
+                                                 step=filters.step, votes=list(signal.votes),
+                                                 initial_stop=adjusted.stop, initial_target=adjusted.target,
+                                                 atr_value=signal.atr_value or stop_gap / 1.5)
         self.last_trade_ts[signal.symbol] = now_ms
         self.last_signal[signal.symbol] = signal.ts
         self.save()
         return True, f"{signal.side} quantity={qty:g} entry={entry:.6g} SL={adjusted.stop:.6g} TP={adjusted.target:.6g}"
 
-    def mark(self, quotes: dict[str, tuple[float, float]], now_ms: int) -> list[dict]:
+    def mark(self, quotes: dict[str, tuple[float, float]], now_ms: int,
+             atr_by_symbol: dict[str, float] | None = None) -> list[dict]:
         """Paper close and partial stages; each journal event survives a crash."""
         from .exits import decide_tick
         events: list[dict] = []
@@ -140,7 +144,9 @@ class PaperBroker:
                 continue
             bid, ask = quotes[symbol]
             raw = bid if p.side == "LONG" else ask
-            action = decide_tick(p, raw)
+            action = decide_tick(p, raw,
+                                 atr_value=(atr_by_symbol or {}).get(symbol),
+                                 trailing_atr_mult=self.cfg.trailing_atr_mult)
             if action is None:
                 # May have raised the trailing stop.
                 self.save()
@@ -173,7 +179,13 @@ class PaperBroker:
                 "quantity": qty, "net_pnl": round(all_net if final else stage_net, 8),
                 "stage_net_pnl": round(stage_net, 8), "final": bool(final),
                 "entry_ts": p.opened_ts, "exit_ts": now_ms,
-                "features": dict(p.features), "source": "paper",
+                "features": dict(p.features), "entry_indicators": dict(p.features),
+                "votes": list(p.votes), "approved_votes": list(p.votes),
+                "initial_stop": p.initial_stop or p.entry - (1 if p.side == "LONG" else -1) * p.initial_risk,
+                "initial_target": p.initial_target or p.target,
+                "r_multiple": round(all_net / ((p.initial_qty or qty) * p.initial_risk), 6)
+                              if p.initial_risk > 0 else None,
+                "source": "paper",
                 "reason": action.reason, "wallet": round(self.wallet, 8),
             }
             if final:

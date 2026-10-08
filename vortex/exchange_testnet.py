@@ -106,8 +106,13 @@ class TestnetGateway:
     def position(self, symbol: str) -> float:
         result = [x for x in self.positions() if x["symbol"] == symbol
                   and x.get("positionSide", "BOTH") == "BOTH"]
+        if not result:
+            # Binance omits some zero-size position rows; this is not an error
+            # after an independently confirmed exchange-flat state. Reject
+            # duplicates rather than inferring a position quantity.
+            return 0.0
         if len(result) != 1:
-            raise ExchangeRejected(f"Unexpected position rows for {symbol}")
+            raise ExchangeRejected(f"Ambiguous position rows for {symbol}")
         return float(result[0]["positionAmt"])
 
     def open_algos(self, symbol: str) -> list[dict]:
@@ -124,7 +129,7 @@ class TestnetGateway:
         matches = [x for x in self.request("GET", "/fapi/v2/balance") if x["asset"] == "USDT"]
         if len(matches) != 1:
             raise ExchangeRejected("Missing isolated USDT wallet")
-        return float(matches[0]["balance"])
+        return float(matches[0]["availableBalance"])
 
     def set_leverage(self, symbol: str, leverage: int) -> None:
         if not 1 <= leverage <= 10:

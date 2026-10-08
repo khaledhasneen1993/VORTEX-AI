@@ -96,7 +96,7 @@ def levels_for_bar(p: Position, low: float, high: float, opening: float) -> list
     if min(low, high, opening) <= 0 or low > high:
         raise ValueError("Invalid OHLC")
     sign = _sign(p)
-    if (low - p.stop) * sign <= 0 if sign == 1 else (high - p.stop) * sign >= 0:
+    if low <= p.stop if sign == 1 else high >= p.stop:
         raw = min(opening, p.stop) if sign == 1 else max(opening, p.stop)
         return [ExitStep(p.qty, raw, "stop", True)]
     risk = _risk(p)

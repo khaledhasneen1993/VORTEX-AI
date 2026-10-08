@@ -83,14 +83,17 @@ class Market:
 
 
     def history(self, symbol: str, interval: str, days: int, now_ms: int) -> list[Candle]:
-        """Paginate completed candles over 1..45 days plus 2-day warmup.
+        """Paginate completed candles over 1..45 days with indicator warmup.
 
         Binance rows must be strictly contiguous (fail rather than silently mask gaps).
         """
         if symbol not in self.metadata() or interval not in {"1m", "5m", "15m", "1h"} or not 1 <= days <= 45:
             raise MarketError("Invalid history request")
         step = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000}[interval]
-        start = ((now_ms - (days + 2) * 86_400_000) // step) * step
+        # EMA200 on completed 1h candles needs >= 200 hours of pre-roll.
+        # Two days is insufficient and silently discards first-week signals.
+        warmup_days = 10 if interval == "1h" else 2
+        start = ((now_ms - (days + warmup_days) * 86_400_000) // step) * step
         cursor = start
         end = now_ms - 1
         candles: list[Candle] = []

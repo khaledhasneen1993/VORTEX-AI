@@ -1,0 +1,79 @@
+"""Validated settings; paper-only by default and fail closed on unsafe modes."""
+from __future__ import annotations
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from dotenv import load_dotenv
+
+
+@dataclass(frozen=True)
+class Settings:
+    mode: str = "paper"
+    symbols: tuple[str, ...] = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT")
+    timeframe: str = "5m"
+    starting_equity: float = 1000.0
+    risk_per_trade: float = 0.01
+    max_daily_loss: float = 0.05
+    max_consecutive_losses: int = 4
+    max_positions: int = 3
+    max_leverage: int = 5
+    max_margin_fraction: float = 0.25
+    max_spread_bps: float = 12.0
+    min_score: int = 5
+    cooldown_minutes: int = 15
+    loop_seconds: int = 20
+    fee_rate: float = 0.0005
+    slippage_bps: float = 3.0
+    data_dir: Path = Path("data")
+
+    def __post_init__(self) -> None:
+        # Real-money execution is deliberately not shipped in version 0.1.
+        if self.mode not in {"paper", "backtest"}:
+            raise ValueError("RUN_MODE must be paper or backtest; live orders are disabled")
+        if not self.symbols or len(set(self.symbols)) != len(self.symbols):
+            raise ValueError("Symbols must be unique and nonempty")
+        if any(not x.isalnum() or not x.endswith("USDT") for x in self.symbols):
+            raise ValueError("USD-M USDT symbols only")
+        if self.timeframe not in {"5m", "15m"}:
+            raise ValueError("Supported timeframe: 5m, 15m")
+        if self.starting_equity <= 0 or not 0 < self.risk_per_trade <= 0.02:
+            raise ValueError("Equity or risk cap invalid")
+        if not 0 < self.max_daily_loss <= 0.10 or self.max_consecutive_losses < 1:
+            raise ValueError("Daily loss or consecutive loss cap invalid")
+        if not 1 <= self.max_positions <= 5 or not 1 <= self.max_leverage <= 10:
+            raise ValueError("Position/leverage limit invalid")
+        if not 0 < self.max_margin_fraction <= 0.5:
+            raise ValueError("Margin cap invalid")
+        if not 0 < self.max_spread_bps <= 50:
+            raise ValueError("Spread cap invalid")
+        if not 3 <= self.min_score <= 10:
+            raise ValueError("Score threshold invalid")
+        if self.cooldown_minutes < 0 or not 5 <= self.loop_seconds <= 300:
+            raise ValueError("Polling/cooldown invalid")
+        if not 0 <= self.fee_rate <= 0.003 or not 0 <= self.slippage_bps <= 30:
+            raise ValueError("Costs invalid")
+
+    @classmethod
+    def from_env(cls) -> "Settings":
+        load_dotenv()
+        def f(name: str, default: str) -> str:
+            return os.getenv(name, default).strip()
+        return cls(
+            mode=f("RUN_MODE", "paper"),
+            symbols=tuple(s.strip().upper() for s in f("SYMBOLS", "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,DOGEUSDT").split(",") if s.strip()),
+            timeframe=f("TIMEFRAME", "5m"),
+            starting_equity=float(f("STARTING_EQUITY", "1000")),
+            risk_per_trade=float(f("RISK_PER_TRADE", "0.01")),
+            max_daily_loss=float(f("MAX_DAILY_LOSS", "0.05")),
+            max_consecutive_losses=int(f("MAX_CONSECUTIVE_LOSSES", "4")),
+            max_positions=int(f("MAX_POSITIONS", "3")),
+            max_leverage=int(f("MAX_LEVERAGE", "5")),
+            max_margin_fraction=float(f("MAX_MARGIN_FRACTION", "0.25")),
+            max_spread_bps=float(f("MAX_SPREAD_BPS", "12")),
+            min_score=int(f("MIN_SCORE", "5")),
+            cooldown_minutes=int(f("COOLDOWN_MINUTES", "15")),
+            loop_seconds=int(f("LOOP_SECONDS", "20")),
+            fee_rate=float(f("FEE_RATE", "0.0005")),
+            slippage_bps=float(f("SLIPPAGE_BPS", "3")),
+            data_dir=Path(f("DATA_DIR", "data")),
+        )

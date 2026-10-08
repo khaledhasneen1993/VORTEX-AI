@@ -53,6 +53,7 @@ def run_portfolio(
     highwater = wallet
     maxdd = 0.0
     fees_total = 0.0
+    ending_equity = wallet
     for i, ts in enumerate(stamps):
         bar = {s: by_symbol[s][ts] for s in symbols}
         slip = config.slippage_bps / 10_000
@@ -127,6 +128,7 @@ def run_portfolio(
             (bar[s].close - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
             - bar[s].close * p.qty * config.fee_rate for s, p in active.items())
         highwater = max(highwater, equity)
+        ending_equity = equity
         maxdd = max(maxdd, (highwater - equity) / highwater if highwater else 0)
         if not risk.can_open(equity, len(active))[0] and risk.blocked:
             break
@@ -160,6 +162,8 @@ def run_portfolio(
     gross_loss = -sum(x for x in pnl if x < 0)
     return {
         "start_equity": config.starting_equity, "cash_wallet": round(wallet, 6),
+        "equity_with_unrealized": round(ending_equity, 6),
+        "open_positions_unrealized_net": round(ending_equity-wallet, 6),
         "open_positions": sorted(active),
         "realized_net_pnl": round(sum(pnl), 6),
         "closed_trades": len(pnl),

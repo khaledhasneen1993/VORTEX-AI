@@ -69,6 +69,11 @@ class TestnetSupervisor:
         if (amount > 0) != (expected_side == "LONG"):
             self.halt("Exchange side mismatches journal")
         orders = self.api.open_algos(symbol)
+        recorded = {self.state.get("stop_id"), self.state.get("take_id")}
+        # Never silently accept an additional manual/unknown conditional
+        # order as a safe operating state, even if our two guards still exist.
+        if any(o.get("clientAlgoId") not in recorded for o in orders):
+            return False
         protective_side = "SELL" if amount > 0 else "BUY"
         # Find only OUR named orders, reject accidentally counting manual protective orders.
         own = [o for o in orders if o.get("clientAlgoId") in

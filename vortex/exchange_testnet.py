@@ -22,6 +22,7 @@ READ_PATHS = {
     "/fapi/v1/symbolConfig",
 }
 WRITE_PATHS = {"/fapi/v1/order", "/fapi/v1/algoOrder", "/fapi/v1/leverage"}
+DELETE_PATHS = {"/fapi/v1/algoOrder"}
 
 
 class ExchangeUncertain(RuntimeError):
@@ -65,10 +66,11 @@ class TestnetGateway:
 
     def request(self, method: str, path: str, params: dict | None = None):
         method = method.upper()
-        allowed = READ_PATHS if method == "GET" else WRITE_PATHS if method == "POST" else set()
+        allowed = (READ_PATHS if method == "GET" else WRITE_PATHS if method == "POST"
+                   else DELETE_PATHS if method == "DELETE" else set())
         if path not in allowed:
             raise ValueError("Endpoint not allowlisted")
-        if method == "POST" and not self.armed:
+        if method in ("POST", "DELETE") and not self.armed:
             raise PermissionError("TESTNET orders must be explicitly armed")
         values = dict(params or {})
         values["timestamp"] = self.clock() + self._clock_offset
@@ -80,11 +82,11 @@ class TestnetGateway:
             # HTTP verb / hostname pinned; server never sees credentials in repo.
             result = self.session.request(
                 method, TESTNET_URL + path,
-                params=query + "&signature=" + signature if method == "GET" else None,
+                params=query + "&signature=" + signature if method in {"GET", "DELETE"} else None,
                 data=query + "&signature=" + signature if method == "POST" else None,
                 headers=headers, timeout=12)
         except requests.RequestException as exc:
-            if method == "POST":
+            if method in {"POST", "DELETE"}:
                 raise ExchangeUncertain("Ambiguous testnet write; reconcile exchange before another write") from exc
             raise ExchangeRejected("Testnet read unavailable") from exc
         if result.status_code >= 400:
@@ -92,7 +94,7 @@ class TestnetGateway:
                 msg = result.json()
             except ValueError:
                 msg = {"status": result.status_code}
-            if method == "POST" and result.status_code >= 500:
+            if method in {"POST", "DELETE"} and result.status_code >= 500:
                 raise ExchangeUncertain("Testnet write response unknown; reconcile by client id")
             raise ExchangeRejected(f"Testnet API rejected request: {msg}")
         return result.json()
@@ -172,3 +174,10 @@ class TestnetGateway:
     def query_algo(self, symbol: str, client_id: str) -> dict:
         return self.request("GET", "/fapi/v1/algoOrder",
                             {"symbol": symbol, "clientAlgoId": client_id})
+
+
+    def cancel_algo(self, client_id: str) -> dict:
+        """Only by recorded deterministic ID. Never broad-cancel all guards."""
+        if not client_id.startswith("vx") or len(client_id) > 36:
+            raise ValueError("Refusing to cancel unknown protective order")
+        return self.request("DELETE", "/fapi/v1/algoOrder", {"clientAlgoId": client_id})

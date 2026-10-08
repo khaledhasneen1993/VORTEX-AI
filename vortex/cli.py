@@ -80,7 +80,13 @@ def main(argv: list[str] | None = None) -> int:
                 if symbol not in fresh_quote:
                     raise ValueError("No TESTNET bid/ask; no staged actions")
                 bid, ask = fresh_quote[symbol]
-                observed["management"] = maintain(guardian, bid, ask)
+                from .indicators import atr
+                now_testnet = testnet_market.server_ms()
+                observed_bars = testnet_market.candles(symbol, cfg.timeframe, 60, now_testnet)
+                current_atr = atr(observed_bars) if len(observed_bars) >= 16 else None
+                observed["management"] = maintain(
+                    guardian, bid, ask, atr_value=current_atr,
+                    trailing_atr_mult=cfg.trailing_atr_mult)
             print(json.dumps(observed, indent=2))
             time.sleep(10)
     market = Market()

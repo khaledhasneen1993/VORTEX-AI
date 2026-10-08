@@ -1,63 +1,65 @@
-# VORTEX AI — four-source pre-simulation implementation
+# VORTEX AI — Pre-Simulation Release Candidate
 
-Python 3.11+ Binance USDT-M Futures market scanner and PAPER trading framework with a separate TESTNET-ONLY, manually armed one-shot execution experiment.
+Binance USDT-M futures multistrategy market scanner, persisted PAPER broker, strict historical replay, and a separate TESTNET-ONLY guarded exchange adaptor.
 
-**No profit claims. No production orders. No live-money mode. No simulation has been started in this review.** This repository has NOT been certified for real futures trading.
+**No real-money/production order route exists. No historical performance simulation or real Testnet API-order integration was run while preparing this release. Profitability is unknown.**
 
-## Current strategy: FOUR independent voters
+## Strategy — four independent voters
 
-1. 15m trend following with EMA, MACD histogram, ADX and a **completed 1h** macro bias.
-2. 5m mean reversion with Bollinger expansion, short RSI, VWAP and market-regime check.
-3. Volume-confirmed 5m price breakout and directional OBV.
-4. Funding-rate crowding fade only when **real** funding and two separate open-interest readings exist, and the readings have not expired.
-
-A trade needs at least TWO independent strategies agreeing on LONG or SHORT, plus the 1h macro must not oppose them. Missing derivative readings mean strategy #4 ABSTAINS. The historical OHLC backtest cannot independently reconstruct past funding/OI: its reported results include the first 3 voters only. No model may bypass risk gates.
-
-## Running locally
-
-Install from this PR branch, not main, until the user reviews the change.
-
-- git clone https://github.com/khaledhasneen1993/VORTEX-AI.git
-- cd VORTEX-AI
-- git switch feat/vortex-pre-simulation-hardening
-- python -m pip install -e '.[dev]'
-- cp .env.example .env
-- python -m pytest -q
-
-Commands (DO NOT run unless you intend the corresponding work):
-
-- vortex status — read-only PAPER portfolio status
-- vortex dashboard — local-only http://127.0.0.1:8765 view
-- vortex paper --once — one public-market scan and PAPER ledger update; no Binance orders
-- vortex paper — ongoing paper runner on your OWN machine, not on GitHub
-- vortex backtest --symbol BTCUSDT --days 30 — optional historical single-pair backtest
-- vortex portfolio-backtest --days 30 — optional historical combined portfolio evaluation
-- vortex train-ai --dataset data/closed_trades.jsonl — requires 250+ labeled completed trades and time-purged holdout validation
-- vortex testnet-doctor — authenticated **read-only** testnet inspection (only with testnet keys)
-- vortex testnet-once --symbol BTCUSDT --ack-testnet — only one order if env VORTEX_TESTNET_ARM=TESTNET_ONLY and all safety checks pass
-- vortex testnet-watch --ack-testnet — armed TESTNET-only watchdog capable of emergency position reduction; requires explicit arm env
-
-## Optional market inputs
-
-- USE_WEBSOCKET=true uses the correct 2026 Binance PUBLIC /public/stream bookTicker route and rejects stale quotes.
-- USE_RADAR=true ranks liquid USDT futures movers across exchange symbols using public 24h volume/change. It requires USE_WEBSOCKET=false because the current WS feed is fixed-symbol; mixing them is rejected.
-- USE_MICROSTRUCTURE=true requires real order-book and aggregate-trade confirmation on selected positions.
-- USE_AI_MODEL=true is **disabled by default** and fails closed unless the trained holdout model has been validated. Training from PAPER outcomes is not equivalent to real exchange fill performance.
-- VORTEX_TELEGRAM_TOKEN and VORTEX_TELEGRAM_CHAT_ID provide optional alerting. Keep them secret.
+- Hourly completed EMA **50/200** market regime and 15m EMA/MACD/ADX trend.
+- Five-minute mean reversion (Bollinger/RSI/VWAP) with real completed **1-minute RSI divergence and Stochastic RSI** confirmation.
+- Five-minute volume breakout with directional OBV and relative volume.
+- Live extreme funding-rate fade using authentic Binance premiumIndex and two independent, time-separated open-interest readings. Unavailable readings ABSTAIN.
+- At least **TWO independent LONG or SHORT strategy votes** must agree. Hourly macro cannot oppose the decision.
+- Optional liquid-mover radar (top 12), order-book/taker-flow filter, and exchange-timestamp-validated WebSocket bookTicker quotes.
+- Optional Claude review (veto-only, no order/risk authority). Optional local logistic ML model needs real trade labels and chronological holdout validation.
 
 ## Risk and exits
 
-- Default 1% risk per trade, at most three simultaneous paper positions, 5x modeled leverage cap, 25% total paper margin budget.
-- Five consecutive losing **completed positions** latch the paper halt. Daily drawdown cap is 5%.
-- Paper: quarter closes at +1R and +1.5R, then move remaining stop to entry and trail it inward after 2R favorable movement; any remaining quantity closes at main target or stop.
-- Historical OHLC replay: staged exits use the same thresholds, with stop FIRST when a single candle touches stop and target. A touched bar level does **not** prove exchange liquidity/fill.
-- Final closed trade labels are recorded once per complete round trip. Partial exits are stored in a separate file, do not become extra 'winning trades'.
-- TESTNET currently only supports single guarded market entry with two exchange-held close-all protective orders, not paper-style staged TP/trailing. Never equate TESTNET and paper behavior.
+- Default 1% risk per trade, max three concurrent PAPER positions, 5x modeled leverage, total margin cap 25%. No martingale.
+- Halt new PAPER entries after five consecutively losing completed positions or daily portfolio drawdown >=5%.
+- PAPER and OHLC replay: 25% TP1 at +1R, 25% TP2 at +1.5R, inward-only stop to breakeven after TP1 and tighter trailing after +2R. The remaining position exits at stop or main target.
+- TESTNET commissioning: manually armed, single-entry position with exchange-side STOP_MARKET and TAKE_PROFIT_MARKET via Algo Orders. The armed guardian supports exchange-confirmed reduce-only quarter exits and create-verify-before-cancel stop replacement. Uncertain writes persist and require manual reconciliation. It has NOT been verified using a real Testnet API account.
 
-## Verification limits and safety
+## Local developer install
 
-Automated GitHub Actions tests exercise mocked/order-policy code; they DO NOT execute trades or prove strategy profit. The USD-M TESTNET order signing and Algo order paths have NOT been verified with real testnet keys in this review. No automated production adapter exists. Funding payments, historical order-book fills, mark-price trigger divergence, margin liquidation and market impact remain unmodeled in backtests.
+1. Clone https://github.com/khaledhasneen1993/VORTEX-AI and select the reviewed branch if PR #2 remains open.
+2. Install Python 3.11+ and run: python -m pip install -e '.[dev]'
+3. Copy .env.example to .env, edit only locally (never publish keys).
+4. Run tests: python -m pytest -q
+5. PAPER status: vortex status; readonly local dashboard: vortex dashboard
 
-No permission to turn on real trading is implied. The repository is PUBLIC. Never upload exchange credentials or the local .env file. Host deployment and long-lived PAPER tests require an independent always-on machine.
+## Commands (not run while building this release)
 
-**Reviewer references:** docs/COMPLIANCE_MATRIX.md (the four original projects, specific coverage and missing work) and docs/REVIEW.md (acceptance checklist).
+- vortex paper --once — read public Binance prices and run ONE paper polling cycle
+- vortex paper — continuous PAPER scanner on YOUR own host
+- vortex backtest --symbol BTCUSDT --days 30 — honest one-symbol historical OHLC test
+- vortex portfolio-backtest --days 30 — multi-symbol historical OHLC test
+- vortex train-ai --dataset data/closed_trades.jsonl — requires 250+ genuinely completed labeled PAPER positions
+
+Backtests may download tens of thousands of completed 1m candles per symbol; Binance throttling can slow or block requests. Historical data cannot recreate live funding/open-interest snapshots, dynamic radar selection or historical orderbook/taker-fill data from OHLC alone, so these live filters are not counted as historically validated. No market returns are claimed.
+
+## TESTNET-only commissioning (may place orders with FAKE funds)
+
+Keep credentials in local environment, never GitHub: VORTEX_TESTNET_KEY and VORTEX_TESTNET_SECRET issued for Binance TESTNET ONLY.
+
+- vortex testnet-doctor — read-only check of isolated/one-way Testnet account
+- Set VORTEX_TESTNET_ARM=TESTNET_ONLY and run vortex testnet-once --symbol BTCUSDT --ack-testnet only after reviewing the safeguards.
+- vortex testnet-watch --ack-testnet — explicitly armed active TESTNET watchdog, may reduce open testnet positions and update protective STOP orders.
+
+No production API keys are accepted in signed order paths. Testnet orders are never fired by running tests or starting the paper server. Avoid deleting or bypassing the persistent testnet order journal after an uncertain write.
+
+## Optional configuration
+
+- USE_WEBSOCKET=true — fixed-symbol public book quotes, reject out-of-order and stale exchange event time.
+- USE_RADAR=true — liquid/fast-mover discovery (mutually exclusive with fixed-symbol WebSocket in current code).
+- USE_MICROSTRUCTURE=true — real public depth and aggressor flow check.
+- USE_CLAUDE=true — requires ANTHROPIC_API_KEY and optional VORTEX_CLAUDE_MODEL, veto-only; errors skip the signal.
+- USE_AI_MODEL=true — requires a genuinely validated model in the private data directory. Invalid/missing model aborts the runner.
+- Telegram alerting: VORTEX_TELEGRAM_TOKEN, VORTEX_TELEGRAM_CHAT_ID; keep both secret.
+
+## Acceptance limitations
+
+Green mocked tests do NOT certify real exchange compatibility, fund safety, live uptime or future profit. External real-world gates remain: signed TESTNET order integration, edge-case partial-fill/trigger testing, actual public WS latency/resume, month-scale portfolio results, forward PAPER trial, model training and independent security review before separate REAL-money code may even be considered.
+
+Details: docs/COMPLIANCE_MATRIX.md and docs/REVIEW.md.

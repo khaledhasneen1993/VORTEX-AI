@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import threading
 import time
-from urllib.parse import quote
 from dataclasses import dataclass
 from websocket import WebSocketApp
 
@@ -41,7 +40,7 @@ class QuoteStream:
 
     @property
     def url(self):
-        return STREAM_URL + "/".join(quote(s.lower() + "@bookTicker") for s in self.symbols)
+        return STREAM_URL + "/".join(s.lower() + "@bookTicker" for s in self.symbols)
 
     def ingest(self, raw: str):
         data = json.loads(raw)

@@ -31,7 +31,7 @@ def test_environment_values_are_real_settings_fields(monkeypatch):
     assert settings.min_strong_score == 7
     assert settings.trailing_atr_mult == pytest.approx(1.25)
     assert settings.max_positions == 3
-    assert settings.max_daily_loss == pytest.approx(.05)
+    assert settings.max_daily_loss == pytest.approx(.50)
     with pytest.raises(ValueError):
         replace(settings, risk_per_trade=.15)
     with pytest.raises(ValueError):

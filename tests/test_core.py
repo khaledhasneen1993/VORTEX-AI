@@ -162,3 +162,31 @@ def test_corrupted_state_fails_instead_of_resetting(tmp_path):
     (tmp_path / "paper_state.json").write_text('{"broken":true}', encoding="utf-8")
     with pytest.raises(ValueError):
         PaperBroker(Settings(data_dir=tmp_path))
+
+
+def test_explicit_risk_reset_keeps_daily_loss_floor(tmp_path):
+    broker = PaperBroker(Settings(data_dir=tmp_path))
+    broker.gate.blocked = True
+    broker.gate.consecutive_losses = 4
+    broker.gate.day_start_equity = 1000
+    broker.wallet = 940
+    broker.save()
+    with pytest.raises(ValueError):
+        broker.reset_halt(False)
+    broker.reset_halt(True)
+    reloaded = PaperBroker(Settings(data_dir=tmp_path))
+    assert reloaded.wallet == 940
+    assert not reloaded.gate.can_open(940, 0)[0]
+
+
+def test_dashboard_requires_local_port():
+    from vortex.dashboard import serve
+    with pytest.raises(ValueError):
+        serve(Settings(), port=80)
+
+
+def test_history_rejects_invalid_span():
+    m = Market()
+    m._exchange = {"BTCUSDT": {}}
+    with pytest.raises(MarketError):
+        m.history("BTCUSDT", "5m", 99, 9999999)

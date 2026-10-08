@@ -146,7 +146,7 @@ def test_missing_stop_triggers_emergency_close_and_halt(tmp_path):
     guard.enter(S, .1, F, 5)
     api.algos = api.algos[1:]  # Delete STOP but retain TAKE_PROFIT
     with pytest.raises(ProtectionError):
-        guard.audit()
+        guard.audit(may_flatten=True)
     assert api.flatten_count == 1 and guard.state["phase"] == "HALTED"
     with pytest.raises(ProtectionError):
         TestnetSupervisor(api, tmp_path / "intent.json").audit()

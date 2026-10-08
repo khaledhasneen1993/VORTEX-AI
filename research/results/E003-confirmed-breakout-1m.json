@@ -1,0 +1,4757 @@
+{
+  "month": "2026-09",
+  "base_commit": "f2184089cba21ce98c6cffecfc09af5584c55d0d",
+  "working_tree_dirty": true,
+  "source_hashes": {
+    "research/replay.py": "56f0631b6389993315b771617c2232976bed627e46e1b540ea57719f7e436efc",
+    "vortex/__init__.py": "cfee7d74433527418170927ec5e2f53eeb35c419621fa6969ce6b2580f892c5d",
+    "vortex/alerts.py": "43ced462482eeb35cf5bc97244c9b588198c8ac9f77fe8aefda4eaefdbee8164",
+    "vortex/backtest.py": "5a0c0c2685d413c251131a389d8e4a26ff7bcc148ae350fc2ef2d666f77fb19c",
+    "vortex/binance.py": "220b7a38e24daad95e5472c22069425edb54de2981851278854a1361c0c2de83",
+    "vortex/claude_review.py": "f546259641fbe08b8ebb0e79dc66a150bfcad3141fc916a294a718dc7e25eedf",
+    "vortex/cli.py": "d7cbff97058dd847e5cf8c01fc0603f74adbd04668cda3f05f39e3ba121656cc",
+    "vortex/config.py": "297ae8732610a34aa8b7ef525663a7377d13e82d80f68fb62d34f48bf5a1dfa7",
+    "vortex/dashboard.py": "186dd17d2f5b8ae01564cba221fd9af3082c8bc1971685d2b61a9e60bed60076",
+    "vortex/derivatives.py": "61720087c7e610fa8ee7ce87aa88c937a6a97dd7a0836b60420992cf4223ff49",
+    "vortex/exchange_testnet.py": "5d1385028b8d0a0ccb69f04cd240eba9118753cbc7739ef1f42930e1950f5d20",
+    "vortex/exits.py": "fab9064c300cd0a825b618acb0d17b26b2084fb43f89486d4df57d4457fb59af",
+    "vortex/indicators.py": "e3af87e91809da60703bef17a01aa487431a6bea2d52023b5e37e4a435e302e4",
+    "vortex/locks.py": "734d00a0aa3f52900f78aca66eb26306e3ded358294df47c52ada9131b63d6e0",
+    "vortex/microstructure.py": "1a6b2f184e53eea50eb1126924aa72308754329bfdd259c16042c988dbc4f8e8",
+    "vortex/ml.py": "104b4ab72ba04c592dad056c90ca7fcb77b6400454f40f38108dd7f005999caa",
+    "vortex/models.py": "ed7c59b6b0611125c5ad9407fcabad2b15b19ae8b9accd82af443d836de0bbf7",
+    "vortex/paper.py": "a295663d75d560b03f61b0bfca99d4db882f58564d4509886092c7a55430a079",
+    "vortex/portfolio.py": "4587255e3fc36cdec2e763f68b59bcf6dc06c9ca0a81343d666b4c68696143a7",
+    "vortex/radar.py": "c30297927d549839ecbf98a237e69536a8bb4b39e912fb741b797de1ac08e75c",
+    "vortex/reports.py": "c3830063a5b57e3b58e00b71c02f027bd518e9fe9ec829933149a843f1c33374",
+    "vortex/research_policy.py": "ac6af6f02d23fe94140cb98b903579c5435248617c0d62a5a3287bb43b858e87",
+    "vortex/reversal.py": "19cfbe89a533ca242343825b96a36fbab4df1e54432d290132d6b5a57e65c0d5",
+    "vortex/risk.py": "dde6af861a02125246de02607508ffc93f07358e4244f97a40ccb068c65ade33",
+    "vortex/strategies.py": "9b0ec64bab5f24cde284593272154ff6f178af7211b701fb20608b846dbdd2be",
+    "vortex/strategy.py": "5ece29345c7a4744bd029bbca579caba3b6a1b21e60240e636c87e3c654a8a50",
+    "vortex/stream.py": "02c86799aa48677e1463bb4acd9654d57b6672e9d985f2aa9c29e6ea908b5a99",
+    "vortex/testnet_guard.py": "c8178750393dd1d1348ce5c73d96fb62d5b37bc3561b6f6b8779cdaeb5fb6443",
+    "vortex/testnet_runner.py": "58701405936e24d2c7bb3c48cab10f08f13c79a4df3b10bded85337d0691133c",
+    "vortex/testnet_stages.py": "ab6f78900175579b885321c7ac5ece539316bd415a0fe048ea2e5f28556ab741"
+  },
+  "execution_interval": "1m",
+  "entry_policy": "confirmed-breakout",
+  "cost_multiplier": 1,
+  "filter_source": "https://www.binance.com/fapi/v1/exchangeInfo",
+  "filter_sha256": "eb1e3708f146c2581b28e218332dab6b81815c570ce877c3b9607188debdac51",
+  "filter_server_time": 1791362591474,
+  "config": {
+    "mode": "paper",
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "BNBUSDT",
+      "XRPUSDT",
+      "DOGEUSDT"
+    ],
+    "timeframe": "5m",
+    "starting_equity": 1000,
+    "risk_per_trade": 0.1,
+    "max_daily_loss": 0.5,
+    "max_positions": 3,
+    "max_leverage": 5,
+    "max_margin_fraction": 0.25,
+    "max_spread_bps": 12,
+    "min_score": 5,
+    "strict_votes": true,
+    "min_strong_score": 7,
+    "trailing_atr_mult": 1,
+    "cooldown_minutes": 15,
+    "loop_seconds": 20,
+    "fee_rate": 0.0005,
+    "slippage_bps": 3,
+    "data_dir": "data"
+  },
+  "filters": {
+    "BTCUSDT": {
+      "step": 0.001,
+      "min_qty": 0.001,
+      "min_notional": 50,
+      "tick": 0.1
+    },
+    "ETHUSDT": {
+      "step": 0.001,
+      "min_qty": 0.001,
+      "min_notional": 20,
+      "tick": 0.01
+    },
+    "SOLUSDT": {
+      "step": 0.01,
+      "min_qty": 0.01,
+      "min_notional": 5,
+      "tick": 0.01
+    },
+    "BNBUSDT": {
+      "step": 0.01,
+      "min_qty": 0.01,
+      "min_notional": 5,
+      "tick": 0.01
+    },
+    "XRPUSDT": {
+      "step": 0.1,
+      "min_qty": 0.1,
+      "min_notional": 5,
+      "tick": 0.0001
+    },
+    "DOGEUSDT": {
+      "step": 1,
+      "min_qty": 1,
+      "min_notional": 5,
+      "tick": 0.00001
+    }
+  },
+  "sources": [
+    {
+      "symbol": "BTCUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/5m/BTCUSDT-5m-2026-09.zip",
+      "sha256_zip": "3a2d163a2bd28ca614fa0840a92ecbcde0d9c4962b278dd619d5bf81a9918e26",
+      "rows": 8640
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/15m/BTCUSDT-15m-2026-08.zip",
+      "sha256_zip": "0702d68a42de591fb39929d10327f1258ce1d59b9d81158c07e412029eb36306",
+      "rows": 2976
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/15m/BTCUSDT-15m-2026-09.zip",
+      "sha256_zip": "e879fa6903fd905201bd1f59e456773638cdf8c13848da79331cee89b0046964",
+      "rows": 2880
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-08.zip",
+      "sha256_zip": "b594301740cbb39818ba60f2835e4636aa06ad53308e25b1b312f1443fe0ccfe",
+      "rows": 744
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-09.zip",
+      "sha256_zip": "07ab960882feb6d3120673a851f2a654c4c3f31f3a74d1f3fc4b0351a8ee1483",
+      "rows": 720
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1m/BTCUSDT-1m-2026-08.zip",
+      "sha256_zip": "adfd0846ea580681aeb18a6bdf06660dcfcc1a7b6819ea2eecfc3c53240ec67a",
+      "rows": 44640
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1m/BTCUSDT-1m-2026-09.zip",
+      "sha256_zip": "e1a821b5bf6b48d57da01c3e390b8a467a698155def5c18c2c63c0eb044a3247",
+      "rows": 43200
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/5m/ETHUSDT-5m-2026-09.zip",
+      "sha256_zip": "143312487ffcc01c174156343fbf05ea48cbfa4e4602937caafb3e0ad3dbca9a",
+      "rows": 8640
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/15m/ETHUSDT-15m-2026-08.zip",
+      "sha256_zip": "468f78cf3a11df085e538ae44edfe73ad9bf69ba8ab7bed83788aad26ad538bb",
+      "rows": 2976
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/15m/ETHUSDT-15m-2026-09.zip",
+      "sha256_zip": "1dc572ea53979b37c55d950b2a8ad337eb3846cdcfd85864a609c70c526d934a",
+      "rows": 2880
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1h/ETHUSDT-1h-2026-08.zip",
+      "sha256_zip": "52ede96e424bdc696b4b7a30aa4f2f56cd32e58c6598400f25f7b3a8dc6cf50a",
+      "rows": 744
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1h/ETHUSDT-1h-2026-09.zip",
+      "sha256_zip": "f4331baae4c38dea1c123836808f3353473cc28e6c434ef38669698ae79599fc",
+      "rows": 720
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1m/ETHUSDT-1m-2026-08.zip",
+      "sha256_zip": "038b412935c3349e95b4abe3e9cec8a7fd521d16ce73fff3c2f92d605b252b9e",
+      "rows": 44640
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1m/ETHUSDT-1m-2026-09.zip",
+      "sha256_zip": "c85c7ec631fa7fe3a90c30e4ef6a76aeac0b88be895872388d87a6a8fd3d2892",
+      "rows": 43200
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/5m/SOLUSDT-5m-2026-09.zip",
+      "sha256_zip": "9b71841a30ba4e98cab7c3591240dcfccba0efde6889785b586f9af1e84079fe",
+      "rows": 8640
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/15m/SOLUSDT-15m-2026-08.zip",
+      "sha256_zip": "7861d59b7f70f3d7d56e8c1c12538f8001110467524215593e60173e7df50655",
+      "rows": 2976
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/15m/SOLUSDT-15m-2026-09.zip",
+      "sha256_zip": "d6b4f23739c277032b3ffaf849b5a9bbb5c1026dbcfb0de0c80d35909ec63a33",
+      "rows": 2880
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1h/SOLUSDT-1h-2026-08.zip",
+      "sha256_zip": "a25ab3dfcabcf739bd8bdd0aa9b1302865d5c571a5af1ffbb6e4a2b5c26ab833",
+      "rows": 744
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1h/SOLUSDT-1h-2026-09.zip",
+      "sha256_zip": "e57f44b7df1f4269a06395c161d3618d9bc3d56e623825fc77c615d713a19263",
+      "rows": 720
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1m/SOLUSDT-1m-2026-08.zip",
+      "sha256_zip": "0d895f66c4c07969845decf7d8e8752b0d8cb5409ca737b7b48c8751d4fd6f1f",
+      "rows": 44640
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1m/SOLUSDT-1m-2026-09.zip",
+      "sha256_zip": "58bcf27df2447043d9e955674de7c73bc42b848a7b8beb08d7800c9dd04813d1",
+      "rows": 43200
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/5m/BNBUSDT-5m-2026-09.zip",
+      "sha256_zip": "411a9b7027b663898e1eaf9f25251e41578100b9023faf8016e5d7b0b71d9ade",
+      "rows": 8640
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/15m/BNBUSDT-15m-2026-08.zip",
+      "sha256_zip": "550d884c0cc6bf8987e811cb1d288410d23c8b4f571768fad24b1110a9f87c81",
+      "rows": 2976
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/15m/BNBUSDT-15m-2026-09.zip",
+      "sha256_zip": "b1a5b3b8938051ec85f7c02e2dbeb81ce911ef75b146996307e418f9b7b4dfa0",
+      "rows": 2880
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/1h/BNBUSDT-1h-2026-08.zip",
+      "sha256_zip": "20c98a1ccd5eb2f8d8d120d1d96e7d63dd5cacd79062813e2fa8097b92cff39c",
+      "rows": 744
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/1h/BNBUSDT-1h-2026-09.zip",
+      "sha256_zip": "2ebd9f79a198e86070fe860b7a3cfbacc1cffbb85cf281f981ce3d9363c4e6a7",
+      "rows": 720
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/1m/BNBUSDT-1m-2026-08.zip",
+      "sha256_zip": "720458d20a8e5ee8519abc29b7fec1c7e4e074d675ef3fb11fcbfa5d0184a2c1",
+      "rows": 44640
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/1m/BNBUSDT-1m-2026-09.zip",
+      "sha256_zip": "e467378d964bad51920c0ea87517503d644e7d1ce001a0e742c2edd57c463097",
+      "rows": 43200
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/5m/XRPUSDT-5m-2026-09.zip",
+      "sha256_zip": "0feab324d90dc5a88c58e2e3c443101b517849d6fcfcc11e341da9ca84a71ec9",
+      "rows": 8640
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/15m/XRPUSDT-15m-2026-08.zip",
+      "sha256_zip": "98836ee605b9189f09f1f6b6f16d4a4839f80ec97e2fac8047b1d2d63e637d2b",
+      "rows": 2976
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/15m/XRPUSDT-15m-2026-09.zip",
+      "sha256_zip": "9c88a2290a1083fb16baa66ecfb80ab9d694adc2f6a94720f1bb7791d721ccb4",
+      "rows": 2880
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/1h/XRPUSDT-1h-2026-08.zip",
+      "sha256_zip": "387e1aa225a3984ac4add2764a9b948c0a255fb38c24b8714690d1d5dce4d48c",
+      "rows": 744
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/1h/XRPUSDT-1h-2026-09.zip",
+      "sha256_zip": "490701edf518fec0d78441d9bc6adcd92e62c837aca2f4e4e7d6ef37a6c9c68a",
+      "rows": 720
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/1m/XRPUSDT-1m-2026-08.zip",
+      "sha256_zip": "e4108def774c3daf34c1639d0a0a0ad5a4addc35df4cf927b493fc887c242854",
+      "rows": 44640
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/1m/XRPUSDT-1m-2026-09.zip",
+      "sha256_zip": "a28a4de41559ead96b00db22ab4fa6aecbffd48331b7e876386b99da04861e48",
+      "rows": 43200
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/5m/DOGEUSDT-5m-2026-09.zip",
+      "sha256_zip": "11f5c2d2ba7a505db6b3dbd6d271616eae55086c2cf6396364cd30343eceb626",
+      "rows": 8640
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/15m/DOGEUSDT-15m-2026-08.zip",
+      "sha256_zip": "d9f1cb766e7de8acb8ba1d5142d2e167ef5c3d4cc3bb2d372bd276aa02197bd8",
+      "rows": 2976
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/15m/DOGEUSDT-15m-2026-09.zip",
+      "sha256_zip": "93bf6356322a165c57e5ffec8cdbcb9ecbe6f245a2fb2b3f95db8aa5ebb60850",
+      "rows": 2880
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/1h/DOGEUSDT-1h-2026-08.zip",
+      "sha256_zip": "71247f5f7704590576a4cecef0606135f8601a46ae91d1368aab0dbb809e736a",
+      "rows": 744
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/1h/DOGEUSDT-1h-2026-09.zip",
+      "sha256_zip": "554d03c9b5f688e25d7143791099884de8f4c582240aabe934eeca917e91f0c7",
+      "rows": 720
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/1m/DOGEUSDT-1m-2026-08.zip",
+      "sha256_zip": "bce45b036618e8d7d1fc370de004813e7d055e807657fabd730833fe77b63739",
+      "rows": 44640
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/1m/DOGEUSDT-1m-2026-09.zip",
+      "sha256_zip": "6a2dd23e5b5a1c259ec2af3f2bcda0d2459131f50b8128199541921cccb4d523",
+      "rows": 43200
+    }
+  ],
+  "limitations": [
+    "Current exchange filters, not historical filters",
+    "OHLC intrabar ties remain stop-first, including 1m",
+    "No historical funding, liquidation or order-book replay",
+    "MFE/MAE excludes terminal bar and is a pre-exit lower bound; within-minute sequence unknown",
+    "Risk gate and equity drawdown sampled at 5m boundaries; 1m changes exit execution only"
+  ],
+  "report": {
+    "metrics": {
+      "closed_trades": 51,
+      "win_rate_pct": 27.451,
+      "profit_factor": 0.3093,
+      "max_drawdown_pct": 12.771,
+      "average_r": -0.6551,
+      "equity_curve": [
+        {
+          "ts": 1788220800000,
+          "equity": 1000
+        },
+        {
+          "ts": 1788242699999,
+          "equity": 1000
+        },
+        {
+          "ts": 1788264299999,
+          "equity": 1000
+        },
+        {
+          "ts": 1788286199999,
+          "equity": 1000
+        },
+        {
+          "ts": 1788307799999,
+          "equity": 999.71943
+        },
+        {
+          "ts": 1788329699999,
+          "equity": 998.190492
+        },
+        {
+          "ts": 1788351599999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788373199999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788395099999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788416699999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788438599999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788460499999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788482099999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788503999999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788525599999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788547499999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788569399999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788590999999,
+          "equity": 991.645517
+        },
+        {
+          "ts": 1788612899999,
+          "equity": 983.471047
+        },
+        {
+          "ts": 1788634499999,
+          "equity": 972.607126
+        },
+        {
+          "ts": 1788656399999,
+          "equity": 972.607126
+        },
+        {
+          "ts": 1788678299999,
+          "equity": 974.78278
+        },
+        {
+          "ts": 1788699899999,
+          "equity": 974.78278
+        },
+        {
+          "ts": 1788721799999,
+          "equity": 974.78278
+        },
+        {
+          "ts": 1788743699999,
+          "equity": 976.881658
+        },
+        {
+          "ts": 1788765299999,
+          "equity": 976.881658
+        },
+        {
+          "ts": 1788787199999,
+          "equity": 976.881658
+        },
+        {
+          "ts": 1788808799999,
+          "equity": 976.881658
+        },
+        {
+          "ts": 1788830699999,
+          "equity": 976.881658
+        },
+        {
+          "ts": 1788852599999,
+          "equity": 977.710002
+        },
+        {
+          "ts": 1788874199999,
+          "equity": 977.431716
+        },
+        {
+          "ts": 1788896099999,
+          "equity": 977.431716
+        },
+        {
+          "ts": 1788917699999,
+          "equity": 977.431716
+        },
+        {
+          "ts": 1788939599999,
+          "equity": 977.431716
+        },
+        {
+          "ts": 1788961499999,
+          "equity": 978.435986
+        },
+        {
+          "ts": 1788983099999,
+          "equity": 978.435986
+        },
+        {
+          "ts": 1789004999999,
+          "equity": 978.435986
+        },
+        {
+          "ts": 1789026599999,
+          "equity": 978.435986
+        },
+        {
+          "ts": 1789048499999,
+          "equity": 972.648345
+        },
+        {
+          "ts": 1789070399999,
+          "equity": 972.648345
+        },
+        {
+          "ts": 1789091999999,
+          "equity": 967.472991
+        },
+        {
+          "ts": 1789113899999,
+          "equity": 967.472991
+        },
+        {
+          "ts": 1789135499999,
+          "equity": 981.603686
+        },
+        {
+          "ts": 1789157399999,
+          "equity": 981.603686
+        },
+        {
+          "ts": 1789179299999,
+          "equity": 981.603686
+        },
+        {
+          "ts": 1789200899999,
+          "equity": 981.603686
+        },
+        {
+          "ts": 1789222799999,
+          "equity": 980.46431
+        },
+        {
+          "ts": 1789244399999,
+          "equity": 977.225862
+        },
+        {
+          "ts": 1789266299999,
+          "equity": 977.225862
+        },
+        {
+          "ts": 1789288199999,
+          "equity": 977.225862
+        },
+        {
+          "ts": 1789309799999,
+          "equity": 970.713487
+        },
+        {
+          "ts": 1789331699999,
+          "equity": 974.149659
+        },
+        {
+          "ts": 1789353299999,
+          "equity": 974.149659
+        },
+        {
+          "ts": 1789375199999,
+          "equity": 974.149659
+        },
+        {
+          "ts": 1789397099999,
+          "equity": 974.149659
+        },
+        {
+          "ts": 1789418699999,
+          "equity": 978.750164
+        },
+        {
+          "ts": 1789440599999,
+          "equity": 978.750164
+        },
+        {
+          "ts": 1789462199999,
+          "equity": 975.966904
+        },
+        {
+          "ts": 1789484099999,
+          "equity": 974.663115
+        },
+        {
+          "ts": 1789505999999,
+          "equity": 962.41175
+        },
+        {
+          "ts": 1789527599999,
+          "equity": 962.41175
+        },
+        {
+          "ts": 1789549499999,
+          "equity": 957.994575
+        },
+        {
+          "ts": 1789571399999,
+          "equity": 957.994575
+        },
+        {
+          "ts": 1789592999999,
+          "equity": 950.222645
+        },
+        {
+          "ts": 1789614899999,
+          "equity": 950.222645
+        },
+        {
+          "ts": 1789636499999,
+          "equity": 950.222645
+        },
+        {
+          "ts": 1789658399999,
+          "equity": 950.222645
+        },
+        {
+          "ts": 1789680299999,
+          "equity": 950.222645
+        },
+        {
+          "ts": 1789701899999,
+          "equity": 950.222645
+        },
+        {
+          "ts": 1789723799999,
+          "equity": 950.222645
+        },
+        {
+          "ts": 1789745399999,
+          "equity": 944.991987
+        },
+        {
+          "ts": 1789767299999,
+          "equity": 944.991987
+        },
+        {
+          "ts": 1789789199999,
+          "equity": 944.991987
+        },
+        {
+          "ts": 1789810799999,
+          "equity": 944.991987
+        },
+        {
+          "ts": 1789832699999,
+          "equity": 944.991987
+        },
+        {
+          "ts": 1789854299999,
+          "equity": 945.047029
+        },
+        {
+          "ts": 1789876199999,
+          "equity": 945.047029
+        },
+        {
+          "ts": 1789898099999,
+          "equity": 945.047029
+        },
+        {
+          "ts": 1789919699999,
+          "equity": 945.047029
+        },
+        {
+          "ts": 1789941599999,
+          "equity": 942.305751
+        },
+        {
+          "ts": 1789963199999,
+          "equity": 944.307284
+        },
+        {
+          "ts": 1789985099999,
+          "equity": 933.773
+        },
+        {
+          "ts": 1790006999999,
+          "equity": 933.773
+        },
+        {
+          "ts": 1790028599999,
+          "equity": 932.551313
+        },
+        {
+          "ts": 1790050499999,
+          "equity": 930.320518
+        },
+        {
+          "ts": 1790072099999,
+          "equity": 910.831752
+        },
+        {
+          "ts": 1790093999999,
+          "equity": 910.831752
+        },
+        {
+          "ts": 1790115899999,
+          "equity": 910.831752
+        },
+        {
+          "ts": 1790137499999,
+          "equity": 912.734833
+        },
+        {
+          "ts": 1790159399999,
+          "equity": 900.22471
+        },
+        {
+          "ts": 1790180999999,
+          "equity": 900.22471
+        },
+        {
+          "ts": 1790202899999,
+          "equity": 900.22471
+        },
+        {
+          "ts": 1790224799999,
+          "equity": 900.22471
+        },
+        {
+          "ts": 1790246399999,
+          "equity": 900.22471
+        },
+        {
+          "ts": 1790268299999,
+          "equity": 888.330195
+        },
+        {
+          "ts": 1790289899999,
+          "equity": 888.330195
+        },
+        {
+          "ts": 1790311799999,
+          "equity": 888.330195
+        },
+        {
+          "ts": 1790333699999,
+          "equity": 888.330195
+        },
+        {
+          "ts": 1790355299999,
+          "equity": 892.339366
+        },
+        {
+          "ts": 1790377199999,
+          "equity": 892.339366
+        },
+        {
+          "ts": 1790399099999,
+          "equity": 892.339366
+        },
+        {
+          "ts": 1790420699999,
+          "equity": 892.339366
+        },
+        {
+          "ts": 1790442599999,
+          "equity": 892.339366
+        },
+        {
+          "ts": 1790464199999,
+          "equity": 892.339366
+        },
+        {
+          "ts": 1790486099999,
+          "equity": 892.339366
+        },
+        {
+          "ts": 1790507999999,
+          "equity": 887.001464
+        },
+        {
+          "ts": 1790529599999,
+          "equity": 884.158848
+        },
+        {
+          "ts": 1790551499999,
+          "equity": 884.158848
+        },
+        {
+          "ts": 1790573099999,
+          "equity": 884.158848
+        },
+        {
+          "ts": 1790594999999,
+          "equity": 883.731105
+        },
+        {
+          "ts": 1790616899999,
+          "equity": 884.428066
+        },
+        {
+          "ts": 1790638499999,
+          "equity": 884.428066
+        },
+        {
+          "ts": 1790660399999,
+          "equity": 884.428066
+        },
+        {
+          "ts": 1790681999999,
+          "equity": 884.428066
+        },
+        {
+          "ts": 1790703899999,
+          "equity": 884.428066
+        },
+        {
+          "ts": 1790725799999,
+          "equity": 879.866939
+        },
+        {
+          "ts": 1790747399999,
+          "equity": 875.235038
+        },
+        {
+          "ts": 1790769299999,
+          "equity": 875.235038
+        },
+        {
+          "ts": 1790790899999,
+          "equity": 875.235038
+        },
+        {
+          "ts": 1790812799999,
+          "equity": 875.235038
+        }
+      ]
+    },
+    "equity_curve": [
+      {
+        "ts": 1788220800000,
+        "equity": 1000
+      },
+      {
+        "ts": 1788242699999,
+        "equity": 1000
+      },
+      {
+        "ts": 1788264299999,
+        "equity": 1000
+      },
+      {
+        "ts": 1788286199999,
+        "equity": 1000
+      },
+      {
+        "ts": 1788307799999,
+        "equity": 999.71943
+      },
+      {
+        "ts": 1788329699999,
+        "equity": 998.190492
+      },
+      {
+        "ts": 1788351599999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788373199999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788395099999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788416699999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788438599999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788460499999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788482099999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788503999999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788525599999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788547499999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788569399999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788590999999,
+        "equity": 991.645517
+      },
+      {
+        "ts": 1788612899999,
+        "equity": 983.471047
+      },
+      {
+        "ts": 1788634499999,
+        "equity": 972.607126
+      },
+      {
+        "ts": 1788656399999,
+        "equity": 972.607126
+      },
+      {
+        "ts": 1788678299999,
+        "equity": 974.78278
+      },
+      {
+        "ts": 1788699899999,
+        "equity": 974.78278
+      },
+      {
+        "ts": 1788721799999,
+        "equity": 974.78278
+      },
+      {
+        "ts": 1788743699999,
+        "equity": 976.881658
+      },
+      {
+        "ts": 1788765299999,
+        "equity": 976.881658
+      },
+      {
+        "ts": 1788787199999,
+        "equity": 976.881658
+      },
+      {
+        "ts": 1788808799999,
+        "equity": 976.881658
+      },
+      {
+        "ts": 1788830699999,
+        "equity": 976.881658
+      },
+      {
+        "ts": 1788852599999,
+        "equity": 977.710002
+      },
+      {
+        "ts": 1788874199999,
+        "equity": 977.431716
+      },
+      {
+        "ts": 1788896099999,
+        "equity": 977.431716
+      },
+      {
+        "ts": 1788917699999,
+        "equity": 977.431716
+      },
+      {
+        "ts": 1788939599999,
+        "equity": 977.431716
+      },
+      {
+        "ts": 1788961499999,
+        "equity": 978.435986
+      },
+      {
+        "ts": 1788983099999,
+        "equity": 978.435986
+      },
+      {
+        "ts": 1789004999999,
+        "equity": 978.435986
+      },
+      {
+        "ts": 1789026599999,
+        "equity": 978.435986
+      },
+      {
+        "ts": 1789048499999,
+        "equity": 972.648345
+      },
+      {
+        "ts": 1789070399999,
+        "equity": 972.648345
+      },
+      {
+        "ts": 1789091999999,
+        "equity": 967.472991
+      },
+      {
+        "ts": 1789113899999,
+        "equity": 967.472991
+      },
+      {
+        "ts": 1789135499999,
+        "equity": 981.603686
+      },
+      {
+        "ts": 1789157399999,
+        "equity": 981.603686
+      },
+      {
+        "ts": 1789179299999,
+        "equity": 981.603686
+      },
+      {
+        "ts": 1789200899999,
+        "equity": 981.603686
+      },
+      {
+        "ts": 1789222799999,
+        "equity": 980.46431
+      },
+      {
+        "ts": 1789244399999,
+        "equity": 977.225862
+      },
+      {
+        "ts": 1789266299999,
+        "equity": 977.225862
+      },
+      {
+        "ts": 1789288199999,
+        "equity": 977.225862
+      },
+      {
+        "ts": 1789309799999,
+        "equity": 970.713487
+      },
+      {
+        "ts": 1789331699999,
+        "equity": 974.149659
+      },
+      {
+        "ts": 1789353299999,
+        "equity": 974.149659
+      },
+      {
+        "ts": 1789375199999,
+        "equity": 974.149659
+      },
+      {
+        "ts": 1789397099999,
+        "equity": 974.149659
+      },
+      {
+        "ts": 1789418699999,
+        "equity": 978.750164
+      },
+      {
+        "ts": 1789440599999,
+        "equity": 978.750164
+      },
+      {
+        "ts": 1789462199999,
+        "equity": 975.966904
+      },
+      {
+        "ts": 1789484099999,
+        "equity": 974.663115
+      },
+      {
+        "ts": 1789505999999,
+        "equity": 962.41175
+      },
+      {
+        "ts": 1789527599999,
+        "equity": 962.41175
+      },
+      {
+        "ts": 1789549499999,
+        "equity": 957.994575
+      },
+      {
+        "ts": 1789571399999,
+        "equity": 957.994575
+      },
+      {
+        "ts": 1789592999999,
+        "equity": 950.222645
+      },
+      {
+        "ts": 1789614899999,
+        "equity": 950.222645
+      },
+      {
+        "ts": 1789636499999,
+        "equity": 950.222645
+      },
+      {
+        "ts": 1789658399999,
+        "equity": 950.222645
+      },
+      {
+        "ts": 1789680299999,
+        "equity": 950.222645
+      },
+      {
+        "ts": 1789701899999,
+        "equity": 950.222645
+      },
+      {
+        "ts": 1789723799999,
+        "equity": 950.222645
+      },
+      {
+        "ts": 1789745399999,
+        "equity": 944.991987
+      },
+      {
+        "ts": 1789767299999,
+        "equity": 944.991987
+      },
+      {
+        "ts": 1789789199999,
+        "equity": 944.991987
+      },
+      {
+        "ts": 1789810799999,
+        "equity": 944.991987
+      },
+      {
+        "ts": 1789832699999,
+        "equity": 944.991987
+      },
+      {
+        "ts": 1789854299999,
+        "equity": 945.047029
+      },
+      {
+        "ts": 1789876199999,
+        "equity": 945.047029
+      },
+      {
+        "ts": 1789898099999,
+        "equity": 945.047029
+      },
+      {
+        "ts": 1789919699999,
+        "equity": 945.047029
+      },
+      {
+        "ts": 1789941599999,
+        "equity": 942.305751
+      },
+      {
+        "ts": 1789963199999,
+        "equity": 944.307284
+      },
+      {
+        "ts": 1789985099999,
+        "equity": 933.773
+      },
+      {
+        "ts": 1790006999999,
+        "equity": 933.773
+      },
+      {
+        "ts": 1790028599999,
+        "equity": 932.551313
+      },
+      {
+        "ts": 1790050499999,
+        "equity": 930.320518
+      },
+      {
+        "ts": 1790072099999,
+        "equity": 910.831752
+      },
+      {
+        "ts": 1790093999999,
+        "equity": 910.831752
+      },
+      {
+        "ts": 1790115899999,
+        "equity": 910.831752
+      },
+      {
+        "ts": 1790137499999,
+        "equity": 912.734833
+      },
+      {
+        "ts": 1790159399999,
+        "equity": 900.22471
+      },
+      {
+        "ts": 1790180999999,
+        "equity": 900.22471
+      },
+      {
+        "ts": 1790202899999,
+        "equity": 900.22471
+      },
+      {
+        "ts": 1790224799999,
+        "equity": 900.22471
+      },
+      {
+        "ts": 1790246399999,
+        "equity": 900.22471
+      },
+      {
+        "ts": 1790268299999,
+        "equity": 888.330195
+      },
+      {
+        "ts": 1790289899999,
+        "equity": 888.330195
+      },
+      {
+        "ts": 1790311799999,
+        "equity": 888.330195
+      },
+      {
+        "ts": 1790333699999,
+        "equity": 888.330195
+      },
+      {
+        "ts": 1790355299999,
+        "equity": 892.339366
+      },
+      {
+        "ts": 1790377199999,
+        "equity": 892.339366
+      },
+      {
+        "ts": 1790399099999,
+        "equity": 892.339366
+      },
+      {
+        "ts": 1790420699999,
+        "equity": 892.339366
+      },
+      {
+        "ts": 1790442599999,
+        "equity": 892.339366
+      },
+      {
+        "ts": 1790464199999,
+        "equity": 892.339366
+      },
+      {
+        "ts": 1790486099999,
+        "equity": 892.339366
+      },
+      {
+        "ts": 1790507999999,
+        "equity": 887.001464
+      },
+      {
+        "ts": 1790529599999,
+        "equity": 884.158848
+      },
+      {
+        "ts": 1790551499999,
+        "equity": 884.158848
+      },
+      {
+        "ts": 1790573099999,
+        "equity": 884.158848
+      },
+      {
+        "ts": 1790594999999,
+        "equity": 883.731105
+      },
+      {
+        "ts": 1790616899999,
+        "equity": 884.428066
+      },
+      {
+        "ts": 1790638499999,
+        "equity": 884.428066
+      },
+      {
+        "ts": 1790660399999,
+        "equity": 884.428066
+      },
+      {
+        "ts": 1790681999999,
+        "equity": 884.428066
+      },
+      {
+        "ts": 1790703899999,
+        "equity": 884.428066
+      },
+      {
+        "ts": 1790725799999,
+        "equity": 879.866939
+      },
+      {
+        "ts": 1790747399999,
+        "equity": 875.235038
+      },
+      {
+        "ts": 1790769299999,
+        "equity": 875.235038
+      },
+      {
+        "ts": 1790790899999,
+        "equity": 875.235038
+      },
+      {
+        "ts": 1790812799999,
+        "equity": 875.235038
+      }
+    ],
+    "average_r": -0.6551,
+    "max_drawdown_pct": 12.771,
+    "start_equity": 1000,
+    "cash_wallet": 875.235038,
+    "equity_with_unrealized": 875.235038,
+    "open_positions_unrealized_net": 0,
+    "open_positions": [],
+    "realized_net_pnl": -124.764962,
+    "execution_interval": "1m",
+    "diagnostics_enabled": true,
+    "closed_trades": 51,
+    "win_rate": 0.27450980392156865,
+    "profit_factor": 0.30929882663611663,
+    "max_mark_to_market_drawdown_pct": 12.771,
+    "total_fees": 55.688922,
+    "halted": false,
+    "warnings": [
+      "OHLC approximations; funding, liquidation, historic spread and queue not replayed",
+      "Historical results are NOT a forward-profit forecast"
+    ],
+    "trades": [
+      {
+        "symbol": "BNBUSDT",
+        "side": "SHORT",
+        "entry_ts": 1788287700000,
+        "exit_ts": 1788288540000,
+        "entry": 678.936258,
+        "exit": 676.43415091,
+        "net_pnl": 2.61343297,
+        "r_multiple": 0.935684,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 680.4542314748235,
+          "initial_target": 674.3823375755295,
+          "atr_at_signal": 1.0119823165489776,
+          "score": 8,
+          "initial_qty": 1.84,
+          "initial_margin": 249.84854294399997,
+          "entry_fee": 0.6246213573599999,
+          "total_fees": 1.2473123420632632,
+          "partial_exits": [
+            {
+              "ts": 1788287880000,
+              "qty": 0.46,
+              "price": 677.6215100105339,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.15615533933999998,
+              "exit_fee": 0.15585294730242283,
+              "net_pnl": 0.29277578851194347
+            },
+            {
+              "ts": 1788287940000,
+              "qty": 0.46,
+              "price": 676.862295577101,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.15615533933999998,
+              "exit_fee": 0.15567832798273323,
+              "net_pnl": 0.6421890472107812
+            },
+            {
+              "ts": 1788288540000,
+              "qty": 0.9200000000000002,
+              "price": 676.4341509089289,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.31231067867999995,
+              "exit_fee": 0.3111597094181074,
+              "net_pnl": 1.6784681356872362
+            }
+          ],
+          "mfe_price_before_exit_bar": 3.9362579999999525,
+          "mae_price_before_exit_bar": 0.3137420000000475,
+          "mfe_first_ts": 1788288360000,
+          "mae_first_ts": 1788287700000,
+          "exit_bar_ambiguous": true,
+          "signal_features": {
+            "relative_volume": 5.4598450812277415,
+            "adx_15m": 36.38284291575356,
+            "adx_5m": 36.93927557754608,
+            "rsi_5m": 10.54315502701023,
+            "signal_range_atr": 2.52968847195875,
+            "signal_body_atr": 1.3438970007280684,
+            "ema9_distance_atr": 2.1544719815497624,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788288540000,
+            "low": 676.22,
+            "high": 677.96
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "SHORT",
+        "entry_ts": 1788288300000,
+        "exit_ts": 1788288600000,
+        "entry": 76522.63632,
+        "exit": 76807.72153817,
+        "net_pnl": -2.89400318,
+        "r_multiple": -1.380464,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 76784.68613233215,
+          "initial_target": 75736.48688300356,
+          "atr_at_signal": 174.69987488809855,
+          "score": 8,
+          "initial_qty": 0.008,
+          "initial_margin": 122.436218112,
+          "entry_fee": 0.30609054528,
+          "total_fees": 0.6133214314326874,
+          "partial_exits": [
+            {
+              "ts": 1788288600000,
+              "qty": 0.008,
+              "price": 76807.72153817184,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.30609054528,
+              "exit_fee": 0.3072308861526874,
+              "net_pnl": -2.894003176807379
+            }
+          ],
+          "mfe_price_before_exit_bar": 154.63632000000507,
+          "mae_price_before_exit_bar": 235.96368000000075,
+          "mfe_first_ts": 1788288300000,
+          "mae_first_ts": 1788288540000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.512947591516474,
+            "adx_15m": 41.601501588784586,
+            "adx_5m": 45.93054902664584,
+            "rsi_5m": 12.20230560256347,
+            "signal_range_atr": 2.045221842481866,
+            "signal_body_atr": 1.3903845103242358,
+            "ema9_distance_atr": 2.124273551159843,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788288600000,
+            "low": 76741,
+            "high": 76893.9
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "SHORT",
+        "entry_ts": 1788313500000,
+        "exit_ts": 1788314340000,
+        "entry": 1.33389971,
+        "exit": 1.33429988,
+        "net_pnl": -0.42635321,
+        "r_multiple": -0.08902,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.3390122317401474,
+          "initial_target": 1.3185621447795581,
+          "atr_at_signal": 0.0034083478267648995,
+          "score": 8,
+          "initial_qty": 936.8,
+          "initial_margin": 249.91944966559998,
+          "entry_fee": 0.624798624164,
+          "total_fees": 1.2491858320165892,
+          "partial_exits": [
+            {
+              "ts": 1788313800000,
+              "qty": 234.2,
+              "price": 1.3291858244163306,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.156199656041,
+              "exit_fee": 0.1556476600391523,
+              "net_pnl": 0.7921446876152387
+            },
+            {
+              "ts": 1788314340000,
+              "qty": 702.5999999999999,
+              "price": 1.334299879913,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.468598968123,
+              "exit_fee": 0.4687395478134368,
+              "net_pnl": -1.21849789681013
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.007599710000000037,
+          "mae_price_before_exit_bar": 0.0027002899999999386,
+          "mfe_first_ts": 1788313920000,
+          "mae_first_ts": 1788313560000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 3.241077635511722,
+            "adx_15m": 31.49442145822547,
+            "adx_5m": 23.194073095298076,
+            "rsi_5m": 26.200488040899586,
+            "signal_range_atr": 1.02689049882621,
+            "signal_body_atr": 0.7921726705230911,
+            "ema9_distance_atr": 1.1031409956203924,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788314340000,
+            "low": 1.3331,
+            "high": 1.3349
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "SHORT",
+        "entry_ts": 1788314100000,
+        "exit_ts": 1788314280000,
+        "entry": 76752.46735,
+        "exit": 76951.26172583,
+        "net_pnl": -1.10258496,
+        "r_multiple": -1.568704,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 76928.1832708439,
+          "initial_target": 76225.3195874683,
+          "atr_at_signal": 117.14394722926838,
+          "score": 7,
+          "initial_qty": 0.004,
+          "initial_margin": 61.40197388,
+          "entry_fee": 0.1535049347,
+          "total_fees": 0.3074074581516504,
+          "partial_exits": [
+            {
+              "ts": 1788314280000,
+              "qty": 0.004,
+              "price": 76951.26172582516,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.1535049347,
+              "exit_fee": 0.15390252345165034,
+              "net_pnl": -1.1025849614522483
+            }
+          ],
+          "mfe_price_before_exit_bar": 0,
+          "mae_price_before_exit_bar": 167.83264999999665,
+          "mfe_first_ts": null,
+          "mae_first_ts": 1788314160000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.64694476347299,
+            "adx_15m": 28.62089801506306,
+            "adx_5m": 20.902434846716268,
+            "rsi_5m": 16.052564075126313,
+            "signal_range_atr": 1.3581580932099595,
+            "signal_body_atr": 0.5121903557046011,
+            "ema9_distance_atr": 1.9789663146891545,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788314280000,
+            "low": 76883.2,
+            "high": 76941.2
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "SHORT",
+        "entry_ts": 1788345600000,
+        "exit_ts": 1788346680000,
+        "entry": 2360.871526,
+        "exit": 2370.90142403,
+        "net_pnl": -6.54497422,
+        "r_multiple": -1.330185,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2370.1903669165154,
+          "initial_target": 2332.9150032504535,
+          "atr_at_signal": 6.212560611010275,
+          "score": 8,
+          "initial_qty": 0.528,
+          "initial_margin": 249.30803314559998,
+          "entry_fee": 0.623270082864,
+          "total_fees": 1.2491880588070199,
+          "partial_exits": [
+            {
+              "ts": 1788346680000,
+              "qty": 0.528,
+              "price": 2370.90142402659,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.623270082864,
+              "exit_fee": 0.6259179759430198,
+              "net_pnl": -6.544974216846655
+            }
+          ],
+          "mfe_price_before_exit_bar": 5.751526000000013,
+          "mae_price_before_exit_bar": 8.618473999999878,
+          "mfe_first_ts": 1788346140000,
+          "mae_first_ts": 1788346620000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.4288094805750844,
+            "adx_15m": 31.15690474209162,
+            "adx_5m": 54.9718556168388,
+            "rsi_5m": 23.188909180713637,
+            "signal_range_atr": 1.9090357008318146,
+            "signal_body_atr": 0.9738335573383391,
+            "ema9_distance_atr": 1.31805646093149,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788346680000,
+            "low": 2368.68,
+            "high": 2371.49
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "LONG",
+        "entry_ts": 1788596700000,
+        "exit_ts": 1788601200000,
+        "entry": 749.474775,
+        "exit": 745.26792201,
+        "net_pnl": -8.17447016,
+        "r_multiple": -1.243778,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 745.4915694782001,
+          "initial_target": 761.4243915653998,
+          "atr_at_signal": 2.655470347866612,
+          "score": 8,
+          "initial_qty": 1.65,
+          "initial_margin": 247.32667575,
+          "entry_fee": 0.6183166893750001,
+          "total_fees": 1.2331627250310695,
+          "partial_exits": [
+            {
+              "ts": 1788601200000,
+              "qty": 1.65,
+              "price": 745.2679220073567,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.6183166893750001,
+              "exit_fee": 0.6148460356560693,
+              "net_pnl": -8.174470162892595
+            }
+          ],
+          "mfe_price_before_exit_bar": 3.3552250000000186,
+          "mae_price_before_exit_bar": 3.254774999999995,
+          "mfe_first_ts": 1788598440000,
+          "mae_first_ts": 1788596940000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 3.84925143230841,
+            "adx_15m": 30.649756678140758,
+            "adx_5m": 67.44367742014586,
+            "rsi_5m": 88.20668806679208,
+            "signal_range_atr": 2.7415105598330927,
+            "signal_body_atr": 2.0410696750406068,
+            "ema9_distance_atr": 2.591338512949429,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788601200000,
+            "low": 743,
+            "high": 748.94
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "LONG",
+        "entry_ts": 1788631200000,
+        "exit_ts": 1788631200000,
+        "entry": 0.09422826,
+        "exit": 0.09348938,
+        "net_pnl": -10.86392151,
+        "r_multiple": -1.17151,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.09351743439686143,
+          "initial_target": 0.09636073680941573,
+          "atr_at_signal": 0.0004738837354257175,
+          "score": 8,
+          "initial_qty": 13046,
+          "initial_margin": 245.86037599200003,
+          "entry_fee": 0.6146509399800001,
+          "total_fees": 1.224482160283356,
+          "partial_exits": [
+            {
+              "ts": 1788631200000,
+              "qty": 13046,
+              "price": 0.09348937916654237,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.6146509399800001,
+              "exit_fee": 0.609831220303356,
+              "net_pnl": -10.863921513571643
+            }
+          ],
+          "mfe_price_before_exit_bar": 0,
+          "mae_price_before_exit_bar": 0,
+          "mfe_first_ts": null,
+          "mae_first_ts": null,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 3.98800110188358,
+            "adx_15m": 68.04067409012687,
+            "adx_5m": 44.585836036789416,
+            "rsi_5m": 89.12001533895702,
+            "signal_range_atr": 3.6084800388090894,
+            "signal_body_atr": 3.017617810232183,
+            "ema9_distance_atr": 3.1992857000953774,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788631200000,
+            "low": 0.09283,
+            "high": 0.09475
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1788657000000,
+        "exit_ts": 1788658860000,
+        "entry": 2494.54814,
+        "exit": 2502.80696229,
+        "net_pnl": 2.17565472,
+        "r_multiple": 0.871677,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2489.42300413647,
+          "initial_target": 2509.9235475905903,
+          "atr_at_signal": 3.4167572423534494,
+          "score": 8,
+          "initial_qty": 0.487,
+          "initial_margin": 242.96898883599997,
+          "entry_fee": 0.6074224720899999,
+          "total_fees": 1.2165410420597393,
+          "partial_exits": [
+            {
+              "ts": 1788658560000,
+              "qty": 0.121,
+              "price": 2498.9233738807707,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.15092016246999998,
+              "exit_fee": 0.15118486411978663,
+              "net_pnl": 0.22729827298347935
+            },
+            {
+              "ts": 1788658560000,
+              "qty": 0.121,
+              "price": 2501.4851730421565,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.15092016246999998,
+              "exit_fee": 0.15133985296905048,
+              "net_pnl": 0.5371209826618981
+            },
+            {
+              "ts": 1788658860000,
+              "qty": 0.245,
+              "price": 2502.8069622930807,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.30558214715,
+              "exit_fee": 0.3065938528809024,
+              "net_pnl": 1.4112354617738962
+            }
+          ],
+          "mfe_price_before_exit_bar": 12.651859999999942,
+          "mae_price_before_exit_bar": 4.548139999999876,
+          "mfe_first_ts": 1788658740000,
+          "mae_first_ts": 1788657720000,
+          "exit_bar_ambiguous": true,
+          "signal_features": {
+            "relative_volume": 5.017334679053046,
+            "adx_15m": 40.5053381485459,
+            "adx_5m": 28.07773059249606,
+            "rsi_5m": 89.50395345548982,
+            "signal_range_atr": 3.020407733998489,
+            "signal_body_atr": 1.1648471687320137,
+            "ema9_distance_atr": 1.598670491775376,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788658860000,
+            "low": 2500.98,
+            "high": 2504.87
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "LONG",
+        "entry_ts": 1788726900000,
+        "exit_ts": 1788729720000,
+        "entry": 0.090037,
+        "exit": 0.09028932,
+        "net_pnl": 2.15509916,
+        "r_multiple": 0.727574,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.08981812810526224,
+          "initial_target": 0.0906936276842133,
+          "atr_at_signal": 0.00014591659649184269,
+          "score": 8,
+          "initial_qty": 13533,
+          "initial_margin": 243.69415231980003,
+          "entry_fee": 0.6092353807995,
+          "total_fees": 1.2201583903750919,
+          "partial_exits": [
+            {
+              "ts": 1788727740000,
+              "qty": 3383,
+              "price": 0.09022880113136934,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.1522975905745,
+              "exit_fee": 0.15262201711371126,
+              "net_pnl": 0.3439334707342625
+            },
+            {
+              "ts": 1788727860000,
+              "qty": 3383,
+              "price": 0.09033820574750402,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.1522975905745,
+              "exit_fee": 0.15280707502190305,
+              "net_pnl": 0.7138642292096878
+            },
+            {
+              "ts": 1788729720000,
+              "qty": 6767,
+              "price": 0.0902893209516706,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.30464019965050004,
+              "exit_fee": 0.30549391743997745,
+              "net_pnl": 1.0973014618644146
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.00044299700000000053,
+          "mae_price_before_exit_bar": 0.00010700300000000829,
+          "mfe_first_ts": 1788729360000,
+          "mae_first_ts": 1788726900000,
+          "exit_bar_ambiguous": true,
+          "signal_features": {
+            "relative_volume": 9.028708332888394,
+            "adx_15m": 36.191615715438495,
+            "adx_5m": 25.07129907554617,
+            "rsi_5m": 85.38352510093071,
+            "signal_range_atr": 2.1245013072747687,
+            "signal_body_atr": 1.1650491039893955,
+            "ema9_distance_atr": 1.934892523415562,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788729720000,
+            "low": 0.09029,
+            "high": 0.0904
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "LONG",
+        "entry_ts": 1788728100000,
+        "exit_ts": 1788730140000,
+        "entry": 1.42192645,
+        "exit": 1.42149987,
+        "net_pnl": -0.05622176,
+        "r_multiple": -0.04747,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.4191752994650193,
+          "initial_target": 1.430179901604942,
+          "atr_at_signal": 0.0018341003566537623,
+          "score": 7,
+          "initial_qty": 430.5,
+          "initial_margin": 122.42786734500001,
+          "entry_fee": 0.3060696683625,
+          "total_fees": 0.6124174345625221,
+          "partial_exits": [
+            {
+              "ts": 1788729360000,
+              "qty": 107.6,
+              "price": 1.42425019725482,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.07649964300999999,
+              "exit_fee": 0.07662466061230931,
+              "net_pnl": 0.09691090099633305
+            },
+            {
+              "ts": 1788729420000,
+              "qty": 107.6,
+              "price": 1.4256253598497302,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.07649964300999999,
+              "exit_fee": 0.07669864435991548,
+              "net_pnl": 0.24480441246105433
+            },
+            {
+              "ts": 1788730140000,
+              "qty": 215.29999999999998,
+              "price": 1.421499872065,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.15307038234249998,
+              "exit_fee": 0.15302446122779725,
+              "net_pnl": -0.39793707297577446
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.004373549999999948,
+          "mae_price_before_exit_bar": 0.002526449999999958,
+          "mfe_first_ts": 1788729480000,
+          "mae_first_ts": 1788728820000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 3.2398752463114198,
+            "adx_15m": 26.588196976443953,
+            "adx_5m": 25.122390389930437,
+            "rsi_5m": 84.4209112363506,
+            "signal_range_atr": 1.63567930681463,
+            "signal_body_atr": 1.4175887325726955,
+            "ema9_distance_atr": 2.3218907635523096,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788730140000,
+            "low": 1.4214,
+            "high": 1.4232
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "LONG",
+        "entry_ts": 1788844800000,
+        "exit_ts": 1788846840000,
+        "entry": 750.92521,
+        "exit": 750.69993244,
+        "net_pnl": 0.8283445,
+        "r_multiple": 0.212032,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 748.5136706152944,
+          "initial_target": 758.1598281541169,
+          "atr_at_signal": 1.6076929231370916,
+          "score": 7,
+          "initial_qty": 1.62,
+          "initial_margin": 243.29976804000003,
+          "entry_fee": 0.6082494201,
+          "total_fees": 1.2175217733354153,
+          "partial_exits": [
+            {
+              "ts": 1788845280000,
+              "qty": 0.4,
+              "price": 753.1107483598903,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.150185042,
+              "exit_fee": 0.15062214967197807,
+              "net_pnl": 0.5734081522841428
+            },
+            {
+              "ts": 1788845340000,
+              "qty": 0.4,
+              "price": 754.3161563213353,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.15018504200000002,
+              "exit_fee": 0.15086323126426707,
+              "net_pnl": 1.0553302552698387
+            },
+            {
+              "ts": 1788846840000,
+              "qty": 0.8200000000000002,
+              "price": 750.699932437,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.30787933610000007,
+              "exit_fee": 0.30778697229917007,
+              "net_pnl": -0.8003939100591401
+            }
+          ],
+          "mfe_price_before_exit_bar": 4.074790000000007,
+          "mae_price_before_exit_bar": 0.8352099999999609,
+          "mfe_first_ts": 1788846540000,
+          "mae_first_ts": 1788844920000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.48633026677211,
+            "adx_15m": 26.348569594838285,
+            "adx_5m": 30.3861536731186,
+            "rsi_5m": 75.54535671047229,
+            "signal_range_atr": 1.7229658476040812,
+            "signal_body_atr": 0.4291864385728945,
+            "ema9_distance_atr": 0.9100793398347857,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788846840000,
+            "low": 750.51,
+            "high": 752.26
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "LONG",
+        "entry_ts": 1788853200000,
+        "exit_ts": 1788855000000,
+        "entry": 756.286818,
+        "exit": 756.05993195,
+        "net_pnl": -0.27828667,
+        "r_multiple": -0.052961,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 753.0231100231009,
+          "initial_target": 766.0779419306971,
+          "atr_at_signal": 2.1758053179326984,
+          "score": 7,
+          "initial_qty": 1.61,
+          "initial_margin": 243.524355396,
+          "entry_fee": 0.6088108884900001,
+          "total_fees": 1.2180916794863543,
+          "partial_exits": [
+            {
+              "ts": 1788854820000,
+              "qty": 0.4,
+              "price": 759.3226608191059,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.15125736360000003,
+              "exit_fee": 0.15186453216382118,
+              "net_pnl": 0.9112152318785538
+            },
+            {
+              "ts": 1788855000000,
+              "qty": 1.21,
+              "price": 756.0599319546,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.45755352489000006,
+              "exit_fee": 0.45741625883253295,
+              "net_pnl": -1.1895018986564907
+            }
+          ],
+          "mfe_price_before_exit_bar": 3.3931820000000243,
+          "mae_price_before_exit_bar": 2.47681799999998,
+          "mfe_first_ts": 1788854820000,
+          "mae_first_ts": 1788854520000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.278732109234537,
+            "adx_15m": 28.474083257501253,
+            "adx_5m": 19.00104561994105,
+            "rsi_5m": 84.20800267730554,
+            "signal_range_atr": 1.9165317621164784,
+            "signal_body_atr": 1.2960718391291128,
+            "ema9_distance_atr": 1.8332822911781879,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788855000000,
+            "low": 755.81,
+            "high": 757.45
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "LONG",
+        "entry_ts": 1788941400000,
+        "exit_ts": 1788943020000,
+        "entry": 79460.13089,
+        "exit": 79608.32193085,
+        "net_pnl": 1.00427043,
+        "r_multiple": 0.498703,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 79325.87996162103,
+          "initial_target": 79862.88367513691,
+          "atr_at_signal": 89.5006189193132,
+          "score": 8,
+          "initial_qty": 0.015,
+          "initial_margin": 238.38039267,
+          "entry_fee": 0.595950981675,
+          "total_fees": 1.1930005988651329,
+          "partial_exits": [
+            {
+              "ts": 1788942060000,
+              "qty": 0.003,
+              "price": 79570.50350383346,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.11919019633500001,
+              "exit_fee": 0.11935575525575019,
+              "net_pnl": 0.09257188990963126
+            },
+            {
+              "ts": 1788942480000,
+              "qty": 0.003,
+              "price": 79637.60883038369,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.11919019633500001,
+              "exit_fee": 0.11945641324557553,
+              "net_pnl": 0.29378721157048665
+            },
+            {
+              "ts": 1788943020000,
+              "qty": 0.009000000000000001,
+              "price": 79608.32193084602,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.35757058900500005,
+              "exit_fee": 0.35823744868880714,
+              "net_pnl": 0.6179113299204126
+            }
+          ],
+          "mfe_price_before_exit_bar": 277.16911000000255,
+          "mae_price_before_exit_bar": 101.83088999999745,
+          "mfe_first_ts": 1788942960000,
+          "mae_first_ts": 1788941700000,
+          "exit_bar_ambiguous": true,
+          "signal_features": {
+            "relative_volume": 4.482754086388982,
+            "adx_15m": 30.216941296825514,
+            "adx_5m": 27.861120798505937,
+            "rsi_5m": 79.1349139550159,
+            "signal_range_atr": 2.0770806084322966,
+            "signal_body_atr": 1.719541181483208,
+            "ema9_distance_atr": 1.7466880946852428,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1788943020000,
+            "low": 79494.8,
+            "high": 79633.3
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789044900000,
+        "exit_ts": 1789048320000,
+        "entry": 76795.25451,
+        "exit": 77104.14757091,
+        "net_pnl": -5.78764143,
+        "r_multiple": -1.350192,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 77081.02326392944,
+          "initial_target": 75937.94824821167,
+          "atr_at_signal": 190.51250261962858,
+          "score": 7,
+          "initial_qty": 0.015,
+          "initial_margin": 230.38576353,
+          "entry_fee": 0.575964408825,
+          "total_fees": 1.1542455156068145,
+          "partial_exits": [
+            {
+              "ts": 1789048320000,
+              "qty": 0.015,
+              "price": 77104.14757090862,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.575964408825,
+              "exit_fee": 0.5782811067818147,
+              "net_pnl": -5.787641429236171
+            }
+          ],
+          "mfe_price_before_exit_bar": 145.25450999999885,
+          "mae_price_before_exit_bar": 275.74549000000115,
+          "mfe_first_ts": 1789044960000,
+          "mae_first_ts": 1789048140000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 5.92535619432915,
+            "adx_15m": 25.6154877901574,
+            "adx_5m": 33.54875732695594,
+            "rsi_5m": 15.35289856190694,
+            "signal_range_atr": 2.6754149622276944,
+            "signal_body_atr": 0.5474706308816125,
+            "ema9_distance_atr": 2.011712556166035,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789048320000,
+            "low": 76911.7,
+            "high": 77082.2
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789081500000,
+        "exit_ts": 1789081500000,
+        "entry": 1.33809845,
+        "exit": 1.34245414,
+        "net_pnl": -5.17535395,
+        "r_multiple": -1.440895,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.3420515234178276,
+          "initial_target": 1.3262392297465178,
+          "atr_at_signal": 0.0026353822785516587,
+          "score": 7,
+          "initial_qty": 908.6,
+          "initial_margin": 243.15925033400003,
+          "entry_fee": 0.6078981258350001,
+          "total_fees": 1.217775041125846,
+          "partial_exits": [
+            {
+              "ts": 1789081500000,
+              "qty": 908.6,
+              "price": 1.342454138874853,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.6078981258350001,
+              "exit_fee": 0.6098769152908458,
+              "net_pnl": -5.175353952817123
+            }
+          ],
+          "mfe_price_before_exit_bar": 0,
+          "mae_price_before_exit_bar": 0,
+          "mfe_first_ts": null,
+          "mae_first_ts": null,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.0161726520308063,
+            "adx_15m": 25.860841060774387,
+            "adx_5m": 23.498199508721516,
+            "rsi_5m": 23.328910708347053,
+            "signal_range_atr": 1.4039708888204423,
+            "signal_body_atr": 1.1004096155619865,
+            "ema9_distance_atr": 1.8691363752465138,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789081500000,
+            "low": 1.3384,
+            "high": 1.3426
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1789134900000,
+        "exit_ts": 1789135200000,
+        "entry": 2590.416892,
+        "exit": 2627.431534,
+        "net_pnl": 14.13069531,
+        "r_multiple": 1.280692,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2566.739550447452,
+          "initial_target": 2661.4489166576423,
+          "atr_at_signal": 15.78489436836499,
+          "score": 8,
+          "initial_qty": 0.466,
+          "initial_margin": 241.42685433439996,
+          "entry_fee": 0.603567135836,
+          "total_fees": 1.2148070228389203,
+          "partial_exits": [
+            {
+              "ts": 1789135080000,
+              "qty": 0.116,
+              "price": 2613.3100052824816,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.150244179736,
+              "exit_fee": 0.15157198030638394,
+              "net_pnl": 2.3537849807255125
+            },
+            {
+              "ts": 1789135140000,
+              "qty": 0.116,
+              "price": 2625.145124457523,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.15024417973599996,
+              "exit_fee": 0.15225841721853633,
+              "net_pnl": 3.7259723681181387
+            },
+            {
+              "ts": 1789135200000,
+              "qty": 0.23400000000000004,
+              "price": 2627.431534,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.303078776364,
+              "exit_fee": 0.307409489478,
+              "net_pnl": 8.050937962158024
+            }
+          ],
+          "mfe_price_before_exit_bar": 57.24310800000012,
+          "mae_price_before_exit_bar": 0.7768919999998616,
+          "mfe_first_ts": 1789135140000,
+          "mae_first_ts": 1789134900000,
+          "exit_bar_ambiguous": true,
+          "signal_features": {
+            "relative_volume": 4.6666577200330215,
+            "adx_15m": 30.388069509979893,
+            "adx_5m": 27.694863557113255,
+            "rsi_5m": 90.7762380603598,
+            "signal_range_atr": 4.421949135110346,
+            "signal_body_atr": 3.6566605168849464,
+            "ema9_distance_atr": 3.858084097637522,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789135200000,
+            "low": 2622.07,
+            "high": 2634.33
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1789202700000,
+        "exit_ts": 1789204920000,
+        "entry": 2532.279456,
+        "exit": 2531.51977216,
+        "net_pnl": -1.13937572,
+        "r_multiple": -0.627252,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2528.526448639732,
+          "initial_target": 2543.538478080804,
+          "atr_at_signal": 2.502004906845347,
+          "score": 8,
+          "initial_qty": 0.484,
+          "initial_margin": 245.12465134079997,
+          "entry_fee": 0.612811628352,
+          "total_fees": 1.225666402043707,
+          "partial_exits": [
+            {
+              "ts": 1789204560000,
+              "qty": 0.121,
+              "price": 2535.2716536212597,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.153202907088,
+              "exit_fee": 0.1533839350440862,
+              "net_pnl": 0.05546907004036744
+            },
+            {
+              "ts": 1789204920000,
+              "qty": 0.363,
+              "price": 2531.5197721632,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.459608721264,
+              "exit_fee": 0.4594708386476208,
+              "net_pnl": -1.1948447926699926
+            }
+          ],
+          "mfe_price_before_exit_bar": 4.0705440000001545,
+          "mae_price_before_exit_bar": 1.5594559999999547,
+          "mfe_first_ts": 1789204560000,
+          "mae_first_ts": 1789203420000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.4114355181056277,
+            "adx_15m": 30.105799824821496,
+            "adx_5m": 49.058029098943,
+            "rsi_5m": 85.55463428228822,
+            "signal_range_atr": 2.16626273800295,
+            "signal_body_atr": 0.9032756066211255,
+            "ema9_distance_atr": 1.4338361748415154,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789204920000,
+            "low": 2532.02,
+            "high": 2532.49
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789241100000,
+        "exit_ts": 1789243320000,
+        "entry": 725.992137,
+        "exit": 727.19319244,
+        "net_pnl": -3.23844881,
+        "r_multiple": -1.961059,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 726.9750999062112,
+          "initial_target": 723.0432482813667,
+          "atr_at_signal": 0.6553086041407487,
+          "score": 8,
+          "initial_qty": 1.68,
+          "initial_margin": 243.93335803200003,
+          "entry_fee": 0.6098333950800001,
+          "total_fees": 1.220675676726394,
+          "partial_exits": [
+            {
+              "ts": 1789243320000,
+              "qty": 1.68,
+              "price": 727.193192436183,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.6098333950800001,
+              "exit_fee": 0.6108422816463938,
+              "net_pnl": -3.2384488095137813
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.49213700000007066,
+          "mae_price_before_exit_bar": 0.9078629999999066,
+          "mfe_first_ts": 1789242000000,
+          "mae_first_ts": 1789243020000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.286946821980589,
+            "adx_15m": 36.02999020004346,
+            "adx_5m": 66.7581745924724,
+            "rsi_5m": 9.585666310026227,
+            "signal_range_atr": 2.380557786274692,
+            "signal_body_atr": 2.197437956561254,
+            "ema9_distance_atr": 2.840343663505029,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789243320000,
+            "low": 726.7,
+            "high": 727.25
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789288800000,
+        "exit_ts": 1789288860000,
+        "entry": 719.304144,
+        "exit": 720.52180501,
+        "net_pnl": -3.27450004,
+        "r_multiple": -1.934538,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 720.3057132989182,
+          "initial_target": 716.2994361032451,
+          "atr_at_signal": 0.6677128659455391,
+          "score": 8,
+          "initial_qty": 1.69,
+          "initial_margin": 243.124800672,
+          "entry_fee": 0.60781200168,
+          "total_fees": 1.2166529269159072,
+          "partial_exits": [
+            {
+              "ts": 1789288860000,
+              "qty": 1.69,
+              "price": 720.5218050129079,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.60781200168,
+              "exit_fee": 0.6088409252359072,
+              "net_pnl": -3.2745000387302765
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.08414399999992384,
+          "mae_price_before_exit_bar": 0.6658560000000762,
+          "mfe_first_ts": 1789288800000,
+          "mae_first_ts": 1789288800000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 5.752533109028391,
+            "adx_15m": 34.586869751919565,
+            "adx_5m": 45.14183062053303,
+            "rsi_5m": 12.088704951138808,
+            "signal_range_atr": 2.9803229823674036,
+            "signal_body_atr": 1.8271326826573697,
+            "ema9_distance_atr": 2.4372084945002355,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789288860000,
+            "low": 719.96,
+            "high": 720.33
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789292100000,
+        "exit_ts": 1789292100000,
+        "entry": 76544.32981,
+        "exit": 76683.57416602,
+        "net_pnl": -3.23787462,
+        "r_multiple": -1.856907,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 76660.57599322569,
+          "initial_target": 76195.59126032297,
+          "atr_at_signal": 77.4974554837888,
+          "score": 8,
+          "initial_qty": 0.015,
+          "initial_margin": 229.63298943000004,
+          "entry_fee": 0.5740824735750001,
+          "total_fees": 1.1492092798201776,
+          "partial_exits": [
+            {
+              "ts": 1789292100000,
+              "qty": 0.015,
+              "price": 76683.57416602365,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5740824735750001,
+              "exit_fee": 0.5751268062451774,
+              "net_pnl": -3.2378746201748143
+            }
+          ],
+          "mfe_price_before_exit_bar": 0,
+          "mae_price_before_exit_bar": 0,
+          "mfe_first_ts": null,
+          "mae_first_ts": null,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.0404297094329227,
+            "adx_15m": 39.32502905855272,
+            "adx_5m": 57.21973690469449,
+            "rsi_5m": 16.614894553218193,
+            "signal_range_atr": 1.8168338446861132,
+            "signal_body_atr": 0.9368049511663329,
+            "ema9_distance_atr": 1.8378540474513931,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789292100000,
+            "low": 76567.2,
+            "high": 76662.3
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1789316100000,
+        "exit_ts": 1789326480000,
+        "entry": 2500.24985,
+        "exit": 2512.785938,
+        "net_pnl": 3.43617176,
+        "r_multiple": 1.199382,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2494.342731568396,
+          "initial_target": 2517.97120529481,
+          "atr_at_signal": 3.938078954402289,
+          "score": 8,
+          "initial_qty": 0.485,
+          "initial_margin": 242.52423544999996,
+          "entry_fee": 0.606310588625,
+          "total_fees": 1.2149467364997262,
+          "partial_exits": [
+            {
+              "ts": 1789319220000,
+              "qty": 0.121,
+              "price": 2505.405121341074,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.151265115925,
+              "exit_fee": 0.15157700984113498,
+              "net_pnl": 0.320945706503848
+            },
+            {
+              "ts": 1789319400000,
+              "qty": 0.121,
+              "price": 2508.357794489111,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.15126511592499997,
+              "exit_fee": 0.1517556465665912,
+              "net_pnl": 0.6780405206908524
+            },
+            {
+              "ts": 1789326480000,
+              "qty": 0.243,
+              "price": 2512.785938,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.303780356775,
+              "exit_fee": 0.30530349146700003,
+              "net_pnl": 2.4371855357580707
+            }
+          ],
+          "mfe_price_before_exit_bar": 15.530150000000503,
+          "mae_price_before_exit_bar": 3.4998499999996966,
+          "mfe_first_ts": 1789326420000,
+          "mae_first_ts": 1789316160000,
+          "exit_bar_ambiguous": true,
+          "signal_features": {
+            "relative_volume": 2.764103131928153,
+            "adx_15m": 43.37289373591267,
+            "adx_5m": 24.985234812797415,
+            "rsi_5m": 74.69630308007113,
+            "signal_range_atr": 1.7394267812590323,
+            "signal_body_atr": 0.9801733395124343,
+            "ema9_distance_atr": 1.4679744869369162,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789326480000,
+            "low": 2510.8,
+            "high": 2513.54
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1789417200000,
+        "exit_ts": 1789417440000,
+        "entry": 2592.757594,
+        "exit": 2605.558098,
+        "net_pnl": 4.60050553,
+        "r_multiple": 0.958244,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2582.520978761558,
+          "initial_target": 2623.4674397153262,
+          "atr_at_signal": 6.824410158961307,
+          "score": 8,
+          "initial_qty": 0.469,
+          "initial_margin": 243.20066231720003,
+          "entry_fee": 0.608001655793,
+          "total_fees": 1.2189130208615793,
+          "partial_exits": [
+            {
+              "ts": 1789417380000,
+              "qty": 0.117,
+              "price": 2602.2133109756705,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.15167631924900002,
+              "exit_fee": 0.15222947869207673,
+              "net_pnl": 0.8024130882123582
+            },
+            {
+              "ts": 1789417380000,
+              "qty": 0.117,
+              "price": 2607.330083102606,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.15167631924900002,
+              "exit_fee": 0.15252880986150247,
+              "net_pnl": 1.400776095894363
+            },
+            {
+              "ts": 1789417440000,
+              "qty": 0.235,
+              "price": 2605.5580980000004,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.30464901729499994,
+              "exit_fee": 0.306153076515,
+              "net_pnl": 2.3973163461900637
+            }
+          ],
+          "mfe_price_before_exit_bar": 22.232405999999628,
+          "mae_price_before_exit_bar": 2.4975939999999355,
+          "mfe_first_ts": 1789417380000,
+          "mae_first_ts": 1789417260000,
+          "exit_bar_ambiguous": true,
+          "signal_features": {
+            "relative_volume": 9.27616646103125,
+            "adx_15m": 35.4187758609969,
+            "adx_5m": 21.884901331623556,
+            "rsi_5m": 82.2487726674782,
+            "signal_range_atr": 4.533725154161778,
+            "signal_body_atr": 3.206137891824823,
+            "ema9_distance_atr": 2.7309537286564844,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789417440000,
+            "low": 2603.53,
+            "high": 2613.32
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789449600000,
+        "exit_ts": 1789450020000,
+        "entry": 77271.41162,
+        "exit": 77424.9349328,
+        "net_pnl": -3.46307229,
+        "r_multiple": -1.771808,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 77401.71441847795,
+          "initial_target": 76880.5032245662,
+          "atr_at_signal": 86.86853231862604,
+          "score": 8,
+          "initial_qty": 0.015,
+          "initial_margin": 231.81423486000003,
+          "entry_fee": 0.5795355871500001,
+          "total_fees": 1.1602225991460262,
+          "partial_exits": [
+            {
+              "ts": 1789450020000,
+              "qty": 0.015,
+              "price": 77424.93493280349,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5795355871500001,
+              "exit_fee": 0.5806870119960262,
+              "net_pnl": -3.4630722911981398
+            }
+          ],
+          "mfe_price_before_exit_bar": 0,
+          "mae_price_before_exit_bar": 122.5883799999865,
+          "mfe_first_ts": null,
+          "mae_first_ts": 1789449660000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 5.417075111432138,
+            "adx_15m": 48.25115913843042,
+            "adx_5m": 38.19881946856838,
+            "rsi_5m": 19.94146916091414,
+            "signal_range_atr": 3.295784933373572,
+            "signal_body_atr": 1.9811546875082262,
+            "ema9_distance_atr": 1.8124127681524203,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789450020000,
+            "low": 77387.9,
+            "high": 77421.7
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789449600000,
+        "exit_ts": 1789450800000,
+        "entry": 0.0826552,
+        "exit": 0.08290259,
+        "net_pnl": -0.2522516,
+        "r_multiple": -1.48372,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.0828777260348223,
+          "initial_target": 0.0819876058955331,
+          "atr_at_signal": 0.00014835335654819962,
+          "score": 8,
+          "initial_qty": 764,
+          "initial_margin": 12.6297139488,
+          "entry_fee": 0.031574284872,
+          "total_fees": 0.06324307400470572,
+          "partial_exits": [
+            {
+              "ts": 1789450800000,
+              "qty": 764,
+              "price": 0.08290258935263274,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.031574284872,
+              "exit_fee": 0.03166878913270571,
+              "net_pnl": -0.2522515954161198
+            }
+          ],
+          "mfe_price_before_exit_bar": 0,
+          "mae_price_before_exit_bar": 0.00020480400000000287,
+          "mfe_first_ts": null,
+          "mae_first_ts": 1789449600000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 3.7578911819748226,
+            "adx_15m": 30.6983516406641,
+            "adx_5m": 36.105078747148376,
+            "rsi_5m": 18.80622177470447,
+            "signal_range_atr": 2.9658917751352325,
+            "signal_body_atr": 1.6851657813268004,
+            "ema9_distance_atr": 1.8847222912068602,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789450800000,
+            "low": 0.0828,
+            "high": 0.08288
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789458300000,
+        "exit_ts": 1789462740000,
+        "entry": 76967.60279,
+        "exit": 76990.69307084,
+        "net_pnl": -0.37172553,
+        "r_multiple": -0.164712,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 77118.05785631604,
+          "initial_target": 76516.2375910519,
+          "atr_at_signal": 100.3033775440226,
+          "score": 8,
+          "initial_qty": 0.015,
+          "initial_margin": 230.90280837,
+          "entry_fee": 0.577257020925,
+          "total_fees": 1.1541228431956427,
+          "partial_exits": [
+            {
+              "ts": 1789459320000,
+              "qty": 0.003,
+              "price": 76840.19286800108,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.115451404185,
+              "exit_fee": 0.1152602893020016,
+              "net_pnl": 0.15151807250978644
+            },
+            {
+              "ts": 1789459680000,
+              "qty": 0.003,
+              "price": 76764.9427665831,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.115451404185,
+              "exit_fee": 0.11514741414987467,
+              "net_pnl": 0.3773812519158308
+            },
+            {
+              "ts": 1789462740000,
+              "qty": 0.009000000000000001,
+              "price": 76990.693070837,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.346354212555,
+              "exit_fee": 0.3464581188187666,
+              "net_pnl": -0.900624858906776
+            }
+          ],
+          "mfe_price_before_exit_bar": 300.30279000000155,
+          "mae_price_before_exit_bar": 94.19720999999845,
+          "mfe_first_ts": 1789459860000,
+          "mae_first_ts": 1789458360000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 3.874710336560311,
+            "adx_15m": 48.93787597674043,
+            "adx_5m": 40.2447341963562,
+            "rsi_5m": 21.933235434222482,
+            "signal_range_atr": 2.084675562477774,
+            "signal_body_atr": 0.38981738160158214,
+            "ema9_distance_atr": 1.507277792009784,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789462740000,
+            "low": 76929.2,
+            "high": 76973.1
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789498200000,
+        "exit_ts": 1789498200000,
+        "entry": 0.07854643,
+        "exit": 0.07925743,
+        "net_pnl": -12.25136471,
+        "r_multiple": -1.1494,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.07923365798673837,
+          "initial_target": 0.0764847420397849,
+          "atr_at_signal": 0.00045815265782557697,
+          "score": 7,
+          "initial_qty": 15510,
+          "initial_margin": 243.651022758,
+          "entry_fee": 0.609127556895,
+          "total_fees": 1.2237689116874622,
+          "partial_exits": [
+            {
+              "ts": 1789498200000,
+              "qty": 15510,
+              "price": 0.07925742808413438,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.609127556895,
+              "exit_fee": 0.6146413547924622,
+              "net_pnl": -12.251364706611756
+            }
+          ],
+          "mfe_price_before_exit_bar": 0,
+          "mae_price_before_exit_bar": 0,
+          "mfe_first_ts": null,
+          "mae_first_ts": null,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 5.162493008866261,
+            "adx_15m": 27.32860139720822,
+            "adx_5m": 20.52631323550491,
+            "rsi_5m": 18.39117840082818,
+            "signal_range_atr": 2.4882535995982606,
+            "signal_body_atr": 2.1171982382546535,
+            "ema9_distance_atr": 2.5081539382444773,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789498200000,
+            "low": 0.07847,
+            "high": 0.07928
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789547100000,
+        "exit_ts": 1789548900000,
+        "entry": 705.458299,
+        "exit": 707.35023319,
+        "net_pnl": -4.41717538,
+        "r_multiple": -1.546821,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 707.1380917640657,
+          "initial_target": 700.418920707803,
+          "atr_at_signal": 1.1198618427104692,
+          "score": 7,
+          "initial_qty": 1.7,
+          "initial_margin": 239.85582166,
+          "entry_fee": 0.59963955415,
+          "total_fees": 1.2008872523628558,
+          "partial_exits": [
+            {
+              "ts": 1789548900000,
+              "qty": 1.7,
+              "price": 707.350233191595,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.59963955415,
+              "exit_fee": 0.6012476982128556,
+              "net_pnl": -4.417175378074257
+            }
+          ],
+          "mfe_price_before_exit_bar": 1.118298999999979,
+          "mae_price_before_exit_bar": 1.6417010000000118,
+          "mfe_first_ts": 1789547160000,
+          "mae_first_ts": 1789548840000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.581722594826908,
+            "adx_15m": 25.789320253133663,
+            "adx_5m": 29.965972244571155,
+            "rsi_5m": 12.187104321517623,
+            "signal_range_atr": 1.759145570342782,
+            "signal_body_atr": 0.7322331815639337,
+            "ema9_distance_atr": 2.055112260360147,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789548900000,
+            "low": 706.97,
+            "high": 707.39
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789580700000,
+        "exit_ts": 1789581480000,
+        "entry": 1.2546235,
+        "exit": 1.2615087,
+        "net_pnl": -7.77193001,
+        "r_multiple": -1.251489,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.261130357586872,
+          "initial_target": 1.2351029272393836,
+          "atr_at_signal": 0.004337905057914704,
+          "score": 8,
+          "initial_qty": 954.4,
+          "initial_margin": 239.48253367999996,
+          "entry_fee": 0.5987063342,
+          "total_fees": 1.2006982842624474,
+          "partial_exits": [
+            {
+              "ts": 1789581480000,
+              "qty": 954.4,
+              "price": 1.261508696694148,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5987063342,
+              "exit_fee": 0.6019919500624473,
+              "net_pnl": -7.771930009157404
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.003923499999999969,
+          "mae_price_before_exit_bar": 0.005176500000000139,
+          "mfe_first_ts": 1789580940000,
+          "mae_first_ts": 1789581420000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.9735035347500145,
+            "adx_15m": 36.35203053282028,
+            "adx_5m": 24.96221916232592,
+            "rsi_5m": 21.970376754791246,
+            "signal_range_atr": 1.2909457273119882,
+            "signal_body_atr": 0.9682092954839783,
+            "ema9_distance_atr": 1.4112832743792574,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789581480000,
+            "low": 1.2593,
+            "high": 1.2682
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "LONG",
+        "entry_ts": 1789739400000,
+        "exit_ts": 1789739700000,
+        "entry": 760.72815,
+        "exit": 758.13459566,
+        "net_pnl": -5.23065772,
+        "r_multiple": -1.417126,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 758.3621042877768,
+          "initial_target": 767.8262871366697,
+          "atr_at_signal": 1.5773638081488357,
+          "score": 7,
+          "initial_qty": 1.56,
+          "initial_margin": 237.3471828,
+          "entry_fee": 0.5933679570000001,
+          "total_fees": 1.1847129416120628,
+          "partial_exits": [
+            {
+              "ts": 1789739700000,
+              "qty": 1.56,
+              "price": 758.1345956564904,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5933679570000001,
+              "exit_fee": 0.5913449846120626,
+              "net_pnl": -5.230657717487031
+            }
+          ],
+          "mfe_price_before_exit_bar": 2.271849999999972,
+          "mae_price_before_exit_bar": 2.0581500000000688,
+          "mfe_first_ts": 1789739460000,
+          "mae_first_ts": 1789739640000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 4.044722687768629,
+            "adx_15m": 27.76141275241466,
+            "adx_5m": 36.71537762503248,
+            "rsi_5m": 93.20671852010857,
+            "signal_range_atr": 1.9589646878144094,
+            "signal_body_atr": 1.027030030504634,
+            "ema9_distance_atr": 3.619156691899941,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789739700000,
+            "low": 757,
+            "high": 759.29
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "LONG",
+        "entry_ts": 1789838100000,
+        "exit_ts": 1789838580000,
+        "entry": 0.09075722,
+        "exit": 0.09072999,
+        "net_pnl": 0.05504254,
+        "r_multiple": 0.008643,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.09026791520202615,
+          "initial_target": 0.09222513039392155,
+          "atr_at_signal": 0.00032620253198256677,
+          "score": 8,
+          "initial_qty": 13015,
+          "initial_margin": 236.241041057,
+          "entry_fee": 0.5906026026425,
+          "total_fees": 1.1818236383758236,
+          "partial_exits": [
+            {
+              "ts": 1789838280000,
+              "qty": 3253,
+              "price": 0.09121914884113447,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.1476166167035,
+              "exit_fee": 0.14836794559010522,
+              "net_pnl": 1.2066732109168172
+            },
+            {
+              "ts": 1789838580000,
+              "qty": 9762,
+              "price": 0.0907299918343,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.44298598593899996,
+              "exit_fee": 0.44285309014321833,
+              "net_pnl": -1.1516306676456187
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0005527810000000022,
+          "mae_price_before_exit_bar": 0.00012721899999999786,
+          "mfe_first_ts": 1789838280000,
+          "mae_first_ts": 1789838100000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 4.438915936058552,
+            "adx_15m": 40.11975442354437,
+            "adx_5m": 21.319496815463445,
+            "rsi_5m": 88.52778279430397,
+            "signal_range_atr": 2.3604966991524083,
+            "signal_body_atr": 1.8700038785492923,
+            "ema9_distance_atr": 2.5443517128018662,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789838580000,
+            "low": 0.09043,
+            "high": 0.09078
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "LONG",
+        "entry_ts": 1789920900000,
+        "exit_ts": 1789922580000,
+        "entry": 760.197991,
+        "exit": 765.16719105,
+        "net_pnl": 4.21713576,
+        "r_multiple": 1.57001,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "target",
+        "diagnostics": {
+          "initial_stop": 758.4650513030733,
+          "initial_target": 765.3968100907799,
+          "atr_at_signal": 1.1552931312844155,
+          "score": 7,
+          "initial_qty": 1.55,
+          "initial_margin": 235.66137721,
+          "entry_fee": 0.5891534430250001,
+          "total_fees": 1.1810059569100217,
+          "partial_exits": [
+            {
+              "ts": 1789922040000,
+              "qty": 0.38,
+              "price": 761.7023514177176,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.14443761829,
+              "exit_fee": 0.14472344676936635,
+              "net_pnl": 0.28249589367333494
+            },
+            {
+              "ts": 1789922220000,
+              "qty": 0.38,
+              "price": 762.5685613252265,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.14443761829,
+              "exit_fee": 0.14488802665179304,
+              "net_pnl": 0.6114910786442698
+            },
+            {
+              "ts": 1789922580000,
+              "qty": 0.7899999999999999,
+              "price": 765.1671910477527,
+              "reason": "target",
+              "final": true,
+              "entry_fee_allocated": 0.30027820644500003,
+              "exit_fee": 0.3022410404638623,
+              "net_pnl": 3.323148790815753
+            }
+          ],
+          "mfe_price_before_exit_bar": 4.992009000000053,
+          "mae_price_before_exit_bar": 1.4679909999999836,
+          "mfe_first_ts": 1789922520000,
+          "mae_first_ts": 1789921320000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 3.0637094253060972,
+            "adx_15m": 25.00999881611219,
+            "adx_5m": 32.97206029106196,
+            "rsi_5m": 79.4239848630883,
+            "signal_range_atr": 2.5274970662671583,
+            "signal_body_atr": 2.0514274133744044,
+            "ema9_distance_atr": 1.9232218644910728,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789922580000,
+            "low": 764.72,
+            "high": 765.5
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1789922700000,
+        "exit_ts": 1789924980000,
+        "entry": 2641.562231,
+        "exit": 2628.69978115,
+        "net_pnl": -6.9584138,
+        "r_multiple": -1.283592,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2629.4886277371083,
+          "initial_target": 2677.783040788675,
+          "atr_at_signal": 8.049068841927747,
+          "score": 8,
+          "initial_qty": 0.449,
+          "initial_margin": 237.2122883438,
+          "entry_fee": 0.5930307208595,
+          "total_fees": 1.1831738217274028,
+          "partial_exits": [
+            {
+              "ts": 1789924980000,
+              "qty": 0.449,
+              "price": 2628.699781148787,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5930307208595,
+              "exit_fee": 0.5901431008679028,
+              "net_pnl": -6.958413804921887
+            }
+          ],
+          "mfe_price_before_exit_bar": 8.237769000000299,
+          "mae_price_before_exit_bar": 11.232230999999956,
+          "mfe_first_ts": 1789923960000,
+          "mae_first_ts": 1789922880000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.1278880335200325,
+            "adx_15m": 30.710402665852374,
+            "adx_5m": 46.23518543216645,
+            "rsi_5m": 85.03383106341364,
+            "signal_range_atr": 2.0586232178418298,
+            "signal_body_atr": 1.2796511251521783,
+            "ema9_distance_atr": 2.006132027527207,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789924980000,
+            "low": 2627.58,
+            "high": 2633.76
+          }
+        }
+      },
+      {
+        "symbol": "SOLUSDT",
+        "side": "LONG",
+        "entry_ts": 1789949700000,
+        "exit_ts": 1789954020000,
+        "entry": 112.373702,
+        "exit": 112.33998989,
+        "net_pnl": 2.00153269,
+        "r_multiple": 0.353861,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 111.83398246498683,
+          "initial_target": 113.9928606050395,
+          "atr_at_signal": 0.35981302334211124,
+          "score": 7,
+          "initial_qty": 10.48,
+          "initial_margin": 235.53527939199998,
+          "entry_fee": 0.58883819848,
+          "total_fees": 1.179266796703181,
+          "partial_exits": [
+            {
+              "ts": 1789953660000,
+              "qty": 2.62,
+              "price": 112.87954750855266,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.14720954962,
+              "exit_fee": 0.147872207236204,
+              "net_pnl": 1.0302334755517846
+            },
+            {
+              "ts": 1789953780000,
+              "qty": 2.62,
+              "price": 113.14932631812898,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.14720954962,
+              "exit_fee": 0.14822561747674898,
+              "net_pnl": 1.736700546401206
+            },
+            {
+              "ts": 1789954020000,
+              "qty": 5.24,
+              "price": 112.3399898894,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.29441909924,
+              "exit_fee": 0.294330773510228,
+              "net_pnl": -0.7654013322941897
+            }
+          ],
+          "mfe_price_before_exit_bar": 1.0262980000000113,
+          "mae_price_before_exit_bar": 0.4337019999999967,
+          "mfe_first_ts": 1789953780000,
+          "mae_first_ts": 1789949820000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 4.101295763722628,
+            "adx_15m": 27.66310675622874,
+            "adx_5m": 19.567702444579545,
+            "rsi_5m": 79.33979084337494,
+            "signal_range_atr": 1.7509093866260752,
+            "signal_body_atr": 0.6948053121531937,
+            "ema9_distance_atr": 1.5605571332638506,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789954020000,
+            "low": 112.08,
+            "high": 112.42
+          }
+        }
+      },
+      {
+        "symbol": "SOLUSDT",
+        "side": "LONG",
+        "entry_ts": 1789980600000,
+        "exit_ts": 1789981200000,
+        "entry": 115.894758,
+        "exit": 115.03031735,
+        "net_pnl": -9.97541449,
+        "r_multiple": -1.180718,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 115.06483679748158,
+          "initial_target": 118.38452160755524,
+          "atr_at_signal": 0.5532808016789436,
+          "score": 7,
+          "initial_qty": 10.18,
+          "initial_margin": 235.96172728799996,
+          "entry_fee": 0.58990431822,
+          "total_fees": 1.1754086335133915,
+          "partial_exits": [
+            {
+              "ts": 1789981200000,
+              "qty": 10.18,
+              "price": 115.03031734644233,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.58990431822,
+              "exit_fee": 0.5855043152933914,
+              "net_pnl": -9.975414486730422
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0552420000000069,
+          "mae_price_before_exit_bar": 0.6147579999999948,
+          "mfe_first_ts": 1789980600000,
+          "mae_first_ts": 1789981140000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 7.089592020832524,
+            "adx_15m": 26.386345222721438,
+            "adx_5m": 34.67890318824759,
+            "rsi_5m": 95.31721353321706,
+            "signal_range_atr": 2.765322771650815,
+            "signal_body_atr": 1.2832543580863136,
+            "ema9_distance_atr": 3.3759839576579815,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789981200000,
+            "low": 115.03,
+            "high": 115.38
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "LONG",
+        "entry_ts": 1789983300000,
+        "exit_ts": 1789983660000,
+        "entry": 84736.31327,
+        "exit": 84710.89237602,
+        "net_pnl": -0.12323987,
+        "r_multiple": -0.021715,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 84299.7512214615,
+          "initial_target": 86045.99941561546,
+          "atr_at_signal": 291.0413656923286,
+          "score": 8,
+          "initial_qty": 0.013,
+          "initial_margin": 220.31441450199995,
+          "entry_fee": 0.5507860362549999,
+          "total_fees": 1.1020614833190092,
+          "partial_exits": [
+            {
+              "ts": 1789983480000,
+              "qty": 0.003,
+              "price": 85147.32345594291,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.127104469905,
+              "exit_fee": 0.12772098518391437,
+              "net_pnl": 0.9782051027398665
+            },
+            {
+              "ts": 1789983660000,
+              "qty": 0.009999999999999998,
+              "price": 84710.892376019,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.42368156634999987,
+              "exit_fee": 0.4235544618800949,
+              "net_pnl": -1.10144496804
+            }
+          ],
+          "mfe_price_before_exit_bar": 548.6867300000158,
+          "mae_price_before_exit_bar": 85.21326999997837,
+          "mfe_first_ts": 1789983480000,
+          "mae_first_ts": 1789983360000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.782529318305275,
+            "adx_15m": 31.342344835627923,
+            "adx_5m": 55.935582048785065,
+            "rsi_5m": 95.7341731223223,
+            "signal_range_atr": 2.05812668097918,
+            "signal_body_atr": 1.508720243101786,
+            "ema9_distance_atr": 2.057345806120429,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789983660000,
+            "low": 84723.8,
+            "high": 84905.8
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1789983300000,
+        "exit_ts": 1789984320000,
+        "entry": 2733.869915,
+        "exit": 2717.65524655,
+        "net_pnl": -0.43562991,
+        "r_multiple": -1.229968,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2718.47078778553,
+          "initial_target": 2780.067296643411,
+          "atr_at_signal": 10.26608480964676,
+          "score": 8,
+          "initial_qty": 0.023,
+          "initial_margin": 12.575801609,
+          "entry_fee": 0.0314395040225,
+          "total_fees": 0.06269253935781574,
+          "partial_exits": [
+            {
+              "ts": 1789984320000,
+              "qty": 0.023,
+              "price": 2717.655246549194,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.0314395040225,
+              "exit_fee": 0.03125303533531573,
+              "net_pnl": -0.4356299137263567
+            }
+          ],
+          "mfe_price_before_exit_bar": 14.73008499999969,
+          "mae_price_before_exit_bar": 10.219915000000128,
+          "mfe_first_ts": 1789983480000,
+          "mae_first_ts": 1789984260000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 3.5591594935640023,
+            "adx_15m": 30.970041629965298,
+            "adx_5m": 38.527103642942905,
+            "rsi_5m": 84.94651725440629,
+            "signal_range_atr": 2.3504578860799348,
+            "signal_body_atr": 1.604311702599987,
+            "ema9_distance_atr": 1.663863669608996,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1789984320000,
+            "low": 2717.07,
+            "high": 2725.71
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1790022300000,
+        "exit_ts": 1790022900000,
+        "entry": 2803.630837,
+        "exit": 2788.58065817,
+        "net_pnl": -7.42405439,
+        "r_multiple": -1.2556,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2789.417483413224,
+          "initial_target": 2846.270897760326,
+          "atr_at_signal": 9.475569057850278,
+          "score": 8,
+          "initial_qty": 0.416,
+          "initial_margin": 233.26208563839995,
+          "entry_fee": 0.5831552140959999,
+          "total_fees": 1.1631799909949856,
+          "partial_exits": [
+            {
+              "ts": 1790022900000,
+              "qty": 0.416,
+              "price": 2788.5806581682,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5831552140959999,
+              "exit_fee": 0.5800247768989856,
+              "net_pnl": -7.424054385023666
+            }
+          ],
+          "mfe_price_before_exit_bar": 3.049163000000135,
+          "mae_price_before_exit_bar": 13.560836999999538,
+          "mfe_first_ts": 1790022540000,
+          "mae_first_ts": 1790022840000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 9.319830532488503,
+            "adx_15m": 36.311677569809746,
+            "adx_5m": 30.073762424926944,
+            "rsi_5m": 83.11930761087697,
+            "signal_range_atr": 3.964933374515838,
+            "signal_body_atr": 2.4842835144025095,
+            "ema9_distance_atr": 2.3602591484310858,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790022900000,
+            "low": 2788.73,
+            "high": 2792.12
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "LONG",
+        "entry_ts": 1790027100000,
+        "exit_ts": 1790029500000,
+        "entry": 1.54916461,
+        "exit": 1.54869986,
+        "net_pnl": 4.59574957,
+        "r_multiple": 0.470314,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.5360903940973276,
+          "initial_target": 1.5883872577080167,
+          "atr_at_signal": 0.008716143935114846,
+          "score": 7,
+          "initial_qty": 747.4,
+          "initial_margin": 231.56912590279998,
+          "entry_fee": 0.578922814757,
+          "total_fees": 1.160723866234023,
+          "partial_exits": [
+            {
+              "ts": 1790028240000,
+              "qty": 186.8,
+              "price": 1.5617701542549014,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.14469197457400002,
+              "exit_fee": 0.1458693324074078,
+              "net_pnl": 2.0641543598342054
+            },
+            {
+              "ts": 1790028840000,
+              "qty": 186.8,
+              "price": 1.568305301073852,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.14469197457400002,
+              "exit_fee": 0.14647971512029778,
+              "net_pnl": 3.2843094029012705
+            },
+            {
+              "ts": 1790029500000,
+              "qty": 373.7999999999999,
+              "price": 1.548699860617,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.289538865609,
+              "exit_fee": 0.2894520039493172,
+              "net_pnl": -0.7527141889236784
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.02533539000000018,
+          "mae_price_before_exit_bar": 0.011364609999999775,
+          "mfe_first_ts": 1790028900000,
+          "mae_first_ts": 1790027640000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.209831322514121,
+            "adx_15m": 27.279067078299487,
+            "adx_5m": 36.435604097537116,
+            "rsi_5m": 74.9149128748366,
+            "signal_range_atr": 1.6865256137841036,
+            "signal_body_atr": 0.9981478122395783,
+            "ema9_distance_atr": 1.620533261703055,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790029500000,
+            "low": 1.5484,
+            "high": 1.5558
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "LONG",
+        "entry_ts": 1790049900000,
+        "exit_ts": 1790051400000,
+        "entry": 0.10475142,
+        "exit": 0.10344945,
+        "net_pnl": -15.61860269,
+        "r_multiple": -1.106336,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.10348049263848173,
+          "initial_target": 0.10856418608455473,
+          "atr_at_signal": 0.0008472822410121664,
+          "score": 7,
+          "initial_qty": 11108,
+          "initial_margin": 232.71574578559998,
+          "entry_fee": 0.581789364464,
+          "total_fees": 1.1563476013812934,
+          "partial_exits": [
+            {
+              "ts": 1790051400000,
+              "qty": 11108,
+              "price": 0.1034494484906902,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.581789364464,
+              "exit_fee": 0.5745582369172934,
+              "net_pnl": -15.61860269479444
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0011885840000000203,
+          "mae_price_before_exit_bar": 0.0011914159999999868,
+          "mfe_first_ts": 1790049960000,
+          "mae_first_ts": 1790051340000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 3.850582565571426,
+            "adx_15m": 26.91268243296377,
+            "adx_5m": 21.179923266408004,
+            "rsi_5m": 73.35695259774685,
+            "signal_range_atr": 2.3486860737488664,
+            "signal_body_atr": 1.8765883704827504,
+            "ema9_distance_atr": 1.761914310159409,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790051400000,
+            "low": 0.1033,
+            "high": 0.10404
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "LONG",
+        "entry_ts": 1790067000000,
+        "exit_ts": 1790067780000,
+        "entry": 86183.94743,
+        "exit": 85924.28307415,
+        "net_pnl": -4.49434012,
+        "r_multiple": -1.478192,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 85950.06809458087,
+          "initial_target": 86885.5854362574,
+          "atr_at_signal": 155.91955694609032,
+          "score": 7,
+          "initial_qty": 0.013,
+          "initial_margin": 224.07826331799998,
+          "entry_fee": 0.560195658295,
+          "total_fees": 1.1187034982769912,
+          "partial_exits": [
+            {
+              "ts": 1790067780000,
+              "qty": 0.013,
+              "price": 85924.2830741525,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.560195658295,
+              "exit_fee": 0.5585078399819912,
+              "net_pnl": -4.494340124294547
+            }
+          ],
+          "mfe_price_before_exit_bar": 181.55256999999983,
+          "mae_price_before_exit_bar": 217.047430000006,
+          "mfe_first_ts": 1790067180000,
+          "mae_first_ts": 1790067660000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 4.558517676159547,
+            "adx_15m": 27.97657409777392,
+            "adx_5m": 20.534289525329267,
+            "rsi_5m": 86.41383512028071,
+            "signal_range_atr": 2.117758711398627,
+            "signal_body_atr": 1.669450613498103,
+            "ema9_distance_atr": 3.1112309155710673,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790067780000,
+            "low": 85775.7,
+            "high": 86038
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "LONG",
+        "entry_ts": 1790137200000,
+        "exit_ts": 1790139600000,
+        "entry": 1.64819431,
+        "exit": 1.6344787,
+        "net_pnl": -10.60704238,
+        "r_multiple": -1.161195,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.6349691915778015,
+          "initial_target": 1.6878696652665945,
+          "atr_at_signal": 0.008816745614798815,
+          "score": 7,
+          "initial_qty": 690.7,
+          "initial_margin": 227.68156198339997,
+          "entry_fee": 0.5692039049584999,
+          "total_fees": 1.1336711242868005,
+          "partial_exits": [
+            {
+              "ts": 1790139600000,
+              "qty": 690.7,
+              "price": 1.6344787008203283,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5692039049584999,
+              "exit_fee": 0.5644672193283005,
+              "net_pnl": -10.607042384685917
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.010005690000000067,
+          "mae_price_before_exit_bar": 0.010494309999999896,
+          "mfe_first_ts": 1790137380000,
+          "mae_first_ts": 1790139540000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 3.7671176483544118,
+            "adx_15m": 25.892433392789624,
+            "adx_5m": 40.05782742059411,
+            "rsi_5m": 79.5864724341935,
+            "signal_range_atr": 2.0755957809742887,
+            "signal_body_atr": 1.2816520396180147,
+            "ema9_distance_atr": 1.7584967564662761,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790139600000,
+            "low": 1.6287,
+            "high": 1.6397
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "LONG",
+        "entry_ts": 1790256900000,
+        "exit_ts": 1790257260000,
+        "entry": 1.50625174,
+        "exit": 1.49865702,
+        "net_pnl": -6.79558831,
+        "r_multiple": -1.273225,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.4991067533038964,
+          "initial_target": 1.5276867000883108,
+          "atr_at_signal": 0.0047633244640690785,
+          "score": 7,
+          "initial_qty": 747,
+          "initial_margin": 225.034009956,
+          "entry_fee": 0.5625850248900001,
+          "total_fees": 1.1223334223372978,
+          "partial_exits": [
+            {
+              "ts": 1790257260000,
+              "qty": 747,
+              "price": 1.4986570212779053,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5625850248900001,
+              "exit_fee": 0.5597483974472977,
+              "net_pnl": -6.795588307741969
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.001748260000000057,
+          "mae_price_before_exit_bar": 0.006951739999999873,
+          "mfe_first_ts": 1790257140000,
+          "mae_first_ts": 1790256900000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.4446814967916306,
+            "adx_15m": 26.905061344079304,
+            "adx_5m": 31.065843829481484,
+            "rsi_5m": 84.08560073091869,
+            "signal_range_atr": 1.9314241701143702,
+            "signal_body_atr": 1.3016119407292321,
+            "ema9_distance_atr": 1.9947100176625643,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790257260000,
+            "low": 1.4971,
+            "high": 1.502
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "LONG",
+        "entry_ts": 1790260500000,
+        "exit_ts": 1790260740000,
+        "entry": 783.585005,
+        "exit": 780.77639221,
+        "net_pnl": -5.09892675,
+        "r_multiple": -1.394857,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 781.0106954185281,
+          "initial_target": 791.3079337444155,
+          "atr_at_signal": 1.7162063876478955,
+          "score": 7,
+          "initial_qty": 1.42,
+          "initial_margin": 222.53814142000002,
+          "entry_fee": 0.55634535355,
+          "total_fees": 1.1106965920190308,
+          "partial_exits": [
+            {
+              "ts": 1790260740000,
+              "qty": 1.42,
+              "price": 780.7763922099026,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.55634535355,
+              "exit_fee": 0.5543512384690308,
+              "net_pnl": -5.0989267539573575
+            }
+          ],
+          "mfe_price_before_exit_bar": 0,
+          "mae_price_before_exit_bar": 2.04500500000006,
+          "mfe_first_ts": null,
+          "mae_first_ts": 1790260620000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.4166185237857083,
+            "adx_15m": 25.442115818656276,
+            "adx_5m": 48.510942374244145,
+            "rsi_5m": 82.28257306005122,
+            "signal_range_atr": 2.202532298682654,
+            "signal_body_atr": 1.7771755320058313,
+            "ema9_distance_atr": 2.3852520872057847,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790260740000,
+            "low": 780.82,
+            "high": 781.69
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1790334900000,
+        "exit_ts": 1790335200000,
+        "entry": 2740.661952,
+        "exit": 2730.20428782,
+        "net_pnl": -5.34320441,
+        "r_multiple": -1.368812,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2731.023594896927,
+          "initial_target": 2769.5770233092185,
+          "atr_at_signal": 6.425571402048606,
+          "score": 7,
+          "initial_qty": 0.405,
+          "initial_margin": 221.993618112,
+          "entry_fee": 0.55498404528,
+          "total_fees": 1.1078504135632379,
+          "partial_exits": [
+            {
+              "ts": 1790335200000,
+              "qty": 0.405,
+              "price": 2730.204287818458,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.55498404528,
+              "exit_fee": 0.5528663682832378,
+              "net_pnl": -5.343204407087742
+            }
+          ],
+          "mfe_price_before_exit_bar": 1.998047999999926,
+          "mae_price_before_exit_bar": 9.621951999999965,
+          "mfe_first_ts": 1790334900000,
+          "mae_first_ts": 1790335080000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 5.196737680435237,
+            "adx_15m": 26.36113203997098,
+            "adx_5m": 43.440095687079,
+            "rsi_5m": 80.78438493930649,
+            "signal_range_atr": 2.6830298694531303,
+            "signal_body_atr": 2.3064096673605152,
+            "ema9_distance_atr": 2.5742863848944353,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790335200000,
+            "low": 2730.78,
+            "high": 2732.46
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "LONG",
+        "entry_ts": 1790337600000,
+        "exit_ts": 1790337840000,
+        "entry": 1.59437817,
+        "exit": 1.61138795,
+        "net_pnl": 9.35237571,
+        "r_multiple": 1.23298,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.5834200940363674,
+          "initial_target": 1.6272523978908982,
+          "atr_at_signal": 0.007305383975755134,
+          "score": 7,
+          "initial_qty": 692.2,
+          "initial_margin": 220.72571385480006,
+          "entry_fee": 0.5518142846370001,
+          "total_fees": 1.1088591867242272,
+          "partial_exits": [
+            {
+              "ts": 1790337660000,
+              "qty": 173,
+              "price": 1.6048546450898438,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.13791371170500002,
+              "exit_fee": 0.13881992680027147,
+              "net_pnl": 1.5356965520376744
+            },
+            {
+              "ts": 1790337720000,
+              "qty": 173,
+              "price": 1.6103320393602656,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.13791371170500002,
+              "exit_fee": 0.13929372140466295,
+              "net_pnl": 2.4828119662162575
+            },
+            {
+              "ts": 1790337840000,
+              "qty": 346.20000000000005,
+              "price": 1.611387948482338,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.2759868612270001,
+              "exit_fee": 0.27893125388229273,
+              "net_pnl": 5.333867195476039
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.024721829999999834,
+          "mae_price_before_exit_bar": 0.0010781700000002115,
+          "mfe_first_ts": 1790337780000,
+          "mae_first_ts": 1790337600000,
+          "exit_bar_ambiguous": true,
+          "signal_features": {
+            "relative_volume": 2.510834597789733,
+            "adx_15m": 27.422106119078617,
+            "adx_5m": 51.613321351375006,
+            "rsi_5m": 79.5861721584024,
+            "signal_range_atr": 2.066968697348869,
+            "signal_body_atr": 0.9992630126256309,
+            "ema9_distance_atr": 1.4548687586148144,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790337840000,
+            "low": 1.61,
+            "high": 1.617
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "LONG",
+        "entry_ts": 1790496000000,
+        "exit_ts": 1790497320000,
+        "entry": 0.09810942,
+        "exit": 0.09773783,
+        "net_pnl": -5.33790164,
+        "r_multiple": -1.371804,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.0977671640443515,
+          "initial_target": 0.0991362038669455,
+          "atr_at_signal": 0.00022817330376566548,
+          "score": 7,
+          "initial_qty": 11369,
+          "initial_margin": 223.08120829119997,
+          "entry_fee": 0.5577030207279999,
+          "total_fees": 1.113293737504913,
+          "partial_exits": [
+            {
+              "ts": 1790497320000,
+              "qty": 11369,
+              "price": 0.0977378338951382,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5577030207279999,
+              "exit_fee": 0.5555907167769131,
+              "net_pnl": -5.337901639678771
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.000100576000000005,
+          "mae_price_before_exit_bar": 0.00032942399999999483,
+          "mfe_first_ts": 1790496960000,
+          "mae_first_ts": 1790497200000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.8166161046954317,
+            "adx_15m": 25.165595745953656,
+            "adx_5m": 48.95280672945436,
+            "rsi_5m": 89.58015559300557,
+            "signal_range_atr": 1.1833110865471668,
+            "signal_body_atr": 0.8327003942368568,
+            "ema9_distance_atr": 1.942513774285941,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790497320000,
+            "low": 0.09776,
+            "high": 0.09788
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "LONG",
+        "entry_ts": 1790511600000,
+        "exit_ts": 1790511840000,
+        "entry": 783.2349,
+        "exit": 782.00147792,
+        "net_pnl": -2.84261679,
+        "r_multiple": -2.018561,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 782.2361487597773,
+          "initial_target": 786.2311537206677,
+          "atr_at_signal": 0.6658341601484139,
+          "score": 8,
+          "initial_qty": 1.41,
+          "initial_margin": 220.87224179999998,
+          "entry_fee": 0.5521806045,
+          "total_fees": 1.1034916464301803,
+          "partial_exits": [
+            {
+              "ts": 1790511840000,
+              "qty": 1.41,
+              "price": 782.0014779151494,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5521806045,
+              "exit_fee": 0.5513110419301803,
+              "net_pnl": -2.8426167860694287
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.29510000000004766,
+          "mae_price_before_exit_bar": 0.7648999999998978,
+          "mfe_first_ts": 1790511600000,
+          "mae_first_ts": 1790511780000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.6326710215711207,
+            "adx_15m": 39.96002930811237,
+            "adx_5m": 21.992044729876106,
+            "rsi_5m": 80.82448302895408,
+            "signal_range_atr": 1.426781707607629,
+            "signal_body_atr": 0.9762190630998758,
+            "ema9_distance_atr": 2.343024745773444,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790511840000,
+            "low": 782.02,
+            "high": 782.47
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1790593800000,
+        "exit_ts": 1790597160000,
+        "entry": 2661.638252,
+        "exit": 2681.67564129,
+        "net_pnl": 4.70425247,
+        "r_multiple": 1.63163,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "target",
+        "diagnostics": {
+          "initial_stop": 2654.6908741981256,
+          "initial_target": 2682.4803854056236,
+          "atr_at_signal": 4.631585201249651,
+          "score": 8,
+          "initial_qty": 0.415,
+          "initial_margin": 220.915974916,
+          "entry_fee": 0.55228993729,
+          "total_fees": 1.1074857436883423,
+          "partial_exits": [
+            {
+              "ts": 1790597040000,
+              "qty": 0.103,
+              "price": 2667.785054112934,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.137074369978,
+              "exit_fee": 0.13739093028681612,
+              "net_pnl": 0.35865531736738404
+            },
+            {
+              "ts": 1790597040000,
+              "qty": 0.103,
+              "price": 2671.2577009072015,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.137074369978,
+              "exit_fee": 0.13756977159672087,
+              "net_pnl": 0.7161590958670161
+            },
+            {
+              "ts": 1790597160000,
+              "qty": 0.20900000000000002,
+              "price": 2681.6756412900017,
+              "reason": "target",
+              "final": true,
+              "entry_fee_allocated": 0.278141197334,
+              "exit_fee": 0.2802351045148052,
+              "net_pnl": 3.629438059761521
+            }
+          ],
+          "mfe_price_before_exit_bar": 18.071747999999843,
+          "mae_price_before_exit_bar": 2.638252000000193,
+          "mfe_first_ts": 1790597100000,
+          "mae_first_ts": 1790593980000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.4286519498015586,
+            "adx_15m": 30.29300555927082,
+            "adx_5m": 22.017091795845317,
+            "rsi_5m": 75.37731864201977,
+            "signal_range_atr": 1.3882935799746075,
+            "signal_body_atr": 0.8938624294081552,
+            "ema9_distance_atr": 1.23451601029615,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790597160000,
+            "low": 2677.43,
+            "high": 2689.73
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "LONG",
+        "entry_ts": 1790603100000,
+        "exit_ts": 1790603400000,
+        "entry": 83735.81321,
+        "exit": 83478.26373973,
+        "net_pnl": -4.43503461,
+        "r_multiple": -1.467349,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 83503.3147341525,
+          "initial_target": 84433.30863754246,
+          "atr_at_signal": 154.99898389832657,
+          "score": 8,
+          "initial_qty": 0.013,
+          "initial_margin": 217.71311434599997,
+          "entry_fee": 0.5442827858649999,
+          "total_fees": 1.0868915001732595,
+          "partial_exits": [
+            {
+              "ts": 1790603400000,
+              "qty": 0.013,
+              "price": 83478.26373973225,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5442827858649999,
+              "exit_fee": 0.5426087143082596,
+              "net_pnl": -4.435034613653864
+            }
+          ],
+          "mfe_price_before_exit_bar": 59.0867900000012,
+          "mae_price_before_exit_bar": 179.31320999999298,
+          "mfe_first_ts": 1790603220000,
+          "mae_first_ts": 1790603340000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.1371234896186526,
+            "adx_15m": 35.58169341986986,
+            "adx_5m": 41.30798849230384,
+            "rsi_5m": 76.99852394458843,
+            "signal_range_atr": 2.7696955760794366,
+            "signal_body_atr": 0.8896832516687069,
+            "ema9_distance_atr": 1.3337807191354223,
+            "macro_direction": 1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790603400000,
+            "low": 83442.1,
+            "high": 83570.4
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "SHORT",
+        "entry_ts": 1790704500000,
+        "exit_ts": 1790704800000,
+        "entry": 751.27455,
+        "exit": 753.62490765,
+        "net_pnl": -4.56112685,
+        "r_multiple": -1.4606,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 753.3988879847492,
+          "initial_target": 744.9015360457524,
+          "atr_at_signal": 1.4162253231661115,
+          "score": 8,
+          "initial_qty": 1.47,
+          "initial_margin": 220.87471769999996,
+          "entry_fee": 0.55218679425,
+          "total_fees": 1.106101101373591,
+          "partial_exits": [
+            {
+              "ts": 1790704800000,
+              "qty": 1.47,
+              "price": 753.6249076511446,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.55218679425,
+              "exit_fee": 0.5539143071235912,
+              "net_pnl": -4.561126848556119
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.2545499999999947,
+          "mae_price_before_exit_bar": 0.6954500000000507,
+          "mfe_first_ts": 1790704680000,
+          "mae_first_ts": 1790704740000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.0732093773296847,
+            "adx_15m": 33.056499814468665,
+            "adx_5m": 36.14583587504705,
+            "rsi_5m": 28.5600839990572,
+            "signal_range_atr": 1.0309094012922055,
+            "signal_body_atr": 0.7131633529486934,
+            "ema9_distance_atr": 0.9862293375566568,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790704800000,
+            "low": 751.97,
+            "high": 754.23
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "SHORT",
+        "entry_ts": 1790727600000,
+        "exit_ts": 1790728080000,
+        "entry": 1.48535426,
+        "exit": 1.49012246,
+        "net_pnl": -4.63190044,
+        "r_multiple": -1.447699,
+        "votes": [
+          "breakout",
+          "trend"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.4896755622915803,
+          "initial_target": 1.4723903531252593,
+          "atr_at_signal": 0.00288086819438682,
+          "score": 7,
+          "initial_qty": 740.4,
+          "initial_margin": 219.9512588208,
+          "entry_fee": 0.549878147052,
+          "total_fees": 1.1015214835802911,
+          "partial_exits": [
+            {
+              "ts": 1790728080000,
+              "qty": 740.4,
+              "price": 1.4901224649602678,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.549878147052,
+              "exit_fee": 0.5516433365282911,
+              "net_pnl": -4.631900436162535
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0006542600000001286,
+          "mae_price_before_exit_bar": 0.003445739999999864,
+          "mfe_first_ts": 1790727600000,
+          "mae_first_ts": 1790728020000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "relative_volume": 2.089374277307207,
+            "adx_15m": 27.280837558903492,
+            "adx_5m": 23.97370595230307,
+            "rsi_5m": 28.73899929241601,
+            "signal_range_atr": 1.0760645023746747,
+            "signal_body_atr": 0.48596461397570173,
+            "ema9_distance_atr": 1.0680115276211735,
+            "macro_direction": -1,
+            "confirmation_delay_bars": 1
+          },
+          "terminal_bar": {
+            "ts": 1790728080000,
+            "low": 1.4877,
+            "high": 1.49
+          }
+        }
+      }
+    ]
+  }
+}

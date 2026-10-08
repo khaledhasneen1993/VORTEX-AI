@@ -77,3 +77,44 @@ def test_entry_policy_is_opt_in_and_frozen():
     assert filter_signal(stretched,'extension-cap') is None
     assert filter_signal(stretched,'baseline') is stretched
     assert filter_signal(replace(s,features={}),'extension-cap') is None
+
+
+def test_minute_ohlc_must_reconcile(monkeypatch):
+    small,minute=fixture_history()
+    from dataclasses import replace
+    minute[0]=replace(minute[0],high=150)
+    with pytest.raises(ValueError,match='does not reconcile'):
+        replay(monkeypatch,'1m',minute_override=minute)
+
+
+def test_confirmation_cuts_all_histories_and_reprices():
+    from vortex.research_policy import confirmed_breakout
+    from dataclasses import replace
+    small,minute=fixture_history()
+    small=small[:75]
+    small[-1]=replace(small[-1],close=102,high=103)
+    observed=[]
+    def spy(sym,bars,higher,threshold,**kw):
+        observed.append((bars,higher,kw))
+        assert all(c.close_ts<=bars[-1].close_ts for c in higher+(kw['macro'] or [])+kw['minute'])
+        return Signal(sym,'LONG',bars[-1].ts,100,90,130,7,'fixture',votes=('trend','breakout'))
+    s=confirmed_breakout(spy,'BTCUSDT',small,small,5,macro=None,minute=minute)
+    assert s is not None
+    assert s.ts==small[-1].ts and s.entry==102
+    assert s.stop==92 and s.target==132
+    assert s.features['confirmation_delay_bars']==1
+    assert len(observed[0][0])==74
+    rejected=list(small)
+    rejected[-1]=replace(rejected[-1],close=99)
+    assert confirmed_breakout(spy,'BTCUSDT',rejected,rejected,5,macro=None,minute=minute) is None
+
+
+def test_cost_floor_rejects_small_move_and_preserves_baseline():
+    from vortex.research_policy import filter_signal
+    from dataclasses import replace
+    s=Signal('BTCUSDT','LONG',START,100,99.521,102,7,'fixture')
+    assert filter_signal(s,'cost-floor') is None
+    assert filter_signal(s,'baseline') is s
+    large=replace(s,stop=99.51)
+    assert filter_signal(large,'cost-floor') is large
+    assert filter_signal(replace(s,stop=float('nan')),'cost-floor') is None

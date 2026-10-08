@@ -6,6 +6,7 @@ No funding/orderbook history/liquidations; these require separate historical dat
 """
 from __future__ import annotations
 from bisect import bisect_right
+from math import isclose
 from datetime import datetime, timezone
 from .models import Candle, Signal, Position
 from .exits import levels_for_bar
@@ -54,10 +55,20 @@ def run_portfolio(
     execution = {}
     if execution_interval == "1m":
         for sym in symbols:
+            if any(b.ts <= a.ts for a,b in zip(minute[sym],minute[sym][1:])):
+                raise ValueError(f"Unordered or duplicated 1m execution data: {sym}")
             observed = {c.ts: c for c in minute[sym]}
             required = range(stamps[0], stamps[-1] + expected, 60_000)
             if any(t not in observed or observed[t].close_ts != t + 59_999 for t in required):
                 raise ValueError(f"Missing or malformed 1m execution data: {sym}")
+            for stamp in stamps:
+                children = [observed[t] for t in range(stamp,stamp+expected,60_000)]
+                parent = by_symbol[sym][stamp]
+                actual = (children[0].open,max(c.high for c in children),
+                          min(c.low for c in children),children[-1].close)
+                if not all(isclose(a,b,rel_tol=1e-9,abs_tol=1e-9) for a,b in
+                           zip(actual,(parent.open,parent.high,parent.low,parent.close))):
+                    raise ValueError(f"1m OHLC does not reconcile with parent bar: {sym}")
             execution[sym] = observed
     traces: dict[str, dict] = {}
     wallet = config.starting_equity

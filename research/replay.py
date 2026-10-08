@@ -20,7 +20,7 @@ from vortex.config import Settings
 from vortex.models import Candle
 from vortex.portfolio import run_portfolio
 import vortex.portfolio as portfolio
-from vortex.research_policy import filter_signal
+from vortex.research_policy import filter_signal, confirmed_breakout
 from vortex.risk import Filters
 
 
@@ -70,7 +70,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--month', required=True)
     parser.add_argument('--execution', choices=['5m','1m'], default='5m')
-    parser.add_argument('--entry-policy', choices=['baseline','extension-cap'], default='baseline')
+    parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor'], default='baseline')
     parser.add_argument('--cost-multiplier', type=float, default=1)
     parser.add_argument('--cache', type=Path, default=Path('data/research-cache'))
     parser.add_argument('--output', type=Path, required=True)
@@ -79,6 +79,8 @@ def main():
         raise ValueError('Never overwrite a saved experiment')
     if not 0 < args.cost_multiplier <= 5:
         raise ValueError('Cost multiplier must be in (0,5]')
+    source_hashes = {str(p):sha256(p.read_bytes()).hexdigest()
+                     for p in sorted([*Path('vortex').glob('*.py'), Path(__file__).relative_to(Path.cwd())])}
     cfg = Settings()
     cfg = replace(cfg, fee_rate=cfg.fee_rate * args.cost_multiplier,
                   slippage_bps=cfg.slippage_bps * args.cost_multiplier)
@@ -91,8 +93,16 @@ def main():
         return spec, monthly(args.cache,*spec)
     with ThreadPoolExecutor(max_workers=4) as pool:
         loaded = dict(pool.map(read,specs))
-    filter_source = 'https://fapi1.binance.com/fapi/v1/exchangeInfo'
-    exchange_raw = public_bytes(filter_source)
+    filter_source = 'https://www.binance.com/fapi/v1/exchangeInfo'
+    snapshot = args.cache / 'exchangeInfo.json'
+    if not snapshot.exists():
+        raw = public_bytes(filter_source)
+        decoded = json.loads(raw)
+        if not isinstance(decoded.get('symbols'), list) or 'serverTime' not in decoded:
+            raise ValueError('Refuse non-exchangeInfo response')
+        with snapshot.open('xb') as target:
+            target.write(raw)
+    exchange_raw = snapshot.read_bytes()
     exchange = json.loads(exchange_raw)
     info = {x['symbol']:x for x in exchange['symbols']}
     filters = {sym:Filters.from_exchange(info[sym]) for sym in cfg.symbols}
@@ -101,6 +111,8 @@ def main():
                        ([args.month] if interval == '5m' else [previous,args.month])), []) for sym in cfg.symbols}
     original_analyze = portfolio.analyze
     def research_analyze(*pos, **kw):
+        if args.entry_policy == 'confirmed-breakout':
+            return confirmed_breakout(original_analyze, *pos, **kw)
         return filter_signal(original_analyze(*pos, **kw), args.entry_policy)
     portfolio.analyze = research_analyze
     print('Data validated; replay starts', flush=True)
@@ -110,9 +122,10 @@ def main():
     dirty = subprocess.check_output(['git','status','--porcelain'],text=True).strip()
     config = asdict(cfg); config['data_dir'] = str(config['data_dir'])
     output = {'month':args.month,'base_commit':commit,'working_tree_dirty':bool(dirty),
-              'source_hashes':{str(p):sha256(p.read_bytes()).hexdigest() for p in sorted(Path('vortex').glob('*.py'))},
+              'source_hashes':source_hashes,
               'execution_interval':args.execution, 'entry_policy':args.entry_policy, 'cost_multiplier':args.cost_multiplier,
               'filter_source':filter_source,'filter_sha256':sha256(exchange_raw).hexdigest(),
+              'filter_server_time':exchange['serverTime'],
               'config':config,'filters':{s:asdict(f) for s,f in filters.items()},
               'sources':[{'symbol':s,'interval':i,'month':m,**v[1]} for (s,i,m),v in loaded.items()],
               'limitations':['Current exchange filters, not historical filters',

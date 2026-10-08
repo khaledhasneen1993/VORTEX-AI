@@ -12,6 +12,7 @@ def analyze(symbol: str, candles: list[Candle], higher: list[Candle],
             min_score: int = 5, *,
             macro: list[Candle] | None = None,
             derivatives: Derivatives | None = None,
-            decision_ms: int | None = None) -> Signal | None:
+            decision_ms: int | None = None,
+            minute: list[Candle] | None = None) -> Signal | None:
     return vote(symbol, candles, higher, macro=macro, deriv=derivatives,
-                min_score=min_score, decision_ms=decision_ms)
+                min_score=min_score, decision_ms=decision_ms, minute=minute)

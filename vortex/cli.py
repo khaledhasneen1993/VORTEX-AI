@@ -1,6 +1,7 @@
 """Command-line entrypoint: status, historical backtest, or read-only paper."""
 from __future__ import annotations
 import argparse
+from dataclasses import replace
 import os
 import json
 import logging
@@ -138,9 +139,12 @@ def main(argv: list[str] | None = None) -> int:
                         continue
                     signal = analyze(symbol, data, upper, cfg.min_score, macro=macro)
                     if signal and symbol in quotes:
+                        from .ml import feature_snapshot, evaluate
+                        # Capture only features observable at this completed entry signal.
+                        features = feature_snapshot(data, signal)
+                        signal = replace(signal, features=features)
                         if use_ai:
-                            from .ml import feature_snapshot, evaluate
-                            probability = evaluate(ai_model, feature_snapshot(data, signal))
+                            probability = evaluate(ai_model, features)
                             if probability is None or probability < 0.56:
                                 log.info("ML REJECT %s probability=%s", symbol, probability)
                                 continue

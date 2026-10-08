@@ -21,6 +21,7 @@ class PaperBroker:
         self.last_signal: dict[str, int] = {}
         self.gate = RiskGate(cfg, self.wallet)
         self.closed_count = 0
+        self.pending_journal = None
         if self.state_file.exists():
             self.load()
 
@@ -33,17 +34,38 @@ class PaperBroker:
         self.last_trade_ts = {k: int(v) for k, v in raw.get("last_trade_ts", {}).items()}
         self.last_signal = {k: int(v) for k, v in raw.get("last_signal", {}).items()}
         self.closed_count = int(raw.get("closed_count", 0))
+        self.pending_journal = raw.get("pending_journal")
         risk = raw["risk"]
         self.gate.date = risk["date"]
         self.gate.day_start_equity = float(risk["day_start_equity"])
         self.gate.consecutive_losses = int(risk["consecutive_losses"])
         self.gate.blocked = bool(risk["blocked"])
+        # Recovery is idempotent if a crash occurs between state commit and log append.
+        if self.pending_journal is not None:
+            self._write_journal(self.pending_journal)
+            self.pending_journal = None
+            self.save()
+
+    def _write_journal(self, event: dict) -> None:
+        existing = set()
+        if self.trades_file.exists():
+            with self.trades_file.open("r", encoding="utf-8") as fp:
+                for line in fp:
+                    if line.strip():
+                        old = json.loads(line)
+                        if old.get("event_id"):
+                            existing.add(old["event_id"])
+        if event["event_id"] not in existing:
+            with self.trades_file.open("a", encoding="utf-8") as fp:
+                fp.write(json.dumps(event) + "\n")
+                fp.flush()
+                os.fsync(fp.fileno())
 
     def save(self) -> None:
         obj = {"version": 1, "mode": "paper", "wallet": self.wallet,
                "positions": {k: asdict(v) for k, v in self.positions.items()},
                "last_trade_ts": self.last_trade_ts, "last_signal": self.last_signal,
-               "closed_count": self.closed_count,
+               "closed_count": self.closed_count, "pending_journal": self.pending_journal,
                "risk": {"date": self.gate.date, "day_start_equity": self.gate.day_start_equity,
                         "consecutive_losses": self.gate.consecutive_losses, "blocked": self.gate.blocked}}
         tmp = self.state_file.with_suffix(".tmp")
@@ -122,16 +144,20 @@ class PaperBroker:
             exit_fee = px * p.qty * self.cfg.fee_rate
             net = sign * (px - p.entry) * p.qty - p.entry_fee - exit_fee
             self.wallet += sign * (px - p.entry) * p.qty - exit_fee
-            item = {"symbol": symbol, "side": p.side, "opened_ts": p.opened_ts,
+            item = {"event_id": f"{symbol}:{p.opened_ts}:{now_ms}",
+                    "symbol": symbol, "side": p.side, "opened_ts": p.opened_ts,
                     "closed_ts": now_ms, "entry": p.entry, "exit": px,
                     "quantity": p.qty, "net_pnl": round(net, 8),
                     "reason": "stop" if hit_stop else "target", "wallet": round(self.wallet, 8)}
-            with self.trades_file.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(item) + "\n")
             exits.append(item)
             del self.positions[symbol]
             self.closed_count += 1
             self.gate.closed(net)
+            # First atomically persist the closed position AND pending journal event.
+            self.pending_journal = item
+            self.save()
+            self._write_journal(item)
+            self.pending_journal = None
             self.save()
         return exits
 

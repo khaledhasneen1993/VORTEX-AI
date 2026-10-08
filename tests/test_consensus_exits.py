@@ -120,7 +120,7 @@ def test_two_independent_votes_enforced(monkeypatch):
         return out
     small = series(120, 300000, 0, .2)
     high = series(80, 900000, 40, .3)
-    macro = series(60, 3600000, 50, .5)
+    macro = series(240, 3600000, 231, .5)
     monkeypatch.setattr(st, "adx", lambda bars, period=14: 30.)
     monkeypatch.setattr(st, "_macd_hist", lambda closes: 1.)
     s = vote("BTCUSDT", small, high, macro=macro)
@@ -145,7 +145,7 @@ def test_funding_fade_is_real_vote_and_stale_reading_abstains(monkeypatch):
         return xs
     small = series(120, 300000, 0, .2)
     higher = series(80, 900000, 40, .3)
-    macro = series(60, 3600000, 50, .5)
+    macro = series(240, 3600000, 231, .5)
     monkeypatch.setattr(st, "adx", lambda x, period=14: 30.)
     monkeypatch.setattr(st, "_macd_hist", lambda x: 1.)
     close_time = small[-1].close_ts

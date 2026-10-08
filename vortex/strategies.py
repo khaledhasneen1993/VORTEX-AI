@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from math import isfinite, sqrt
 from .models import Candle, Signal
 from .indicators import ema, rsi, atr, adx
+from .reversal import confirm as confirm_1m
 
 
 @dataclass(frozen=True)
@@ -53,7 +54,8 @@ def _vwap(bars: list[Candle]) -> float:
 
 def vote(symbol: str, small: list[Candle], higher: list[Candle],
          macro: list[Candle] | None = None, deriv: Derivatives | None = None,
-         *, min_score: int = 5, decision_ms: int | None = None) -> Signal | None:
+         *, min_score: int = 5, decision_ms: int | None = None,
+         minute: list[Candle] | None = None) -> Signal | None:
     if len(small) < 70 or len(higher) < 70:
         return None
     s, h = small[-1], higher[-1]
@@ -100,9 +102,13 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
     last = small[-1]
     prev = small[-2]
     if std > 0 and adx(small) < 26 and relative_vol >= 0.8:
-        if prev.close < center - 1.6 * std and last.close > prev.close and rv < 48 and last.close < _vwap(small[-20:]):
+        if (prev.close < center - 1.6 * std and last.close > prev.close and rv < 48
+                and last.close < _vwap(small[-20:]) and minute is not None
+                and confirm_1m(minute, 1, s.close_ts)):
             votes["reversion"] = 1
-        if prev.close > center + 1.6 * std and last.close < prev.close and rv > 52 and last.close > _vwap(small[-20:]):
+        if (prev.close > center + 1.6 * std and last.close < prev.close and rv > 52
+                and last.close > _vwap(small[-20:]) and minute is not None
+                and confirm_1m(minute, -1, s.close_ts)):
             votes["reversion"] = -1
     # Volume breakout: 20-bar extreme, >2x volume, directional OBV.
     if relative_vol >= 2.0 and adx(small) >= 18:

@@ -11,6 +11,7 @@ from .strategies import Derivatives, vote
 def analyze(symbol: str, candles: list[Candle], higher: list[Candle],
             min_score: int = 5, *,
             macro: list[Candle] | None = None,
-            derivatives: Derivatives | None = None) -> Signal | None:
+            derivatives: Derivatives | None = None,
+            decision_ms: int | None = None) -> Signal | None:
     return vote(symbol, candles, higher, macro=macro, deriv=derivatives,
                 min_score=min_score)

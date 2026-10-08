@@ -110,7 +110,7 @@ class FakeExchange:
         else:
             self.entry_count += 1
             self.amount = qty if side == "BUY" else -qty
-        return {"status": "FILLED"}
+        return {"status": "FILLED", "avgPrice": "100"}
 
     def protective(self, symbol, side, kind, trigger, client_id):
         if self.lose_stop and kind == "STOP_MARKET":

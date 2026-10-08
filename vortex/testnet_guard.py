@@ -143,18 +143,34 @@ class TestnetSupervisor:
         try:
             self.api.set_leverage(signal.symbol, leverage)
             side = "BUY" if signal.side == "LONG" else "SELL"
-            self.api.market_order(signal.symbol, side, q, entry_id)
+            acknowledgement = self.api.market_order(signal.symbol, side, q, entry_id)
             # Do NOT trust a fill acknowledgement without exchange position confirmation.
             actual = self.api.position(signal.symbol)
             if actual == 0 or (actual > 0) != (signal.side == "LONG"):
                 self.halt("Entry not confirmed / wrong side; investigate exchange")
-            self.persist(phase="PROTECTING", filled_qty=abs(actual))
+            avg = float(acknowledgement.get("avgPrice", "0") or 0)
+            if avg <= 0:
+                try:
+                    avg = float(self.api.query_order(signal.symbol, entry_id).get("avgPrice", "0") or 0)
+                except (AttributeError, ExchangeRejected, ExchangeUncertain):
+                    avg = 0.
+            self.persist(phase="PROTECTING", filled_qty=abs(actual),
+                         actual_entry=avg, initial_risk=abs(signal.entry - stop),
+                         step=filt.step, tick=filt.tick, peak=avg,
+                         tp1_done=False, tp2_done=False, stage_intent=None,
+                         stop_replace_intent=None, old_stop_cancel=None)
             closing_side = "SELL" if actual > 0 else "BUY"
             self.api.protective(signal.symbol, closing_side, "STOP_MARKET", stop, stop_id)
             self.api.protective(signal.symbol, closing_side, "TAKE_PROFIT_MARKET", take, take_id)
             if not self.verify_protection(signal.symbol, signal.side):
                 self.emergency_flatten(signal.symbol)
                 self.halt("Protection could not be verified; emergency reduce-only close sent")
+            if avg <= 0:
+                self.emergency_flatten(signal.symbol)
+                self.halt("No verified entry fill price: emergency close; cannot stage safely")
+            if abs(avg - signal.entry) > abs(signal.entry - stop) * .35:
+                self.emergency_flatten(signal.symbol)
+                self.halt("Actual fill deviated beyond preflight risk budget")
             self.persist(phase="PROTECTED", reason="Two exchange-side close-all guards verified")
             return dict(self.state)
         except (ExchangeRejected, ExchangeUncertain) as exc:

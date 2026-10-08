@@ -191,6 +191,8 @@ class TestnetSupervisor:
             return {"ok": True, "phase": "IDLE"}
         if self.state["phase"] == "HALTED":
             raise ProtectionError(self.state.get("reason", "HALTED"))
+        if self.state.get("stage_intent") or self.state.get("stop_replace_intent") or self.state.get("old_stop_cancel"):
+            self.halt("Interrupted TESTNET write requires human reconciliation")
         sym, side = self.state["symbol"], self.state["side"]
         amount = self.api.position(sym)
         if not amount:
@@ -199,7 +201,17 @@ class TestnetSupervisor:
             own = [o for o in algos if o.get("clientAlgoId") in
                    {self.state.get("stop_id"), self.state.get("take_id")}]
             if own:
-                self.halt("Flat but orphan TP/SL exists; manual cleanup required")
+                if not may_flatten:
+                    self.halt("Flat but orphan TP/SL exists; manual cleanup required")
+                # Only cancel the two recorded orders when the exchange is FLAT.
+                for o in own:
+                    try:
+                        self.api.cancel_algo(o["clientAlgoId"])
+                    except (ExchangeRejected, ExchangeUncertain):
+                        self.halt("Flat orphan cancellation uncertain; reconcile manually")
+                if any(o.get("clientAlgoId") in {self.state.get("stop_id"), self.state.get("take_id")}
+                       for o in self.api.open_algos(sym)):
+                    self.halt("Orphan protective orders remain")
             self.persist(phase="IDLE", entry_id=None, symbol=None, side=None,
                          stop_id=None, take_id=None, close_id=None, reason="Exchange flat")
             return {"ok": True, "phase": "IDLE"}

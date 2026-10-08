@@ -155,4 +155,6 @@ no more than 50%. PAPER and historical simulation are not proof of profit.
 
 ### Daily portfolio circuit breaker: 50%
 
-The default is `MAX_DAILY_LOSS=0.50`. When a day's starting equity is 1000 USDT, `RiskGate` blocks **new entries** at 500 USDT or below. At 501 USDT, this daily limit alone has not fired. Open positions still use the original 1.5-ATR stop and 10%-per-trade modeled risk; the breaker is not an order to flatten positions and cannot guarantee a 50% maximum realized drawdown. No Live/real-money execution is enabled.
+**Daily portfolio circuit breaker = 50%. Single-trade risk budget = 10%.** One position can lose approximately **10% of equity** at its planned stop **before the 50% daily breaker activates**; gaps, slippage or other costs could make the actual loss larger. The breaker blocks new entries, not existing positions, and is not a guaranteed loss limit.
+
+The default is `MAX_DAILY_LOSS=0.50`. With a day's starting equity of 1000 USDT, `RiskGate` permits new entries at 501 USDT (assuming no other restriction) and blocks them at 500 USDT or below. Individual stops remain at 1.5 ATR, with the unchanged 10% modeled risk budget, 5x effective leverage and three-position cap. No Live/real-money execution is enabled.

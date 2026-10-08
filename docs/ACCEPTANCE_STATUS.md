@@ -123,3 +123,11 @@ execution. Read README.md for CLI usage.
 - [x] Tests verify 1000 -> 501 remains allowed by the daily rule, 1000 -> 500 triggers a latched halt, and configurations greater than 0.50 fail.
 - [x] Unchanged: 10% planned stop risk per position, 5x maximum execution leverage, three open positions, five consecutive-loss halt, 1.5-ATR initial stop and all staged exit/strategy rules.
 - [ ] Signed Binance TESTNET behavior remains unverified on an actual Testnet account. No real-money route exists.
+
+## Approved risk relationship (50% daily vs 10% per trade)
+
+- **Daily portfolio circuit breaker = 50%** of that UTC day's starting equity. `RiskGate.can_open()` blocks **new entries** when `equity <= day_start_equity * (1 - 0.50)` and remains latched until an explicit risk reset.
+- **Single-trade modeled risk budget = 10%** of current equity, subject to the existing 25% aggregate-margin and 5x effective-leverage caps; actual planned risk can be lower.
+- **One position can lose approximately 10%** of equity at its planned stop **before the 50% portfolio breaker fires**. Gaps, costs or liquidation may cause greater actual loss; the daily breaker does not itself liquidate or close positions.
+- [x] Unit coverage: `MAX_DAILY_LOSS=0.50` accepted; `MAX_DAILY_LOSS=0.60` rejected via both `Settings` and `Settings.from_env()`; starting equity 1000 permits 501 and halts at 500.
+- [ ] Real signed Binance TESTNET behavior remains unverified; production Live mode is not available.

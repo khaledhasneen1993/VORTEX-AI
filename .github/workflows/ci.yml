@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for pr in 5 6 7; do
+          for pr in 5 6 7 8; do
             meta=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr")
             merged=$(echo "$meta" | jq -r '.merged')
             branch=$(echo "$meta" | jq -r '.head.ref')

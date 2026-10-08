@@ -110,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         raise ValueError("paper command requires RUN_MODE=paper")
     broker = PaperBroker(cfg)
     use_ai = os.getenv("USE_AI_MODEL", "false").lower() == "true"
+    use_claude = os.getenv("USE_CLAUDE", "false").lower() == "true"
     ai_model = None
     if use_ai:
         from .ml import load_model
@@ -184,6 +185,17 @@ def main(argv: list[str] | None = None) -> int:
                         # Never enter on an old signal (e.g. after a stalled connection).
                         if now - data[-1].close_ts > 90_000:
                             continue
+                        if use_claude:
+                            from .claude_review import confirm, ReviewUnavailable
+                            try:
+                                approved, confidence, explanation = confirm(signal)
+                            except ReviewUnavailable as exc:
+                                log.error("AI review unavailable: %s; skip candidate", exc)
+                                continue
+                            if not approved:
+                                log.info("Claude rejected %s (%s): %s",
+                                         symbol, confidence, explanation)
+                                continue
                         if use_micro:
                             from .microstructure import collect_micro
                             micro = collect_micro(market, symbol, signal.side, now)

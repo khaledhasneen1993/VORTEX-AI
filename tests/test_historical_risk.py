@@ -94,3 +94,21 @@ def test_no_market_api_or_pnl_needed_to_run_risk_regressions():
     assert cfg.risk_per_trade == 0.01
     assert cfg.max_daily_loss == .05
     assert cfg.max_consecutive_losses == 5
+
+
+
+def test_portfolio_reports_marked_equity_for_unclosed_positions(monkeypatch):
+    from vortex.models import Signal
+    import vortex.portfolio as module
+    history = bars(80)
+    def candidate(symbol, subset, htf, threshold, **kwargs):
+        if len(subset) == 75:
+            return Signal(symbol, "LONG", subset[-1].ts, 100., 90., 120., 7, "test")
+        return None
+    monkeypatch.setattr(module, "analyze", candidate)
+    report = run_portfolio({"BTCUSDT": history}, {"BTCUSDT": []},
+                           {"BTCUSDT": FILTERS}, Settings())
+    assert report["closed_trades"] == 0
+    assert report["open_positions"] == ["BTCUSDT"]
+    assert report["equity_with_unrealized"] < report["cash_wallet"]
+    assert report["open_positions_unrealized_net"] < 0

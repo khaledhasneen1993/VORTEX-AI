@@ -111,12 +111,17 @@ def main(argv: list[str] | None = None) -> int:
         try:
             now = market.server_ms()
             quotes = stream.snapshot() if stream else market.quotes()
+            was_halted = broker.gate.blocked
             for closed in broker.mark(quotes, now):
                 log.info("CLOSED: %s", json.dumps(closed))
                 notify("Closed paper trade: " + json.dumps(closed))
             equity = broker.equity(quotes)
             today = datetime.fromtimestamp(now / 1000, timezone.utc).date().isoformat()
             broker.gate.new_day(today, equity)
+            broker.gate.can_open(equity, len(broker.positions))
+            if broker.gate.blocked and not was_halted:
+                notify(f"RISK HALT: paper equity={equity:.2f}, consecutive_losses={broker.gate.consecutive_losses}")
+                log.error("Risk circuit breaker active: no new entries")
             bucket = now // step
             # 5s into the new period; market data must have CLOSE time < server now.
             if bucket != last_bucket and now % step >= 5000:

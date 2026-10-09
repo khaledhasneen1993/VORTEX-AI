@@ -1,0 +1,121 @@
+name: Phase 0 verified 90-day archive and full-guard replay attempt
+on:
+  push:
+    branches: [research/phase0-baseline]
+    paths:
+      - '.github/workflows/phase0-90d-data.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase0-90d-archive-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  acquire-and-attempt:
+    name: Verified 90d data + honest replay attempts (PAPER only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 175
+    env:
+      RUN_MODE: backtest
+      VORTEX_EXTENDED_HISTORY: 'true'
+      DATA_DIR: runs/phase0-90d-staging
+      PYTHONUNBUFFERED: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install local project (public data only)
+        run: |
+          python -m pip install -e .
+          mkdir -p runs/phase0-90d-staging data/ohlcv
+          # Selected authentic filters from user-provided public exchangeInfo snapshot.
+          # A current snapshot does NOT establish historical as-of filter validity.
+          cp research/baselines/user-20261010/exchange_info_six.json data/ohlcv/exchange_info.json
+          sha256sum data/ohlcv/exchange_info.json > runs/phase0-90d-staging/filters.sha256
+          printf '%s\n' 'CURRENT filters from 2026-10-09; historical filter validity UNKNOWN' > runs/phase0-90d-staging/NOTICE.txt
+
+      - name: Download and verify six-symbol four-timeframe OHLCV archives
+        id: archive
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m research.download_ohlcv \
+            --symbols BTCUSDT ETHUSDT SOLUSDT BNBUSDT XRPUSDT DOGEUSDT \
+            --intervals 1m 5m 15m 1h \
+            --start 2026-07-01 --end 2026-10-09 --output data/ohlcv \
+            > runs/phase0-90d-staging/download.log 2>&1
+          tail -n 25 runs/phase0-90d-staging/download.log
+
+      - name: Validate requested archive coverage
+        id: coverage
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib,datetime
+          base=pathlib.Path("data/ohlcv")
+          root=pathlib.Path("runs/phase0-90d-staging")
+          symbols="BTCUSDT ETHUSDT SOLUSDT BNBUSDT XRPUSDT DOGEUSDT".split()
+          intervals="1m 5m 15m 1h".split()
+          start=datetime.date(2026,7,1); end=datetime.date(2026,10,9)
+          days=(end-start).days; records=[]; missing=[]
+          for s in symbols:
+            for interval in intervals:
+              cursor=start
+              while cursor<end:
+                filename=f"{s}-{interval}-{cursor.isoformat()}"
+                csv=base/s/interval/(filename+".csv")
+                manifest=base/s/interval/(filename+".json")
+                if not csv.is_file() or not manifest.is_file():
+                  missing.append(f"{s}/{interval}/{cursor.isoformat()}")
+                else:
+                  try:
+                    row=json.loads(manifest.read_text())
+                    h=hashlib.sha256()
+                    with csv.open("rb") as f:
+                      for chunk in iter(lambda:f.read(1048576),b""):h.update(chunk)
+                    if h.hexdigest()!=row["csv_sha256"] or row["symbol"]!=s or row["interval"]!=interval:
+                      raise ValueError("sha256 or scope mismatch")
+                    records.append(dict(symbol=s,interval=interval,date=cursor.isoformat(),rows=row["rows"],csv_sha256=row["csv_sha256"],source=row["url"]))
+                  except Exception as exc: missing.append(f"{s}/{interval}/{cursor.isoformat()}: {type(exc).__name__}")
+                cursor+=datetime.timedelta(days=1)
+          complete=not missing
+          report=dict(kind="source_coverage_not_pnl",period="2026-07-01..2026-10-08 UTC (warmup included)",validation_days=90,all_source_days=days,expected_files=days*len(symbols)*len(intervals),verified_files=len(records),missing_count=len(missing),missing_first=missing[:100],complete=complete,source_sha256=[r for r in records],economic_trial_completed=False,unavailable=["historical timestamped bid/ask + level-2 depth","as-of funding forecast and mark for settlements","as-of funding/OI signal observations","historically applicable exchange filters"],filter_snapshot_current_only=True)
+          (root/"coverage.json").write_text(json.dumps(report,indent=2)+"\n")
+          print(json.dumps({k:report[k] for k in ["expected_files","verified_files","missing_count","complete","validation_days"]}))
+          PY
+
+      - name: Attempt frozen 90-day single and portfolio full-profile backtests
+        if: steps.coverage.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          for cmd in single portfolio; do
+            if [ "$cmd" = single ]; then
+              timeout 600s python -m vortex.cli backtest --days 90 --symbol BTCUSDT --ohlcv-dir data/ohlcv --end-utc 2026-10-09 > "runs/phase0-90d-staging/${cmd}.log" 2>&1
+            else
+              timeout 1200s python -m vortex.cli portfolio-backtest --days 90 --ohlcv-dir data/ohlcv --end-utc 2026-10-09 > "runs/phase0-90d-staging/${cmd}.log" 2>&1
+            fi
+            rc=$?
+            printf '%s: %s\n' "$cmd" "$rc" | tee -a runs/phase0-90d-staging/replay-returncodes.txt
+            tail -n 20 "runs/phase0-90d-staging/${cmd}.log"
+          done
+          # A rejected attempt must never be misreported as a completed baseline.
+          printf '%s\n' "Funding/OI as-of observations, actual timestamped bid/ask and order-book depth remain required for economic acceptance." >> runs/phase0-90d-staging/NOTICE.txt
+
+      - name: Publish diagnostic evidence (NEVER a profitability claim)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase0-90day-source-and-full-guard-attempt
+          path: |
+            runs/phase0-90d-staging/
+          if-no-files-found: warn
+          retention-days: 30

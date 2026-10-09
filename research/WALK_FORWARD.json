@@ -11,14 +11,14 @@
     "exposed_development": ["2026-09"]
   },
   "candidate": {
-    "id": "W008",
+    "id": "W009",
     "status": "preregistered",
-    "hypothesis": "W007 continuation lost before fees with 70 stops; reverse only direction to test whether displacement outside the first-hour range at 04:00 UTC mean-reverts.",
+    "hypothesis": "W008 was slightly positive before fees; holding the entire position to its already frozen 2R target or stop may remove staged-exit transaction drag without changing entries.",
     "replay_args": [
       "--decision-interval", "15m",
       "--execution", "1m",
       "--entry-policy", "opening-range-reversion",
-      "--exit-policy", "baseline"
+      "--exit-policy", "fixed-2r"
     ],
     "frozen_parameters": {
       "opening_range_utc": "00:00-01:00",
@@ -31,12 +31,12 @@
       "target_r": 2.0
     },
     "prior_development_result": {
-      "id": "W007",
+      "id": "W008",
       "status": "rejected",
-      "sha256": "9eb683b81f5c955b9754e1e68d34448d5873c6dcaa5514a066b7c86567910f5a"
+      "sha256": "955edf7a30cb8a26e9ae114ec13033424af338052ec30751dacc2eaa3f4bb1a4"
     }
   },
-  "development_trials_2026_q1": 8,
+  "development_trials_2026_q1": 9,
   "last_development_result": {
     "id": "W006",
     "status": "rejected",

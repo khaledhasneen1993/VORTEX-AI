@@ -93,7 +93,7 @@ def main():
     parser.add_argument('--decision-interval', choices=['5m','15m'], default='5m')
     parser.add_argument('--execution', choices=['5m','1m'], default='5m')
     parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor','invert-direction','trend-pullback','range-reversion','range-reversion-ablation','compression-expansion','compression-expansion-cost','compression-retest','time-series-momentum','time-series-reversal','momentum-pullback','liquidity-sweep-reversal','liquidity-sweep-continuation','opening-range-breakout','opening-range-reversion'], default='baseline')
-    parser.add_argument('--exit-policy', choices=['baseline','fixed-1r','fixed-3r','breakout-invalidation','pair-horizon'], default='baseline')
+    parser.add_argument('--exit-policy', choices=['baseline','fixed-1r','fixed-2r','fixed-3r','breakout-invalidation','pair-horizon'], default='baseline')
     parser.add_argument('--portfolio-policy', choices=['baseline','relative-strength-pair','relative-strength-reversal'], default='baseline')
     parser.add_argument('--cost-multiplier', type=float, default=1)
     parser.add_argument('--cache', type=Path, default=Path('data/research-cache'))

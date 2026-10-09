@@ -164,6 +164,20 @@ def test_fixed_1r_closes_all_at_one_r(monkeypatch):
     assert len(trade['diagnostics']['partial_exits'])==1
 
 
+def test_fixed_2r_closes_all_at_two_r(monkeypatch):
+    small,minute=fixture_history()
+    minute[375]=Candle(minute[375].ts,100,121,99,105,2,minute[375].close_ts)
+    small[75]=Candle(small[75].ts,100,121,89,100,10,small[75].close_ts)
+    monkeypatch.setattr(module,'analyze',candidate)
+    report=run_portfolio({'BTCUSDT':small},{'BTCUSDT':[]},
+                         {'BTCUSDT':Filters(.001,.001,5,.01)},Settings(),
+                         minute={'BTCUSDT':minute},execution_interval='1m',
+                         diagnostics=True,exit_policy='fixed-2r')
+    trade=report['trades'][0]
+    assert trade['diagnostics']['partial_exits'][0]['reason']=='target_2r'
+    assert len(trade['diagnostics']['partial_exits'])==1
+
+
 def test_unknown_exit_policy_rejected(monkeypatch):
     with pytest.raises(ValueError,match='Unknown exit policy'):
         replay(monkeypatch,exit_policy='invented')

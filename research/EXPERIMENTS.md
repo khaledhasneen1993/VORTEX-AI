@@ -846,3 +846,27 @@ or symbols and is registered before W008 returns are read.
 
 Development command:
 `python -m research.walk_forward --phase development --output research/results/W008-development-normal.json`
+
+## W008 result and W009 preregistration
+
+W008 improves but FAILS: 93 closed trades, 51 winners, net -74.585876,
+PF .8332455575, maxDD 17.530%, fees 86.937384 and ending equity 925.414124.
+It is slightly positive before closed-trade fees (+12.351508), but January and
+February lose (-54.090454, -62.107367), only March gains (+41.611945), and the
+sample is below the required 100 trades. LONG loses -191.991582 while SHORT
+gains +117.405706; selecting side now is forbidden. Sixty-seven stops lose
+-389.573426 and 26 targets gain +314.987550. Result SHA256 is
+`955edf7a30cb8a26e9ae114ec13033424af338052ec30751dacc2eaa3f4bb1a4`.
+It is not eligible for validation.
+
+W009 keeps the exact W008 entry stream, reversion direction, opening range,
+04:00 decision, structural stop distance and frozen 2R target. Change exit
+management only: close the entire position at initial stop or 2R, disabling
+partials, breakeven and trailing. Actual 1m ordering, stop-first ambiguity,
+normal costs and all financial caps stay fixed. This isolates staged-exit fee
+drag; no side/symbol filter or parameter search is introduced. Passing still
+requires positive development net, acceptable DD and sufficient sample before
+validation can be unlocked.
+
+Development command:
+`python -m research.walk_forward --phase development --output research/results/W009-development-normal.json`

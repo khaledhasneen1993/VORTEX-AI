@@ -32,7 +32,7 @@ def run_portfolio(
         raise ValueError("Execution interval must be 5m or 1m")
     if execution_interval == "1m" and minute is None:
         raise ValueError("1m execution requires actual minute candles")
-    if exit_policy not in {"baseline", "fixed-1r", "fixed-3r",
+    if exit_policy not in {"baseline", "fixed-1r", "fixed-2r", "fixed-3r",
                            "breakout-invalidation", "pair-horizon"}:
         raise ValueError("Unknown exit policy")
     if portfolio_policy not in {"baseline", "relative-strength-pair",
@@ -210,7 +210,8 @@ def run_portfolio(
             for execution_index, eb in enumerate(execution_bars):
                 existing_stop = p.stop
                 sign = 1 if p.side == "LONG" else -1
-                fixed_target_r = {"fixed-1r": 1.0, "fixed-3r": 3.0}.get(exit_policy)
+                fixed_target_r = {"fixed-1r": 1.0, "fixed-2r": 2.0,
+                                  "fixed-3r": 3.0}.get(exit_policy)
                 open_exit_reason = ("breakout_invalidation" if invalidate else
                                     "pair_horizon" if horizon_exit else None)
                 if open_exit_reason is not None and execution_index == 0:

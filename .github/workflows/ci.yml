@@ -2,7 +2,7 @@ name: VORTEX 0.2 quality
 
 on:
   push:
-    branches: [main, research/hourly-development]
+    branches: [main, research/hourly-development, research/phase0-baseline]
 
 concurrency:
   group: vortex-${{ github.ref }}
@@ -61,3 +61,5 @@ jobs:
             echo "Deleted historical run $run_id"
           done
           echo "Retained current verified build $GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
+
+

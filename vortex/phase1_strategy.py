@@ -1,6 +1,7 @@
 """Phase 1: completed-candle consensus with actual taker volume, no lookahead."""
 
 import logging
+from dataclasses import asdict
 from datetime import datetime, timezone
 from math import isfinite
 
@@ -124,9 +125,26 @@ def weighted_selection(votes, weights, macro, strong, policy):
     )
 
 
-def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min_score, policy):
+def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min_score, policy, audit=None):
+    # Measurement only: capture precisely what the canonical decision evaluated.
+    # None means not evaluated, never an invented abstention or indicator value.
+    record = {
+        "symbol": symbol,
+        "decision_ms": decision_ms if decision_ms is not None else small[-1].close_ts if small else None,
+        "votes": {name: None for name in ("trend", "breakout", "reversion", "funding_fade")},
+        "indicators": {},
+        "regime": "not_evaluated",
+        "veto_reason": None,
+        "accepted": False,
+        "signal": None,
+        "shadow_outcome": None,
+        "shadow_status": "requires_separate_forward_measurement",
+    }
+
     def reject(reason):
         log.debug("REJECT %s phase1=%s", symbol, reason)
+        if audit is not None:
+            audit({**record, "veto_reason": reason})
         return None
 
     if len(small) < max(70, policy.atr_lookback + 15) or len(higher) < 70 or not macro or len(macro) < 210:
@@ -154,9 +172,11 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         return reject("disabled_utc_session")
     current = small[-1]
     a = atr(small)
+    record["indicators"].update(atr=a, atr_pct=a / current.close)
     if not policy.atr_pct_min <= a / current.close <= policy.atr_pct_max:
         return reject("atr_absolute_limits")
     percentile = atr_percentile(small, policy.atr_lookback)
+    record["indicators"]["atr_percentile"] = percentile
     if policy.volatility_filter and (percentile is None or percentile < policy.atr_percentile_min):
         return reject("atr_percentile")
     cvd = cvd_ratio(small, policy.cvd_window)
@@ -169,6 +189,13 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     mid_dir = direction(ema(hc, 9), ema(hc, 21))
     short_dir = direction(ema(closes, 9), ema(closes, 21))
     hist = _macd_hist(hc)
+    record["indicators"].update(
+        cvd_ratio=cvd,
+        macro_direction=macro_dir,
+        mid_direction=mid_dir,
+        short_direction=short_dir,
+        macd_hist=hist,
+    )
     if not macro_dir or not macro_dir == mid_dir == short_dir or hist * macro_dir <= 0:
         return reject("mtf_disagreement")
     if policy.cvd_filter and (cvd is None or cvd * macro_dir < policy.cvd_min):
@@ -176,6 +203,8 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     adx5, adx15 = adx(small), adx(higher)
     mean_vol = sum(b.volume for b in small[-21:-1]) / 20
     relvol = current.volume / mean_vol if mean_vol > 0 else 0
+    record["indicators"].update(adx_5m=adx5, adx_15m=adx15, relative_volume=relvol)
+    record["regime"] = "range" if max(adx5, adx15) < policy.range_adx else "trend_or_transition"
     votes = {}
     if adx15 >= policy.trend_adx:
         votes["trend"] = macro_dir
@@ -193,6 +222,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     funding = funding_direction(deriv, decision, policy)
     if funding:
         votes["funding_fade"] = funding
+    record["votes"] = {name: votes.get(name, 0) for name in record["votes"]}
     for name in ("trend", "breakout", "reversion", "funding_fade"):
         value = votes.get(name, 0)
         log.debug(
@@ -215,6 +245,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         and (current.close - current.open) * macro_dir / a >= policy.strong_body_atr
     )
     sign, approved, totals = weighted_selection(votes, weights, macro_dir, strong, policy)
+    record.update(weights=weights, weighted_totals=totals, strong=strong)
     log.debug(
         "PHASE1_VOTES %s votes=%s weights=%s totals=%s strong=%s atr_percentile=%.1f cvd=%s",
         symbol,
@@ -254,7 +285,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     )
     reason = "PHASE1 " + ("STRONG" if strong else "NORMAL") + " votes=" + ",".join(approved)
     log.info("ACCEPT %s %s %s score=%d", symbol, reason, "LONG" if sign == 1 else "SHORT", score)
-    return Signal(
+    signal = Signal(
         symbol,
         "LONG" if sign == 1 else "SHORT",
         current.ts,
@@ -267,3 +298,6 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         approved,
         a,
     )
+    if audit is not None:
+        audit({**record, "accepted": True, "signal": asdict(signal), "indicators": features})
+    return signal

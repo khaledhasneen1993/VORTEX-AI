@@ -60,20 +60,24 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
          *, min_score: int = 5, decision_ms: int | None = None,
          minute: list[Candle] | None = None, strict_votes: bool = True,
          min_strong_score: int = 7) -> Signal | None:
-    if len(small) < 70 or len(higher) < 70:
+    def reject(reason: str):
+        log.debug("REJECT %s reason=%s", symbol, reason)
         return None
+
+    if len(small) < 70 or len(higher) < 70:
+        return reject(f"insufficient_5m_15m_history counts={len(small)},{len(higher)}")
     s, h = small[-1], higher[-1]
     if s.close_ts <= 0 or h.close_ts > s.close_ts:
-        return None
+        return reject("invalid_5m_15m_timestamps")
     if macro is not None and (len(macro) < 210 or macro[-1].close_ts > s.close_ts):
-        return None
+        return reject(f"insufficient_or_future_macro_history count={len(macro)}")
     if any(b.ts <= a.ts for a, b in zip(small[-70:], small[-69:])):
-        return None
+        return reject("unordered_5m_history")
     p = [x.close for x in small]
     hp = [x.close for x in higher]
     mp = [x.close for x in macro] if macro else hp
     if len(mp) < 36:
-        return None
+        return reject("insufficient_macro_prices")
     # Literal original Quant macro filter: hourly EMA50 versus EMA200.
     if macro is not None:
         short_macro, long_macro = ema(mp, 50), ema(mp, 200)
@@ -83,10 +87,10 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
     volatility = atr(small)
     vol_pct = volatility / s.close
     if not (0.0008 <= vol_pct <= 0.045):
-        return None
+        return reject(f"atr_fraction_outside_bounds value={vol_pct:.6f}")
     avg_vol = sum(c.volume for c in small[-21:-1]) / 20
     if avg_vol <= 0:
-        return None
+        return reject("zero_average_volume")
     relative_vol = s.volume / avg_vol
     votes: dict[str, int] = {}
     # Trend following: 15m trend, momentum, ADX and macro bias.
@@ -134,7 +138,7 @@ def vote(symbol: str, small: list[Candle], higher: list[Candle],
         "trend": f"15m EMA9/21 + MACD direction; ADX={a:.1f}; hourly={trend}",
         "reversion": f"5m RSI7={rv:.1f}, Bollinger/VWAP and completed 1m divergence/StochRSI",
         "breakout": f"20-bar extreme, OBV direction, 5m ADX={adx(small):.1f}, volume={relative_vol:.2f}x",
-        "funding_fade": ("fresh funding and rising OI confirmed"
+        "funding_fade": (f"fresh funding_rate={deriv.funding_rate:.6f} oi_change_pct={deriv.oi_change_pct:.4f}; requires extreme funding and rising OI"
                          if deriv and deriv.valid(decision_ms if decision_ms is not None else s.close_ts)
                          else "missing or stale actual funding/OI observations"),
     }

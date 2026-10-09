@@ -28,7 +28,18 @@ def session_args(argv=None):
     parser = argparse.ArgumentParser(description='Bounded live-data PAPER radar session')
     parser.add_argument('--duration-seconds', type=int, choices=[1200, 3600], default=3600)
     parser.add_argument('--output', type=Path, default=Path('runs/radar-one-hour'))
+    parser.add_argument('--diagnostics', action='store_true', help='Record votes and rejection reasons')
     return parser.parse_args(argv)
+
+
+def diagnostic_counts(text):
+    return {
+        'signal_evaluations': text.count(' INFO ANALYZE '),
+        'entry_attempts': text.count(' INFO SIGNAL '),
+        'strategy_rejections': text.count(' DEBUG REJECT '),
+        'entry_skips': text.count(' INFO ENTRY_SKIP '),
+        'vote_records': text.count(' DEBUG VOTE '),
+    }
 
 
 def main(argv=None):
@@ -44,12 +55,16 @@ def main(argv=None):
                VORTEX_TELEGRAM_TOKEN='', VORTEX_TELEGRAM_CHAT_ID='',
                DATA_DIR=str(folder / 'state'), PYTHONUNBUFFERED='1')
     os.environ.update(env)
+    if args.diagnostics:
+        env['VORTEX_DIAGNOSTICS'] = 'true'
     cfg = Settings.from_env()
     config = asdict(cfg)
     config['data_dir'] = str(config['data_dir'])
     report = {
         'requested_seconds': duration, 'attempt_utc': utc(), 'mode': 'PAPER',
         'actual_exchange_orders': 0, 'actual_exchange_fills': 0,
+        'diagnostics_enabled': env.get('VORTEX_DIAGNOSTICS', 'false').lower() == 'true',
+        'counter_schema_version': 2,
         'github_run_id': os.getenv('GITHUB_RUN_ID'),
         'commit': os.getenv('GITHUB_SHA') or subprocess.check_output(
             ['git', 'rev-parse', 'HEAD'], text=True).strip(), 'config': config,
@@ -113,9 +128,9 @@ def main(argv=None):
         report.update(successful_poll_cycles=len(equities),
                       cycle_errors=text.count('Cycle failed closed:'),
                       radar_cycles=text.count('RADAR ranked liquid movers:'),
-                      signal_evaluations=text.count('SIGNAL '),
                       paper_entries=len(re.findall(r'SIGNAL .*accepted=True:', text)),
                       last_observed_marked_equity=equities[-1] if equities else None)
+        report.update(diagnostic_counts(text))
         report['status'] = ('completed_duration' if timed_out and equities
                             else 'failed_no_successful_cycles' if timed_out
                             else 'failed_early')

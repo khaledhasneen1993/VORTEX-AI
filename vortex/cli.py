@@ -57,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset", type=str, default="", help="JSONL with confirmed closed-trade labels")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    if os.getenv("VORTEX_DIAGNOSTICS", "false").lower() == "true":
+        logging.getLogger("vortex.votes").setLevel(logging.DEBUG)
     cfg = Settings.from_env()
     if args.command == "train-ai":
         from pathlib import Path
@@ -215,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
                     macro = market.candles(symbol, "1h", 260, now)
                     minute = market.candles(symbol, "1m", 120, now)
                     if not data or not upper or not macro:
+                        log.info("ENTRY_SKIP %s reason=empty_candle_history counts=%d,%d,%d",
+                                 symbol, len(data), len(upper), len(macro))
                         continue
                     from .indicators import atr
                     if len(data) >= 16:
@@ -224,6 +228,8 @@ def main(argv: list[str] | None = None) -> int:
                     except (MarketError, KeyError, ValueError) as exc:
                         log.warning("Unavailable derivative snapshot for %s: %s", symbol, exc)
                         deriv = None  # funding strategy abstains; other votes remain valid
+                    log.info("ANALYZE %s decision_ms=%d bars=%d,%d,%d,%d",
+                             symbol, now, len(data), len(upper), len(macro), len(minute))
                     signal = analyze(symbol, data, upper, cfg.min_score,
                                      macro=macro, derivatives=deriv, decision_ms=now,
                                      minute=minute,
@@ -241,6 +247,8 @@ def main(argv: list[str] | None = None) -> int:
                                 continue
                         # Never enter on an old signal (e.g. after a stalled connection).
                         if now - data[-1].close_ts > 90_000:
+                            log.info("ENTRY_SKIP %s reason=stale_signal age_ms=%d",
+                                     symbol, now - data[-1].close_ts)
                             continue
                         if use_claude:
                             from .claude_review import confirm, ReviewUnavailable
@@ -266,6 +274,8 @@ def main(argv: list[str] | None = None) -> int:
                                  symbol, signal.score, ok, reason, signal.reason)
                         if ok:
                             notify(f"Paper entry: {symbol}, score={signal.score}, {reason}")
+                    elif signal:
+                        log.info("ENTRY_SKIP %s reason=missing_fresh_quote", symbol)
                 last_bucket = bucket
             broker.save()
             log.info("PAPER equity=%.2f USDT positions=%d risk_halted=%s",

@@ -110,7 +110,7 @@ def main(argv=None):
             try:
                 now = market.server_ms()
                 if now // step != last_bucket and now % step >= 5000:
-                    for candidate in discover(market, limit=12):
+                    for candidate in discover(market, limit=24):
                         if time.monotonic() - began >= args.duration_seconds:
                             break
                         symbol = candidate.symbol

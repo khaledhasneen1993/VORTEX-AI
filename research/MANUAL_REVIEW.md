@@ -1,6 +1,6 @@
 # Public-data cards for manual review
 
-This independent command scans the current Radar candidates with the existing
+This independent command scans up to 24 current Radar candidates with the existing
 consensus rules and corrected derivative clock. It never creates a PaperBroker,
 connects to a private account, loads API keys, or calls an order endpoint. The
 user makes every execution decision manually in Binance. Existing PAPER runs
@@ -72,3 +72,9 @@ Mocked tests cover expiry, missing credentials, message content and persistent
 duplicate prevention after successful/uncertain sends. No hosted test sends a
 real Telegram message or Binance order. This is delivery plumbing, not evidence
 of trading profitability.
+
+On 2026-10-09 the operator requested increasing manual-signal coverage from 12
+to 24 candidates per completed-candle cycle. Ranking and consensus rules are
+unchanged. Serial scanning takes longer; existing 90-second signal freshness
+checks still apply, so candidates evaluated late may be skipped. This coverage
+change is not a validated strategy improvement. Prior sessions used 12.

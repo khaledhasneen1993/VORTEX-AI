@@ -61,7 +61,6 @@ def main(argv: list[str] | None = None) -> int:
             "dashboard",
             "reset-paper-halt",
             "testnet-doctor",
-            "testnet-once",
             "testnet-watch",
             "train-ai",
         ),
@@ -75,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--ack-testnet",
         action="store_true",
-        help="Acknowledge TESTNET-only order; requires matching env gate",
+        help="Arm TESTNET-only protection watchdog; requires matching env gate",
     )
     parser.add_argument("--dataset", type=str, default="", help="JSONL with confirmed closed-trade labels")
     args = parser.parse_args(argv)
@@ -117,14 +116,11 @@ def main(argv: list[str] | None = None) -> int:
 
         serve(cfg, args.port)
         return 0
-    if args.command in {"testnet-doctor", "testnet-once", "testnet-watch"}:
-        from .testnet_runner import doctor, once, prepare
+    if args.command in {"testnet-doctor", "testnet-watch"}:
+        from .testnet_runner import doctor, prepare
 
         if args.command == "testnet-doctor":
             print(json.dumps(doctor(cfg), indent=2))
-            return 0
-        if args.command == "testnet-once":
-            print(json.dumps(once(cfg, args.symbol, acknowledge=args.ack_testnet), indent=2))
             return 0
         if not args.ack_testnet or os.getenv("VORTEX_TESTNET_ARM") != "TESTNET_ONLY":
             raise PermissionError("Testnet watchdog requires explicit arming for emergency close")

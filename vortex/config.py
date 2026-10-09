@@ -46,7 +46,7 @@ class Settings:
             object.__setattr__(self, "max_daily_loss", min(self.max_daily_loss, 0.20))
         if self.operations.enabled and self.operations.focus_symbol:
             object.__setattr__(self, "symbols", (self.operations.focus_symbol,))
-        # Real-money execution is deliberately not shipped in version 0.1.
+        # Production execution is not included in this release.
         if self.mode not in {"paper", "backtest"}:
             raise ValueError("RUN_MODE must be paper or backtest; live orders are disabled")
         if not self.symbols or len(set(self.symbols)) != len(self.symbols):

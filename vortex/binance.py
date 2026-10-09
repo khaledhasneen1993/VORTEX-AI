@@ -6,6 +6,7 @@ import time
 
 import requests
 
+from . import __version__
 from .models import Candle
 from .risk import Filters
 
@@ -23,7 +24,7 @@ class Market:
             raise ValueError("Exchange endpoint must be allowlisted")
         self.base = base
         self.http = session or requests.Session()
-        self.http.headers.update({"User-Agent": "VortexAI-paper/0.1"})
+        self.http.headers.update({"User-Agent": f"VortexAI-paper/{__version__}"})
         self._exchange: dict | None = None
 
     def get(self, path: str, params: dict | None = None):

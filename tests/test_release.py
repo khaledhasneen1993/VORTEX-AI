@@ -67,3 +67,10 @@ def test_analyze_always_routes_to_current_strategy(monkeypatch):
     monkeypatch.setattr(strategy, "phase1_vote", vote)
     assert strategy.analyze("BTCUSDT", [], []) == "current"
     assert isinstance(called["policy"], StrategyPolicy)
+
+
+def test_retired_cli_entry_command_is_not_selectable():
+    from vortex.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["testnet-once"])

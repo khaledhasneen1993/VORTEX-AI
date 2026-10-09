@@ -94,7 +94,7 @@ def main(argv=None):
     try:
         market = Market()
         now = market.server_ms()
-        candidates = discover(market, limit=12)
+        candidates = discover(market, limit=24)
         quotes = market.quotes(now_ms=now)
         if not any(c.symbol in quotes for c in candidates):
             raise ValueError('No fresh quote for any radar candidate')

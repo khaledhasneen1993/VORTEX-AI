@@ -78,3 +78,10 @@ to 24 candidates per completed-candle cycle. Ranking and consensus rules are
 unchanged. Serial scanning takes longer; existing 90-second signal freshness
 checks still apply, so candidates evaluated late may be skipped. This coverage
 change is not a validated strategy improvement. Prior sessions used 12.
+
+The operator subsequently requested returning to PAPER without Telegram.
+The PAPER runner and its public preflight now also scan up to 24 candidates,
+matching manual coverage. The paper_hour wrapper already blanks Telegram
+credentials in its child environment, forces PAPER and starts isolated state.
+Existing staged exits and financial caps are unchanged. This creates a new
+virtual portfolio, not a continuation or reconstruction of manual cards.

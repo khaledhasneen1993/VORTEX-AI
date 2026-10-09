@@ -208,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
             if bucket != last_bucket and now % step >= 5000:
                 if use_radar:
                     from .radar import discover
-                    candidates = discover(market, limit=12)
+                    candidates = discover(market, limit=24)
                     symbols = [candidate.symbol for candidate in candidates]
                     log.info("RADAR ranked liquid movers: %s", symbols)
                 for symbol in symbols:

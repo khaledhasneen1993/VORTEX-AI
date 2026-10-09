@@ -344,3 +344,29 @@ def relative_strength_pair(histories: dict[str, list], min_score: int, *,
                     else 'relative_strength_pair'),), atr_value=volatility,
         )
     return signals
+
+
+def time_series_momentum(symbol, bars, higher, min_score, **_options) -> Signal | None:
+    """W001: frozen 24h directional momentum sampled only at 4h UTC anchors."""
+    if len(bars) < 97:
+        return None
+    current = bars[-1]
+    next_open = current.close_ts + 1
+    if next_open % 14_400_000 != 0:
+        return None
+    return_24h = current.close / bars[-97].close - 1
+    if abs(return_24h) < .02:
+        return None
+    volatility = atr(bars)
+    if volatility <= 0 or not .0008 <= volatility / current.close <= .045:
+        return None
+    direction = 1 if return_24h > 0 else -1
+    return Signal(
+        symbol, 'LONG' if direction == 1 else 'SHORT', current.ts,
+        current.close, current.close - direction * 1.5 * volatility,
+        current.close + direction * 4.5 * volatility, max(min_score, 7),
+        'TIME_SERIES_MOMENTUM frozen 24h direction at 4h UTC anchor',
+        features={'return_24h': return_24h, 'momentum_threshold': .02,
+                  'pair_exit_ts': next_open + 14_400_000},
+        votes=('time_series_momentum',), atr_value=volatility,
+    )

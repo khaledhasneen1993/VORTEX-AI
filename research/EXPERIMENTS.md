@@ -605,3 +605,30 @@ gate. Historical passage would still require at least seven forward PAPER days.
 
 Registration command (no market download):
 `python -m research.walk_forward --phase register --output research/results/W000-walk-forward-registry.json`
+
+## W001 — preregistered 24h time-series momentum candidate
+
+Registered before downloading or reading January-March returns. Hypothesis:
+the cross-sectional pairs may neutralize a broad market move; independent
+time-series momentum can retain it while still using fixed evaluation times.
+This is a new development candidate, not a rescue or parameter search on the
+failed September pair results.
+
+On completed 15m candles, evaluate each symbol only for next opens at the six
+fixed 4h UTC anchors. Compute the close-to-close return over exactly 96 bars
+(24 hours). LONG when return >=+2.00%, SHORT when <=-2.00%; otherwise skip.
+Require ATR14/price in 0.0008..0.045. Use a 1.5 ATR protective stop, 4.5 ATR
+target, baseline partial/breakeven/trailing management, actual 1m execution and
+a maximum holding horizon of exactly four hours. Stops/targets inside completed
+minutes remain authoritative; ambiguity is stop-first. A surviving position
+closes at the frozen horizon open with adverse slippage and fees.
+
+No symbol selection, EMA/ADX/volume filter, threshold search or overlapping
+position on the same symbol. Account settings remain 10% modeled stop budget,
+5x leverage, at most three positions, 25% total margin and 50% daily breaker,
+with no consecutive-loss stop. Run one continuous 2026-01..2026-03 development
+replay. Do not access April-June validation unless W001 first passes development
+and is frozen with its result and source hashes.
+
+Development command:
+`python -m research.walk_forward --phase development --output research/results/W001-development-normal.json`

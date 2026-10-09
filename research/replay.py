@@ -22,7 +22,8 @@ from vortex.portfolio import run_portfolio
 import vortex.portfolio as portfolio
 from vortex.research_policy import (filter_signal, confirmed_breakout,
                                     trend_pullback, range_reversion,
-                                    compression_expansion, compression_retest)
+                                    compression_expansion, compression_retest,
+                                    time_series_momentum)
 from vortex.risk import Filters
 
 
@@ -90,7 +91,7 @@ def main():
                         help='One YYYY-MM month or a consecutive comma-separated range')
     parser.add_argument('--decision-interval', choices=['5m','15m'], default='5m')
     parser.add_argument('--execution', choices=['5m','1m'], default='5m')
-    parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor','invert-direction','trend-pullback','range-reversion','range-reversion-ablation','compression-expansion','compression-expansion-cost','compression-retest'], default='baseline')
+    parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor','invert-direction','trend-pullback','range-reversion','range-reversion-ablation','compression-expansion','compression-expansion-cost','compression-retest','time-series-momentum'], default='baseline')
     parser.add_argument('--exit-policy', choices=['baseline','fixed-1r','fixed-3r','breakout-invalidation','pair-horizon'], default='baseline')
     parser.add_argument('--portfolio-policy', choices=['baseline','relative-strength-pair','relative-strength-reversal'], default='baseline')
     parser.add_argument('--cost-multiplier', type=float, default=1)
@@ -134,6 +135,8 @@ def main():
                        (months if interval == '5m' else [previous,*months])), []) for sym in cfg.symbols}
     original_analyze = portfolio.analyze
     def research_analyze(*pos, **kw):
+        if args.entry_policy == 'time-series-momentum':
+            return time_series_momentum(*pos, **kw)
         if args.entry_policy == 'compression-retest':
             return compression_retest(*pos, **kw)
         if args.entry_policy == 'compression-expansion-cost':

@@ -10,7 +10,27 @@
     "previously_accessed_warmup_not_holdout": ["2026-08"],
     "exposed_development": ["2026-09"]
   },
-  "candidate": null,
+  "candidate": {
+    "id": "W001",
+    "status": "preregistered",
+    "hypothesis": "Independent 24h time-series momentum sampled at fixed 4h UTC anchors may retain broad directional moves that cross-sectional pairs neutralize.",
+    "replay_args": [
+      "--decision-interval", "15m",
+      "--execution", "1m",
+      "--entry-policy", "time-series-momentum",
+      "--exit-policy", "pair-horizon"
+    ],
+    "frozen_parameters": {
+      "lookback_hours": 24,
+      "absolute_return_threshold": 0.02,
+      "entry_anchors_utc_hours": [0, 4, 8, 12, 16, 20],
+      "initial_stop_atr": 1.5,
+      "target_atr": 4.5,
+      "maximum_holding_hours": 4,
+      "atr_price_min": 0.0008,
+      "atr_price_max": 0.045
+    }
+  },
   "validation_access": "locked_until_candidate_frozen_after_development",
   "acceptance": {
     "minimum_validation_months": 3,

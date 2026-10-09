@@ -488,3 +488,22 @@ def test_pair_horizon_closes_survivors_at_frozen_open(monkeypatch):
                for trade in report['trades'])
     assert all(trade['diagnostics']['terminal_bar']['open_exit']
                for trade in report['trades'])
+
+
+def test_time_series_momentum_is_anchor_only_and_directional():
+    from dataclasses import replace
+    from vortex import research_policy as policy
+    bars = [Candle(START+i*900000, 100+i*.03, 101+i*.03, 99+i*.03,
+                   100+i*.03, 10, START+(i+1)*900000-1) for i in range(97)]
+    anchored_close = ((bars[-1].close_ts + 1) // 14_400_000 + 1) * 14_400_000 - 1
+    shift = anchored_close - bars[-1].close_ts
+    bars = [replace(bar, ts=bar.ts+shift, close_ts=bar.close_ts+shift) for bar in bars]
+    signal = policy.time_series_momentum('BTCUSDT', bars, [], 5)
+    assert signal is not None and signal.side == 'LONG'
+    assert signal.features['return_24h'] > .02
+    assert signal.features['momentum_threshold'] == .02
+    assert signal.features['pair_exit_ts'] == signal.ts + 900000 + 14_400_000
+    assert policy.time_series_momentum('BTCUSDT', bars[:-1], [], 5) is None
+    off_anchor = [replace(bar, ts=bar.ts+900000, close_ts=bar.close_ts+900000)
+                  for bar in bars]
+    assert policy.time_series_momentum('BTCUSDT', off_anchor, [], 5) is None

@@ -27,7 +27,7 @@ def test_continuous_replay_month_parser_refuses_gaps_and_reordering():
 
 
 def test_validation_cannot_be_opened_without_frozen_candidate(tmp_path):
-    with pytest.raises(ValueError, match="No candidate"):
+    with pytest.raises(ValueError, match="locked until candidate freeze"):
         replay_command(manifest(), "validation", tmp_path / "result.json", ROOT)
 
 

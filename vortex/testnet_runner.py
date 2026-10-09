@@ -39,6 +39,8 @@ def once(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
 
 
 def _once_locked(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
+    if cfg.operations.enabled:
+        return {'ok': False, 'reason': 'Operations profile is PAPER/BACKTEST only; disable OPS_ENABLED for legacy TESTNET commissioning'}
     if cfg.phase2.enabled:
         return {"ok": False, "reason": "Phase2 multi-position policy is PAPER/BACKTEST only; TESTNET commissioning requires PHASE2_ENABLED=false"}
     if not acknowledge or os.getenv("VORTEX_TESTNET_ARM") != "TESTNET_ONLY":

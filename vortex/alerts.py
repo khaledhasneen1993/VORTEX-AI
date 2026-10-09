@@ -23,3 +23,12 @@ def notify(event: str, *, session=None) -> bool:
         return bool(response.json().get("ok"))
     except (requests.RequestException, ValueError):
         return False
+
+
+def detailed_event(kind, data):
+    """PAPER notices; partial net and final cumulative net are explicitly different."""
+    keys = ('symbol', 'side', 'score', 'entry', 'stop', 'target', 'qty', 'quantity',
+            'margin', 'risk_fraction', 'entry_fee', 'exit_fee', 'allocated_entry_fee', 'exit', 'stage_net_pnl',
+            'net_pnl', 'final', 'reason', 'wallet', 'votes', 'pyramid_count')
+    return 'PAPER ' + kind + '\n' + '\n'.join(
+        f'{key}: {data[key]}' for key in keys if key in data)

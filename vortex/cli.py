@@ -169,6 +169,8 @@ def main(argv: list[str] | None = None) -> int:
     use_stream = os.getenv("USE_WEBSOCKET", "false").lower() == "true"
     use_micro = os.getenv("USE_MICROSTRUCTURE", "false").lower() == "true"
     use_radar = os.getenv("USE_RADAR", "false").lower() == "true"
+    if cfg.operations.enabled and cfg.operations.focus_symbol:
+        use_radar = False  # Focus mode has explicit precedence over discovery.
     if use_radar and use_stream:
         raise ValueError("Dynamic radar is incompatible with the fixed-symbol WS stream; disable one")
     stream = None
@@ -176,7 +178,11 @@ def main(argv: list[str] | None = None) -> int:
         from .stream import QuoteStream
         stream = QuoteStream(cfg.symbols)
         stream.start()
-    from .alerts import notify
+    from .alerts import notify, detailed_event
+    from .operations import DecisionJournal
+    decision_journal = DecisionJournal(cfg.data_dir)
+    logging.getLogger('vortex').addHandler(decision_journal)
+    logging.getLogger('vortex.votes').setLevel(logging.DEBUG)
     from .derivatives import DerivativesTracker
     derivative_tracker = DerivativesTracker()
     symbols = [s for s in cfg.symbols if s in market.metadata()]
@@ -193,16 +199,27 @@ def main(argv: list[str] | None = None) -> int:
             # before evaluating this tick's staged or trailing exits.
             refresh_open_position_atr(market, broker.positions, cfg.timeframe,
                                       now, latest_atr, atr_refresh_bucket)
-            was_halted = broker.gate.blocked
+            was_halted = broker.gate.blocked or broker.protection.blocked
             for closed in broker.mark(quotes, now, latest_atr):
                 log.info("CLOSED: %s", json.dumps(closed))
-                notify("Closed paper trade: " + json.dumps(closed))
+                if not cfg.operations.enabled or cfg.operations.telegram_alerts:
+                    notify(detailed_event('EXIT', closed))
             equity = broker.equity(quotes)
             today = datetime.fromtimestamp(now / 1000, timezone.utc).date().isoformat()
             broker.gate.new_day(today, equity)
             broker.gate.can_open(equity, len(broker.positions))
-            if broker.gate.blocked and not was_halted:
-                notify(f"RISK HALT: paper equity={equity:.2f}, consecutive_losses={broker.gate.consecutive_losses}")
+            broker.protection.observe(now, equity)
+            broker.save()
+            daily_loss = max(0., 1-equity/broker.gate.day_start_equity)
+            if (cfg.operations.enabled and cfg.operations.telegram_alerts
+                    and daily_loss >= cfg.max_daily_loss*cfg.operations.daily_warning_fraction
+                    and broker.protection.warning_day != today):
+                notify(f'PAPER daily loss warning: {daily_loss:.1%}; limit={cfg.max_daily_loss:.1%}; equity={equity:.2f}')
+                broker.protection.warning_day = today
+                broker.save()
+            if (broker.gate.blocked or broker.protection.blocked) and not was_halted:
+                if not cfg.operations.enabled or cfg.operations.telegram_alerts:
+                    notify(f"RISK HALT: paper equity={equity:.2f}, consecutive_losses={broker.gate.consecutive_losses}")
                 log.error("Risk circuit breaker active: no new entries")
             if cfg.phase2.enabled:
                 # Open positions may have left the Radar; retain their own history.
@@ -213,9 +230,24 @@ def main(argv: list[str] | None = None) -> int:
                 for sym in list(broker.positions):
                     if sym in quotes:
                         bid,ask = quotes[sym]
-                        event = broker.pyramid(sym,bid,ask,market.symbol_filters(sym),quotes,now,histories)
+                        depth = None
+                        funding = None
+                        if cfg.operations.enabled:
+                            derivative_tracker.sample(market, sym, now)
+                            funding = derivative_tracker.funding_timing.get(sym)
+                            depth = market.get('/fapi/v1/depth', {'symbol': sym, 'limit': 100})
+                            now = market.server_ms()
+                            quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+                            if sym not in quotes:
+                                log.info('ENTRY_SKIP %s reason=missing_fresh_pyramid_quote', sym)
+                                continue
+                            bid, ask = quotes[sym]
+                        event = broker.pyramid(sym,bid,ask,market.symbol_filters(sym),quotes,now,histories,
+                                               funding=funding, depth=depth)
                         if event:
                             log.info("PYRAMID: %s",json.dumps(event))
+                            if cfg.operations.enabled and cfg.operations.telegram_alerts:
+                                notify(detailed_event('PYRAMID', event))
             bucket = now // step
             # 5s into the new period; market data must have CLOSE time < server now.
             if bucket != last_bucket and now % step >= 5000:
@@ -252,6 +284,8 @@ def main(argv: list[str] | None = None) -> int:
                                      minute=minute,
                                      strict_votes=cfg.strict_votes,
                                      min_strong_score=cfg.min_strong_score, policy=cfg.phase1)
+                    if signal is None:
+                        log.info('ENTRY_SKIP %s reason=strategy_filters_not_satisfied', symbol)
                     if signal and symbol in quotes:
                         from .ml import feature_snapshot, evaluate
                         # Capture only features observable at this completed entry signal.
@@ -284,7 +318,7 @@ def main(argv: list[str] | None = None) -> int:
                             if not micro.accepted:
                                 log.info("MICRO FILTER %s: %s", symbol, micro.reason)
                                 continue
-                        if cfg.phase2.enabled:
+                        if cfg.phase2.enabled or cfg.operations.enabled:
                             # Re-fetch executable book after sequential signal/flow scans.
                             now = market.server_ms()
                             quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
@@ -292,16 +326,29 @@ def main(argv: list[str] | None = None) -> int:
                                 log.info("ENTRY_SKIP %s reason=stale_book_or_signal_after_scan",symbol)
                                 continue
                         bid, ask = quotes[symbol]
+                        depth = None
+                        if cfg.operations.enabled and cfg.operations.liquidity_guard:
+                            depth = market.get('/fapi/v1/depth', {'symbol': symbol, 'limit': 100})
+                            now = market.server_ms()
+                            quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+                            if symbol not in quotes or now-data[-1].close_ts > 90000:
+                                log.info('ENTRY_SKIP %s reason=stale_after_depth_request', symbol)
+                                continue
+                            bid, ask = quotes[symbol]
                         ok, reason = broker.open(signal, bid, ask,
-                                                  market.symbol_filters(symbol), quotes, now, histories=histories)
+                                                  market.symbol_filters(symbol), quotes, now, histories=histories,
+                                                  funding=derivative_tracker.funding_timing.get(symbol), depth=depth)
                         log.info("SIGNAL %s score=%s accepted=%s: %s (%s)",
                                  symbol, signal.score, ok, reason, signal.reason)
                         if ok:
-                            notify(f"Paper entry: {symbol}, score={signal.score}, {reason}")
+                            if not cfg.operations.enabled or cfg.operations.telegram_alerts:
+                                notify(detailed_event('ENTRY', {**vars(broker.positions[symbol]), 'score': signal.score}))
                     elif signal:
                         log.info("ENTRY_SKIP %s reason=missing_fresh_quote", symbol)
                 last_bucket = bucket
             broker.save()
+            from .monitoring import save_telemetry
+            save_telemetry(broker, quotes, now, decision_journal.count)
             log.info("PAPER equity=%.2f USDT positions=%d risk_halted=%s",
                      broker.equity(quotes), len(broker.positions), broker.gate.blocked)
         except (MarketError, ValueError, KeyError, OSError) as exc:

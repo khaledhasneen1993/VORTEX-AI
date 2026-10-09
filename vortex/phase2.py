@@ -164,7 +164,10 @@ def correlation_gate(signal, positions, histories, decision_ms, policy):
 
 def stop_exposure(position, cfg):
     sign = 1 if position.side == "LONG" else -1
-    cost = cfg.fee_rate + cfg.slippage_bps / 10000
+    from .operations import slippage_bps
+    modeled = slippage_bps(cfg.slippage_bps, position.atr_value / position.entry,
+                           cfg.max_spread_bps, cfg.operations)
+    cost = cfg.fee_rate + modeled / 10000
     return (
         max(0.0, (position.entry - position.stop) * sign) * position.qty
         + cost * max(position.entry, position.stop) * position.qty

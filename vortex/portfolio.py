@@ -11,6 +11,7 @@ from math import isclose, isfinite
 from datetime import datetime, timezone
 from .models import Candle, FundingEvent, Signal, Position
 from .exits import ExitStep, levels_for_bar
+from .operations import Protection, require_history, historical_context, slippage_bps
 from .indicators import atr
 from .reports import summary
 from .config import Settings
@@ -31,8 +32,12 @@ def run_portfolio(
     *, execution_interval: str = "5m", diagnostics: bool = False,
     exit_policy: str = "baseline", portfolio_policy: str = "baseline",
     funding: dict[str, list[FundingEvent]] | None = None,
+    execution_observations=None,
 ) -> dict:
-    if config.phase2.enabled and (exit_policy != "baseline" or portfolio_policy != "baseline"):
+    require_history(execution_observations, config.operations)
+    protection = Protection(config.operations)
+    execution_rejections = []
+    if (config.phase2.enabled or config.operations.enabled) and (exit_policy != "baseline" or portfolio_policy != "baseline"):
         raise ValueError("Phase2 must use canonical exits/portfolio, not frozen ablations")
     if execution_interval not in {"5m", "1m"}:
         raise ValueError("Execution interval must be 5m or 1m")
@@ -126,22 +131,26 @@ def run_portfolio(
             - bar[s].open * p.qty * config.fee_rate for s, p in active.items())
         risk.new_day(datetime.fromtimestamp(ts / 1000, timezone.utc).date().isoformat(),
                      opening_equity)
+        protection.observe(ts, opening_equity)
         risk.can_open(opening_equity, len(active))
-        if risk.blocked:
+        if risk.blocked or not protection.allow(ts)[0]:
             pending.clear()  # keep managing open stops, but prohibit new entries
         past_histories = {s:[by_symbol[s][stamp] for stamp in stamps[max(0,i-config.phase2.correlation_lookback-1):i]] for s in symbols} if config.phase2.enabled else {}
-        if config.phase2.enabled and not risk.blocked:
+        if config.phase2.enabled and not risk.blocked and protection.allow(ts)[0]:
             for sym,p in active.items():
                 sign = 1 if p.side == "LONG" else -1
-                price = bar[sym].open*(1+sign*slip)
+                past_atr = atr(past_histories[sym][-50:]) if len(past_histories[sym]) >= 16 else p.atr_value
+                add_slip = slippage_bps(config.slippage_bps, past_atr/p.entry, 0., config.operations)/10000
+                price = bar[sym].open*(1+sign*add_slip)
                 candidate = Signal(sym,p.side,ts,price,p.stop,p.target,10,"pyramid")
                 corr_ok,_ = correlation_gate(candidate,active,past_histories,ts,config.phase2)
-                plan = pyramid_plan(p,price,ts,config,filters[sym],
+                plan = pyramid_plan(p,price,ts,replace(config, slippage_bps=add_slip*10000),filters[sym],
                                     reserve.capital(wallet,opening_equity),
                                     sum(x.margin for x in active.values()),
                                     sum(stop_exposure(x,config) for x in active.values()),
                                     past_histories[sym][-1].close) if corr_ok and past_histories[sym] else None
-                if plan:
+                context_ok, _, capacity, _ = historical_context(execution_observations, sym, ts, config.operations)
+                if plan and context_ok and plan[0]*price <= capacity:
                     q,m,f = plan
                     apply_pyramid(p,price,q,m,f,ts)
                     wallet -= f
@@ -188,6 +197,12 @@ def run_portfolio(
             if sym in active:
                 del pending[sym]
                 continue
+            context_ok, context_reason, capacity, spread = historical_context(execution_observations, sym, ts, config.operations)
+            if not context_ok:
+                execution_rejections.append(dict(symbol=sym, ts=ts, reason=context_reason))
+                del pending[sym]
+                continue
+            slip = slippage_bps(config.slippage_bps, sig.atr_value/sig.entry, spread, config.operations)/10000
             prepared = paired_sizing.get(sym)
             if prepared is not None:
                 px, new, qty, margin = prepared
@@ -210,8 +225,11 @@ def run_portfolio(
                 corr_ok,corr_reason = correlation_gate(new,active,past_histories,ts,config.phase2)
                 if not corr_ok:
                     correlation_rejections.append(dict(symbol=sym,ts=ts,reason=corr_reason))
-                sized = size_trade(new,reserve.capital(wallet,mark),config,filters[sym],committed,
+                sized = size_trade(new,reserve.capital(wallet,mark),replace(config, slippage_bps=slip*10000),filters[sym],committed,
                                    committed_risk=sum(stop_exposure(p,config) for p in active.values())) if allowed and corr_ok else None
+            if sized and sized[0]*px > capacity:
+                execution_rejections.append(dict(symbol=sym, ts=ts, reason='depth participation limit'))
+                sized = None
             if sized:
                 if (exit_policy == "breakout-invalidation" and
                         not {"channel_high", "channel_low"} <= sig.features.keys()):
@@ -256,6 +274,7 @@ def run_portfolio(
                               else previous.close >= boundary)
             horizon_exit = (exit_policy == "pair-horizon" and
                             ts >= p.features.get("pair_exit_ts", float("inf")))
+            exit_slip = slippage_bps(config.slippage_bps, (prev_atr or p.atr_value)/p.entry, 0., config.operations)/10000
             for execution_index, eb in enumerate(execution_bars):
                 event = funding_at.get(sym, {}).get(eb.ts)
                 deferred_funding = None
@@ -293,7 +312,8 @@ def run_portfolio(
                                if fixed_target_r is not None else
                                levels_for_bar(p, eb.low, eb.high, eb.open,
                                               atr_value=prev_atr,
-                                              trailing_atr_mult=config.trailing_atr_mult))
+                                              trailing_atr_mult=config.trailing_atr_mult,
+                                              policy=config.operations, now_ms=eb.ts))
                 if diagnostics:
                     trace = traces[sym]
                     terminal = any(a.final for a in actions)
@@ -320,7 +340,7 @@ def run_portfolio(
                                                  if open_exit else
                                                  {"ts": eb.ts, "low": eb.low, "high": eb.high})
                 for action in actions:
-                    px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
+                    px = action.price * (1 - exit_slip if p.side == "LONG" else 1 + exit_slip)
                     proportion = action.qty / p.qty
                     entry_fee = p.entry_fee * proportion
                     exit_fee = px * action.qty * config.fee_rate
@@ -342,6 +362,7 @@ def run_portfolio(
                     if action.final:
                         final_net = p.accumulated_net
                         risk.closed(final_net)
+                        protection.closed(final_net, eb.ts)
                         trades.append({"symbol": sym, "side": p.side,
                                        "entry_ts": p.opened_ts, "exit_ts": eb.ts,
                                        "entry": round(p.entry, 8), "exit": round(px, 8),
@@ -383,7 +404,8 @@ def run_portfolio(
         curve.append({"ts": bar[symbols[0]].close_ts, "equity": round(equity, 6)})
         maxdd = max(maxdd, (highwater - equity) / highwater if highwater else 0)
         risk.can_open(equity, len(active))
-        if risk.blocked:
+        protection.observe(bar[symbols[0]].close_ts, equity)
+        if risk.blocked or not protection.allow(bar[symbols[0]].close_ts)[0]:
             pending.clear()
             continue  # continue monitoring stops, never open new positions
         # After bar close, queue signals for next bar only; forbid final-bar entries.
@@ -434,7 +456,7 @@ def run_portfolio(
     wins = sum(x > 0 for x in pnl)
     gross_win = sum(x for x in pnl if x > 0)
     gross_loss = -sum(x for x in pnl if x < 0)
-    return {
+    return {"operations_protection": protection.state(), "execution_rejections": execution_rejections,
         "reserved_profit": reserve.reserved,"pyramid_events": pyramid_events,
         "correlation_rejections": correlation_rejections,"phase2_enabled": config.phase2.enabled,
         "metrics": stats, "equity_curve": stats["equity_curve"],

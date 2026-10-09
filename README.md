@@ -205,3 +205,20 @@ rejects Phase2; these portfolio features execute only PAPER/BACKTEST. No live
 route, actual Testnet validation or performance result is claimed. High risk,
 additions and tighter trailing can increase losses/costs; profitability is not
 guaranteed. Phases3/4 not started.
+
+## Additional execution/protection profile (OPS)
+
+New isolated PAPER sessions can enable `OPS_ENABLED=true`: price break-even at
++0.8R, 30%/+1R and 30%/+1.5R scale-outs, a 40% trailing runner, stagnation exit,
+fresh funding/depth gates, volatility/spread/assumed-latency slippage, progressive
+loss cooldown and persistent 1h/2h drawdown halts. `OPS_PROFILE=conservative` lowers
+risk/position/day-loss caps; `aggressive` retains configured Phase2 limits.
+`OPS_FOCUS_SYMBOL` overrides PAPER Radar for one-symbol scans. Telegram remains
+opt-in; read-only dashboard now shows timestamped marked equity, risk and rejection
+records. Full settings, replay requirements, stress/comparison commands and
+limitations: [Operations profile](docs/OPERATIONS_PROFILE.md).
+
+Existing `.env` and historical sessions are not changed automatically. Use a fresh
+`DATA_DIR` when enabling/changing this policy. OPS is PAPER/BACKTEST only; legacy
+TESTNET commissioning refuses it before authentication. No production route was
+added. The profile has no validated economic edge; profitability is not guaranteed.

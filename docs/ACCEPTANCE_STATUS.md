@@ -171,3 +171,25 @@ no claim of Testnet feature completion. This boundary is explicitly documented,
 not a production fallback. Main and failed research evidence retained.
 Full scope, file map, setup and high-risk limitations: [PHASE2_RISK.md](PHASE2_RISK.md).
 Phases3/4 have not started. Economic gates unchanged.
+
+## Additional OPS profile — implementation, not economic acceptance
+
+- [x] Opt-in 0.8R price break-even, 30/30/trailing runner, stagnation exits;
+  stop-first historical ambiguity and next-bar tightened-stop semantics retained.
+- [x] Fresh as-of funding timing and two-sided depth/participation gates;
+  modeled volatility/spread/latency slippage included in sizing and fills.
+- [x] Persisted progressive final-loss cooldown and rolling 1h/2h drawdown latches;
+  protected exits continue after entry/add halt.
+- [x] Timestamped rejection/entry/fee journals, sampled read-only dashboard,
+  optional detailed Telegram notices and daily-warning deduplication.
+- [x] PAPER Focus Mode and aggressive/conservative risk caps.
+- [x] Offline source-hashed gap/cost/delay stress tool and same-dataset version table.
+- [x] Deterministic tests, including long/short, OHLC ambiguity, replay parity,
+  restart/latches, stale/missing data, dashboard escaping and Testnet isolation.
+- [ ] Real-market full-profile economic validation: historical as-of funding/depth
+  observations are required; explicitly omitting guards is an incomplete-model test.
+- [ ] Three-month out-of-sample gates and seven-day forward PAPER acceptance.
+
+Older exit/risk entries above describe the frozen legacy profile. OPS supersedes
+those choices only when enabled; details in `OPERATIONS_PROFILE.md`. No promised
+net break-even, tick-perfect fills, funding settlement or liquidation simulation.

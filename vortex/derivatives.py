@@ -14,6 +14,7 @@ log = logging.getLogger("vortex.votes")
 class DerivativesTracker:
     def __init__(self):
         self.last: dict[str, tuple[int, float]] = {}
+        self.funding_timing = {}
         self.prices: dict[str, float] = {}
         self.checked_ms: int | None = None
 
@@ -45,6 +46,9 @@ class DerivativesTracker:
                 return abstain(f"future_{name}_timestamp age_ms={age}")
             if age > 15000:
                 return abstain(f"stale_{name}_timestamp age_ms={age}")
+        next_funding = int(index.get('nextFundingTime', 0))
+        if next_funding > checked:
+            self.funding_timing[symbol] = (index_ms, funding, next_funding)
         previous = self.last.get(symbol)
         if previous is not None and oi_ms <= previous[0]:
             return abstain("duplicate_or_out_of_order_open_interest")

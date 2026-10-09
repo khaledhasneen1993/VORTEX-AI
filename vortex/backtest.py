@@ -15,12 +15,16 @@ from .indicators import atr
 from .reports import summary
 from .risk import Filters, RiskGate, size_trade
 from .strategy import analyze
+from .operations import Protection, require_history, historical_context, slippage_bps
 from .phase2 import ProfitReserve, initialize_position, pyramid_plan, apply_pyramid, stop_exposure
 
 
 def run(symbol: str, small: list[Candle], higher: list[Candle],
         filt: Filters, cfg: Settings, macro: list[Candle] | None = None,
-        minute: list[Candle] | None = None) -> dict:
+        minute: list[Candle] | None = None, *, execution_observations=None) -> dict:
+    require_history(execution_observations, cfg.operations)
+    protection = Protection(cfg.operations)
+    rejection_events = []
     reserve = ProfitReserve(cfg)
     pyramid_events = []
     wallet = cfg.starting_equity
@@ -46,28 +50,32 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
             beginning_equity -= candle.open * position.qty * cfg.fee_rate
         gate.new_day(datetime.fromtimestamp(candle.ts / 1000, timezone.utc).date().isoformat(),
                      beginning_equity)
+        protection.observe(candle.ts, beginning_equity)
         exited = False
         if position:
             p = position
             recent = small[max(0, i-50):i]  # completed BEFORE current bar
             observed_atr = atr(recent) if len(recent) >= 16 else None
-            if cfg.phase2.enabled and not gate.blocked:
+            if cfg.phase2.enabled and not gate.blocked and protection.allow(candle.ts)[0]:
                 gate.can_open(beginning_equity,0)
                 if not gate.blocked:
-                    add_price = candle.open*(1+cfg.slippage_bps/10000 if p.side == "LONG" else 1-cfg.slippage_bps/10000)
-                    plan = pyramid_plan(p,add_price,candle.ts,cfg,filt,
+                    add_slip = slippage_bps(cfg.slippage_bps, (observed_atr or p.atr_value)/p.entry, 0., cfg.operations)/10000
+                    add_price = candle.open*(1+add_slip if p.side == "LONG" else 1-add_slip)
+                    context_ok, _, capacity, _ = historical_context(execution_observations, symbol, candle.ts, cfg.operations)
+                    plan = pyramid_plan(p,add_price,candle.ts,replace(cfg, slippage_bps=add_slip*10000),filt,
                                         reserve.capital(wallet,beginning_equity),p.margin,
                                         stop_exposure(p,cfg),small[i-1].close)
-                    if plan:
+                    if plan and context_ok and plan[0]*add_price <= capacity:
                         q,m,f = plan
                         apply_pyramid(p,add_price,q,m,f,candle.ts)
                         wallet -= f
                         pyramid_events.append(dict(ts=candle.ts,qty=q,price=add_price,fee=f))
             actions = levels_for_bar(p, candle.low, candle.high, candle.open,
                                      atr_value=observed_atr,
-                                     trailing_atr_mult=cfg.trailing_atr_mult)
+                                     trailing_atr_mult=cfg.trailing_atr_mult,
+                                     policy=cfg.operations, now_ms=candle.ts)
             for action in actions:
-                slip = cfg.slippage_bps / 10000
+                slip = slippage_bps(cfg.slippage_bps, (observed_atr or p.atr_value)/p.entry, 0., cfg.operations)/10000
                 px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
                 sign = 1 if p.side == "LONG" else -1
                 entry_fee_portion = p.entry_fee * (action.qty / p.qty)
@@ -82,6 +90,7 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
                 if action.final:
                     final_net = p.accumulated_net
                     gate.closed(final_net)
+                    protection.closed(final_net, candle.ts)
                     wins += int(final_net >= 0)
                     losses += int(final_net < 0)
                     trades.append({"open_ts": p.opened_ts, "close_ts": candle.ts,
@@ -109,7 +118,8 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         # Stop the entire replay once a portfolio/equity drawdown breaker
         # triggers; never quietly resume on a later day.
         allowed, _ = gate.can_open(equity, 1 if position else 0)
-        if gate.blocked:
+        protection.observe(candle.close_ts, equity)
+        if gate.blocked or not protection.allow(candle.close_ts)[0]:
             # No NEW entries after a risk halt, but continue processing the
             # already-open position through future bars and its protective stop.
             if position is None:
@@ -143,7 +153,12 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         if signal is None:
             continue
         future = small[i + 1]
-        slip = cfg.slippage_bps / 10000
+        context_ok, context_reason, capacity, spread = historical_context(execution_observations, symbol, future.ts, cfg.operations)
+        if not context_ok:
+            rejection_events.append(dict(symbol=symbol, ts=future.ts, reason=context_reason))
+            continue
+        modeled_slip = slippage_bps(cfg.slippage_bps, signal.atr_value/signal.entry, spread, cfg.operations)
+        slip = modeled_slip/10000
         entry = future.open * (1 + slip if signal.side == "LONG" else 1 - slip)
         gap, target_gap = abs(signal.entry - signal.stop), abs(signal.target - signal.entry)
         if gap <= 0 or abs(entry - signal.entry) > gap * 0.35:
@@ -152,10 +167,13 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         adjusted = replace(signal,entry=entry,stop=entry-sign*gap,target=entry+sign*target_gap)
         if not allowed:
             continue
-        sized = size_trade(adjusted, reserve.capital(wallet,equity), cfg, filt)
+        sized = size_trade(adjusted, reserve.capital(wallet,equity), replace(cfg, slippage_bps=modeled_slip), filt)
         if sized is None:
             continue
         qty, margin = sized
+        if qty*entry > capacity:
+            rejection_events.append(dict(symbol=symbol, ts=future.ts, reason='depth participation limit'))
+            continue
         fee = qty * entry * cfg.fee_rate
         wallet -= fee
         position = Position(symbol, signal.side, future.ts, entry,
@@ -173,7 +191,8 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         unrealized = sign * (close - position.entry) * position.qty
         unrealized -= close * position.qty * cfg.fee_rate
     stats = summary(trades, curve)
-    return {"reserved_profit": reserve.reserved,"pyramid_events": pyramid_events,
+    return {"operations_protection": protection.state(), "execution_rejections": rejection_events,
+            "reserved_profit": reserve.reserved,"pyramid_events": pyramid_events,
             "phase2_enabled": cfg.phase2.enabled, "metrics": stats, "equity_curve": stats["equity_curve"],
             "profit_factor": stats["profit_factor"], "average_r": stats["average_r"],
             "max_drawdown_pct": round(max_dd * 100, 3),

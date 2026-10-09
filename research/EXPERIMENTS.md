@@ -973,3 +973,26 @@ no sources downloaded or profit numbers invented during this code stage.
 months/cost stress/100 trades/20% maxDD/7-day forward gate remain unchanged.
 PAPER/BACKTEST execution only for P2; one-entry TESTNET commissioning explicitly
 rejects P2 before credentials/network. Phases3/4 not started.
+
+### OPS001 — additional execution and protection implementation (2026-10-09 UTC)
+
+Parent: `9edc1ffe5bfcfa15405ec26bee0036e20fe11f30`; persistent research branch/PR11.
+Hypothesis for later measurement: earlier protective exits, staged runner and
+observed liquidity/funding timing may reduce weak execution exposure; costs and
+premature stops may instead worsen net results. This is not an evaluated claim.
+Settings: independent `OPS_ENABLED` policy; 0.8R break-even, 30/30/trailing,
+60min stagnation (<0.5R observed peak), funding 5min/0.1%, depth 10k USDT within
+20bps and 2% participation, modeled ATR/spread/latency costs, cooldown from second
+final loss, 12%/1h and 18%/2h latches. Financial Phase2 defaults remain as registered;
+conservative profile only lowers caps. Prior no-loss-streak-pause rule remains
+legacy-only and is intentionally superseded by this explicit opt-in request.
+
+Economic trials in this addition: **0**. Synthetic deterministic unit/regression
+fixtures are software checks, not market evidence. No train/validation data were
+inspected or relabeled in this implementation. Before any strategy search, register
+chronological training/validation windows and trial count; observed Sep/Oct remain
+development. Full-profile replay must have as-of funding/depth snapshots; omission
+requires explicit labeling as incomplete. Offline stress tool saves input/source
+hashes and full scenario config, plus version comparisons without overwrite.
+Acceptance criteria unchanged; no version accepted/merged to main, no orders sent,
+no automation restarted. Results/previous failed experiments remain preserved.

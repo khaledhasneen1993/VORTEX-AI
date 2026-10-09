@@ -7,10 +7,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 from .phase1_config import StrategyPolicy
 from .phase2 import RiskPolicy
+from .operations import OperationsPolicy
 
 
 @dataclass(frozen=True)
 class Settings:
+    operations: OperationsPolicy = field(default_factory=OperationsPolicy)
     phase1: StrategyPolicy = field(default_factory=StrategyPolicy)
     phase2: RiskPolicy = field(default_factory=RiskPolicy)
     mode: str = "paper"
@@ -34,6 +36,13 @@ class Settings:
     data_dir: Path = Path("data")
 
     def __post_init__(self) -> None:
+        if self.operations.enabled and self.operations.profile == 'conservative':
+            # Profile only reduces risk; explicit env settings cannot exceed these caps.
+            object.__setattr__(self, 'risk_per_trade', min(self.risk_per_trade, .08))
+            object.__setattr__(self, 'max_positions', min(self.max_positions, 2))
+            object.__setattr__(self, 'max_daily_loss', min(self.max_daily_loss, .20))
+        if self.operations.enabled and self.operations.focus_symbol:
+            object.__setattr__(self, 'symbols', (self.operations.focus_symbol,))
         # Real-money execution is deliberately not shipped in version 0.1.
         if self.mode not in {"paper", "backtest"}:
             raise ValueError("RUN_MODE must be paper or backtest; live orders are disabled")
@@ -66,7 +75,7 @@ class Settings:
         if self.cooldown_minutes < 0 or not 5 <= self.loop_seconds <= 300:
             raise ValueError("Polling/cooldown invalid")
         if (not isfinite(self.fee_rate) or not 0 <= self.fee_rate <= 0.003
-                or not isfinite(self.slippage_bps) or not 0 <= self.slippage_bps <= 30):
+                or not isfinite(self.slippage_bps) or not 0 <= self.slippage_bps <= (100 if self.operations.enabled else 30)):
             raise ValueError("Costs invalid")
 
     @classmethod
@@ -75,10 +84,12 @@ class Settings:
         def f(name: str, default: str) -> str:
             return os.getenv(name, default).strip()
         phase2 = RiskPolicy.from_env()
+        operations = OperationsPolicy.from_env()
         strict = f("STRICT_VOTES", "true").lower()
         if strict not in {"true", "false"}:
             raise ValueError("STRICT_VOTES must be true or false")
         return cls(
+            operations=operations,
             phase1=StrategyPolicy.from_env(),
             phase2=phase2,
             strict_votes=(strict == "true"),

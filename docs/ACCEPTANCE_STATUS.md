@@ -30,6 +30,12 @@ trades, maximum drawdown <=20%, positive net with doubled fees/slippage, then
 seven days forward PAPER are still required before an economic acceptance claim.
 Observed September and October data remain development data. Criteria unchanged.
 
+Measurement-first Phase 0: four actual command attempts (30/90-day single and
+portfolio) failed at Binance public-data access with HTTP 451; **no completed
+economic trial or baseline metrics**. Optional audit/history tooling is on the
+research branch only, with future shadow outcomes and causal voter ablations still
+pending. [Upgrade log](UPGRADE_LOG.md) contains hashes, logs, scope and blockers.
+
 Testnet automatic portfolio entry remains unavailable; old commissioning strategy
 was removed. Existing TESTNET-only audit/protection tools do not imply strategy
 parity or a full automatic Testnet deployment.

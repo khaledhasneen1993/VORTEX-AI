@@ -94,3 +94,25 @@ def test_extended_history_requires_opt_in_and_complete_range(monkeypatch):
     monkeypatch.setattr(market, "get", lambda *args: get(*args)[:100])
     with pytest.raises(MarketError, match="Incomplete extended"):
         market.history("BTCUSDT", "1h", 90, now)
+
+
+def test_failed_attempts_are_preserved_without_performance(tmp_path):
+    from subprocess import CompletedProcess
+    from research.phase0_attempts import collect
+
+    seen = []
+
+    def fail(argv, **kwargs):
+        seen.append(argv)
+        assert kwargs["env"]["FEE_RATE"] == "0.0005"
+        assert kwargs["env"]["VORTEX_EXTENDED_HISTORY"] == "true"
+        return CompletedProcess(argv, 1, "", "synthetic download unavailable\n")
+
+    output = tmp_path / "attempt"
+    report = collect(output, "fixture-reference", executor=fail)
+    assert len(seen) == 4
+    assert all(row["metrics"] is None and row["attribution"] is None for row in report["attempts"])
+    assert not report["economic_validation"]
+    assert len(list(output.glob("*.log"))) == 4
+    with pytest.raises(FileExistsError):
+        collect(output, "fixture-reference", executor=fail)

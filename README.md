@@ -95,3 +95,25 @@ Automatic Testnet strategy entry is **not implemented** for this release and ret
 an explicit refusal; no old strategy can be selected to bypass that limitation.
 A green CI validates software checks, not a profitable strategy. Independent
 three-month validation and seven-day forward PAPER acceptance are still pending.
+
+## Measurement-first upgrade (research branch)
+
+[Phase 0 log](docs/UPGRADE_LOG.md) records four attempted 30/90-day commands and
+their HTTP 451 failures. No baseline performance was obtained; later phases are
+blocked. Current entry/risk/exit rules remain unchanged. Optional
+`VORTEX_SIGNAL_AUDIT=true` records evaluated canonical decisions, with unmeasured
+forward outcomes explicitly null. `VORTEX_EXTENDED_HISTORY=true` enables up to
+90 days; both flags default false. Large all-symbol minute datasets may exceed
+Termux RAM. No new dependency is required.
+
+To capture command attempts on a separate research checkout (not a complete
+baseline pipeline; missing historical depth/funding still blocks full replay):
+
+```sh
+python -m research.phase0_attempts --reference-commit "$(git rev-parse HEAD)" \
+  --output research/baselines/phase0-attempt-next --timeout-seconds 600
+```
+
+Output folders are exclusive and never overwritten. Records include command exit
+codes, failure logs and source hashes. Cohort attribution is descriptive; marginal
+voter contribution needs a separate paired ablation. See the log for missing work.

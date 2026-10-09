@@ -1,0 +1,167 @@
+{
+  "reference_commit": "544ea2b3884be2f179d742a45fe60011f1217035",
+  "started_utc": "2026-10-09T22:01:45.927185+00:00",
+  "status": "attempts_only",
+  "economic_validation": false,
+  "source_sha256": {
+    "vortex/__init__.py": "7cc0019bc2c9d188ecef0ec68f71da35b657c1a36d630a8eb3846ba20422d332",
+    "vortex/alerts.py": "17f5ce4e2e3abac9bb196528c6b66adc44333a7486c0c06977b70f42250935ed",
+    "vortex/backtest.py": "30996ad3a01a8bb133e1102ba3855dbc2b485cd82b7f2b618110661a7bc366a9",
+    "vortex/binance.py": "1a13d4bcf20d1bf6a6b7f531476d68c1a2421dd31605d757d4b7cdaf377279a1",
+    "vortex/claude_review.py": "a7bb8864e0e0b538ce5cf5c33077ca31538784cb43d2757cd759ad57d5bcac19",
+    "vortex/cli.py": "fb7fc18bda7219985b6f4b26b7771467b0a7300fdb3533170b5fbfb1c2ce1501",
+    "vortex/config.py": "49fc6c4772d84e2d7257a93acc3b8b1fe458b89c3211fae10cb0e45179e028a5",
+    "vortex/configure.py": "1b6b9e8556cdea08bb3ce2912343b6a700ff79e97103871290ac67ea0ed7c827",
+    "vortex/dashboard.py": "d35d60dc5ea07e94889f9a2f0ab05df16f43fdc007b83bd7d621f4dc8beb03c5",
+    "vortex/derivatives.py": "4e4f87ad5a878e7aa791a7406a5a47a40c7257afd430c025a977d5c2e35b1e3e",
+    "vortex/exchange_testnet.py": "afd94c100a79818a2f89b0ae1cb9c7e46c50595c8a07ef4b2fe78a337babeb3d",
+    "vortex/exits.py": "2aa8f9f262d03fffd91eb9e4cd2eccdb40f2e811eb4469fdd75a29a1c2ada932",
+    "vortex/indicators.py": "4bb03029e1dcf4b68558f9dd31bf8ae2cf989e8b26f26c4506517920716b2912",
+    "vortex/locks.py": "a2a28b7d5b4ad9e16bf891f16420654161785b3815d0f172edd9ee2c68aa1a21",
+    "vortex/manual_signals.py": "2824bddda4c3f63e0bca30b4990e614d8efd4e7c4bdaec962d5aabef9fbc97ac",
+    "vortex/manual_telegram.py": "ebddf8a08b563dfc721377adeb35cfb1e9c2416d96560f220d5924a5b07c1951",
+    "vortex/market_features.py": "47e389746f61268408710beb9553d921b8a54c533b7149dd9091fb7125667dc5",
+    "vortex/measurement.py": "ed32d71fa4068becd3e64dae79805a713b3e0b0453fc4d3e1dcdc94e57644be1",
+    "vortex/microstructure.py": "8fcdf609d18cc084da0224476cd971acc7bfea3d59c0b88ba93d8af42fd8ca79",
+    "vortex/ml.py": "9cb9e28b1d72914f8fa750c925b60a2c2c77a1fb38cf3d55c88aa08c9e130d3e",
+    "vortex/models.py": "7d6303a10ee1430dfba1dda606aca5c751c309e6d4a677e71cb1880742c4d74c",
+    "vortex/monitoring.py": "37b1c8aef3565900ec662c2ddbd94ef3b8f89b3415bf29162c0fcc24547559be",
+    "vortex/operations.py": "647cb21cdf9c8a27c72abcc3c35f76d5bdf39f77887397d216d5b163e193a650",
+    "vortex/paper.py": "9b58344bfc3faba74034ccd5e7c6e1a94c28c0ae6c38614407b339cceb5004f6",
+    "vortex/phase1_config.py": "27cbe3c0cb57dc6f38cc6f7b8490e5ec564963fec9f9e767240645074c0fc5c9",
+    "vortex/phase1_strategy.py": "3e679671895364e206d63550de0a9caf99d83128a32792af997f1fe8b13c91fe",
+    "vortex/phase2.py": "3b34b8efb095851f9ce4e4b137010e6d7d2d7846747c648d98e581cbcfce3c4c",
+    "vortex/portfolio.py": "1c18b148cf485e215dd6c1057d7646eec9fa79a8af2d41edede3d651d1dd6fe5",
+    "vortex/radar.py": "8b8a470965bb5a5d14bfb65b6a2ea5f2683c550746a963096f35a8471480dcf8",
+    "vortex/reports.py": "21ae7feb9e687f4877bc41a595b2efdde6c40a5750c442d74dcb24caa8a11d74",
+    "vortex/reversal.py": "472b4104c47801b52ae4e5a08c52f8d363359cb8df665baffaf316c1efe7aa77",
+    "vortex/risk.py": "850755aa6d7ca239319309a6c87c145e96622a7906efc2414996a9891e1e648d",
+    "vortex/strategy.py": "21607ff5e6638a1eabd29249b74ee0fc743c1396595798817232e0e574d92b3a",
+    "vortex/stream.py": "838c500f61ce326069a2f388a730f60c56246ba72c8fae77147dbe8eac92948a",
+    "vortex/testnet_guard.py": "5c0d28472d52fa36c2ade8c8d96cf96dadf8db2dd959a14b65a8a75bf2ea59ad",
+    "vortex/testnet_runner.py": "25197f5f865c1df6eccc34baec7e4da45499cbbea7b476ac8b5822329a077341",
+    "vortex/testnet_stages.py": "dcbabda000bef1dad7e41a103c6bdd13861898db3edbc830be106b4a64470ad0",
+    "research/phase0_attempts.py": "868145c97acdcf39bdb099d09d762aad329abc705963610378a3e35ce9daf70c"
+  },
+  "cost_requirements": {
+    "taker_fee_rate": 0.0005,
+    "maker_fee_rate": 0.0002,
+    "maker_execution_used": false,
+    "note": "Market fills require taker fees. Current slippage lacks volume scaling; full-profile replay requires as-of depth/funding and derivative observations."
+  },
+  "attempts": [
+    {
+      "command": [
+        "vortex",
+        "backtest",
+        "--days",
+        "30"
+      ],
+      "actual_argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "vortex.cli",
+        "backtest",
+        "--days",
+        "30"
+      ],
+      "requested_days": 30,
+      "started_utc": "2026-10-09T22:01:45.929292+00:00",
+      "metrics": null,
+      "attribution": null,
+      "loaded_market_period": null,
+      "returncode": 1,
+      "status": "failed",
+      "ended_utc": "2026-10-09T22:01:53.795203+00:00",
+      "log": "backtest-30d.log",
+      "log_sha256": "0426b8245732c76609f237e9fc6fa70a82a4f68fb75eb7f211e439feb36f4822"
+    },
+    {
+      "command": [
+        "vortex",
+        "portfolio-backtest",
+        "--days",
+        "30"
+      ],
+      "actual_argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "vortex.cli",
+        "portfolio-backtest",
+        "--days",
+        "30"
+      ],
+      "requested_days": 30,
+      "started_utc": "2026-10-09T22:01:53.796090+00:00",
+      "metrics": null,
+      "attribution": null,
+      "loaded_market_period": null,
+      "returncode": 1,
+      "status": "failed",
+      "ended_utc": "2026-10-09T22:02:01.264523+00:00",
+      "log": "portfolio-backtest-30d.log",
+      "log_sha256": "9ed0fb815b9f8e167e8eb12dd5ca2ee7419b4025e167ece898e9175177d477a7"
+    },
+    {
+      "command": [
+        "vortex",
+        "backtest",
+        "--days",
+        "90"
+      ],
+      "actual_argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "vortex.cli",
+        "backtest",
+        "--days",
+        "90"
+      ],
+      "requested_days": 90,
+      "started_utc": "2026-10-09T22:02:01.265387+00:00",
+      "metrics": null,
+      "attribution": null,
+      "loaded_market_period": null,
+      "returncode": 1,
+      "status": "failed",
+      "ended_utc": "2026-10-09T22:02:08.640579+00:00",
+      "log": "backtest-90d.log",
+      "log_sha256": "0426b8245732c76609f237e9fc6fa70a82a4f68fb75eb7f211e439feb36f4822"
+    },
+    {
+      "command": [
+        "vortex",
+        "portfolio-backtest",
+        "--days",
+        "90"
+      ],
+      "actual_argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "vortex.cli",
+        "portfolio-backtest",
+        "--days",
+        "90"
+      ],
+      "requested_days": 90,
+      "started_utc": "2026-10-09T22:02:08.641634+00:00",
+      "metrics": null,
+      "attribution": null,
+      "loaded_market_period": null,
+      "returncode": 1,
+      "status": "failed",
+      "ended_utc": "2026-10-09T22:02:16.692081+00:00",
+      "log": "portfolio-backtest-90d.log",
+      "log_sha256": "9ed0fb815b9f8e167e8eb12dd5ca2ee7419b4025e167ece898e9175177d477a7"
+    }
+  ],
+  "remaining": [
+    "Real continuous market sources and hashes for both spans",
+    "Identical frozen cutoff and correct warmup exclusion in both engines",
+    "As-of funding/OI/mark/depth observations (never future settlements as signal inputs)",
+    "Funding settlement in the single-symbol engine and volume-scaled costs",
+    "Independent forward shadow outcomes for accepted and rejected candidates",
+    "Paired leave-one-voter-out replay for marginal contribution",
+    "Historical Radar membership: fixed six-symbol CLI portfolio is not the 24-symbol Radar"
+  ]
+}

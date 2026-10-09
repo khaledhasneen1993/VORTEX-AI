@@ -20,6 +20,9 @@ def test_audit_has_no_entry_effect_and_records_both_results():
         "BTCUSDT", small, higher, macro=macro, decision_ms=now, policy=policy, audit=rows.append
     )
     assert plain == audited and rows[0]["accepted"]
+    rows[0]["indicators"]["strong_signal"] = 999
+    rows[0]["signal"]["features"]["strong_signal"] = 999
+    assert audited.features == plain.features
     assert rows[0]["votes"]["trend"] == 1
     assert rows[0]["shadow_outcome"] is None
     assert rows[0]["indicators"]["atr_percentile"] is not None

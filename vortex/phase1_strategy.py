@@ -299,5 +299,5 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         a,
     )
     if audit is not None:
-        audit({**record, "accepted": True, "signal": asdict(signal), "indicators": features})
+        audit({**record, "accepted": True, "signal": asdict(signal), "indicators": dict(features)})
     return signal

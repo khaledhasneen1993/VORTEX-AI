@@ -50,3 +50,24 @@ abstention reasons and valid observed funding/OI values. No invented data or
 threshold relaxation. Preregistered next measurement: fresh 1200-second PAPER
 session with identical financial and voting settings plus diagnostics; examine
 valid derivative counts and rejection reasons, not just whether trades occur.
+
+## Corrected-clock observation and three-hour follow-up
+
+User supplied summary for `f2c358f2255962c282e7b8bff5b5b4bf335783bb`:
+11:29:46–11:49:47 UTC, 1200.447 seconds, 50 successful polls, 60 analyses,
+55 strategy rejections, 5 entry attempts, 2 entries, 0 cycle errors.
+SKLUSDT closed with recorded total net PnL +55.50641786; KAIAUSDT remained
+open. Wallet 1055.17356085 and last marked equity 1037.95 from initial 1000.
+Funding/OI VALID records and funding votes appeared in the supplied log.
+Reported session.log hash:
+`46fe13947118727091f0b63c8bdca04e2772f8818ef0be07cacdc7886e3089ec`.
+This short, different market period does not establish causal PnL improvement
+or profitability. PAPER funding payments remain excluded.
+
+User authorized a fresh 3-hour PAPER session starting with 150 USDT, same risk
+and voting settings, on Termux in background. Wrapper now supports 10800
+seconds and explicit finite-positive --starting-equity. Use a new output/state
+directory; do not carry the old KAIA position into this independent account.
+Original saved KAIA state/results remain preserved and stopped. Record both
+realized wallet and final marked equity/open positions; no forced invented
+closing fill, strategy selection, or acceptance based on this session.

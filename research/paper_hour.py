@@ -6,6 +6,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+from math import isfinite
 import os
 from pathlib import Path
 import re
@@ -25,8 +26,16 @@ def utc():
 
 
 def session_args(argv=None):
+    def positive_equity(value):
+        number = float(value)
+        if not isfinite(number) or number <= 0:
+            raise argparse.ArgumentTypeError('Starting equity must be finite and positive')
+        return number
+
     parser = argparse.ArgumentParser(description='Bounded live-data PAPER radar session')
-    parser.add_argument('--duration-seconds', type=int, choices=[1200, 3600], default=3600)
+    parser.add_argument('--duration-seconds', type=int, choices=[1200, 3600, 10800], default=3600)
+    parser.add_argument('--starting-equity', type=positive_equity, default=None,
+                        help='Fresh PAPER bankroll; default uses existing configuration')
     parser.add_argument('--output', type=Path, default=Path('runs/radar-one-hour'))
     parser.add_argument('--diagnostics', action='store_true', help='Record votes and rejection reasons')
     return parser.parse_args(argv)
@@ -54,6 +63,8 @@ def main(argv=None):
                USE_AI_MODEL='false', USE_CLAUDE='false', USE_MICROSTRUCTURE='false',
                VORTEX_TELEGRAM_TOKEN='', VORTEX_TELEGRAM_CHAT_ID='',
                DATA_DIR=str(folder / 'state'), PYTHONUNBUFFERED='1')
+    if args.starting_equity is not None:
+        env['STARTING_EQUITY'] = str(args.starting_equity)
     os.environ.update(env)
     if args.diagnostics:
         env['VORTEX_DIAGNOSTICS'] = 'true'

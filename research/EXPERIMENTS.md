@@ -483,3 +483,99 @@ lookback, minimum dispersion, simultaneous long/short selection, and portfolio
 conflict handling before replay. It must retain the frozen account risk limits,
 actual 1m execution, costs, and development-only status of September. Main
 remains unchanged; no current candidate qualifies for independent validation.
+
+## E017 — 4h cross-sectional relative-strength pair (pre-registered)
+
+Registered before implementation or replay; September remains exposed
+DEVELOPMENT data. Use completed 15m candles and evaluate only at six fixed UTC
+anchors per day, when the next bar opens at 00:00, 04:00, 08:00, 12:00, 16:00
+or 20:00. For each of all six configured symbols, calculate the simple return
+from the close exactly 16 completed 15m bars earlier to the just-completed
+close. Rank returns ascending with symbol name as deterministic tie-breaker.
+Require strongest minus weakest return >=2.00 percentage points.
+
+Queue exactly two simultaneous signals for the next 15m open: LONG the single
+strongest symbol and SHORT the single weakest. If any position or pending order
+exists at the anchor, skip the whole rebalance; never stack or rotate an
+existing pair. If either next-open gap check, exchange minimum, account gate or
+sizing check fails, cancel BOTH legs. Divide the existing 25% aggregate margin
+capacity equally, capping each new leg at 12.5% equity margin while preserving
+the 5x leverage ceiling and 10% per-trade modeled risk ceiling. This allocation
+does not change the configured caps. After entry, legs exit independently.
+
+For each leg use its completed decision-timeframe ATR14: 1.5 ATR initial stop,
+4.5 ATR target and baseline staged exits. Require ATR/price 0.0008..0.045 on
+both legs. Use normal fees/slippage and actual 1m exits, stop-first on ambiguous
+minutes. No EMA/ADX/volume filter, symbol exclusion, interim rebalance or pair
+forced-close. No threshold/lookback search on September. Even a positive result
+must be frozen before independent periods and doubled-cost stress.
+
+Command: `python -m research.replay --month 2026-09 --decision-interval 15m --execution 1m --portfolio-policy relative-strength-pair --output research/results/E017-relative-strength-pair-15m.json`
+
+## E017 result and E018 registration
+
+E017 FAILS: 56 closed trades (28 atomic pair entries), 27 winners (48.21%),
+net -65.681310, PF .6404020888, maxDD 7.129%, fees 33.987447, ending equity
+934.318690 and no open positions. LONG legs net -18.721487 (PF .7994) and
+SHORT legs net -46.959823 (PF .4742). Fifty-five trades end at a stop for
+-80.874482 and one reaches the final target for +15.193172. BNB and SOL are
+slightly positive but the observed subsets cannot be selected. Only 5 of 19
+active days are positive. The pair structure reduces drawdown and fees but has
+no positive post-cost expectancy.
+
+E018 is the exact directional ablation of E017. Preserve six UTC anchors,
+16-bar/4h returns, 2.00-point dispersion threshold, deterministic ranks,
+atomic next-open execution, equal 12.5% margin caps, ATR sanity, 1.5/4.5 ATR
+stop/target, staged exits, actual 1m execution and every account/cost setting.
+Change only direction: LONG the weakest return and SHORT the strongest return.
+Never select one side or symbol independently. This tests cross-sectional
+reversal versus continuation; September remains exposed development data.
+
+Command: `python -m research.replay --month 2026-09 --decision-interval 15m --execution 1m --portfolio-policy relative-strength-reversal --output research/results/E018-relative-strength-reversal-15m.json`
+
+## E018 result and E019 registration
+
+E018 FAILS, though it improves on E017: 56 closed trades, 26 winners (46.43%),
+net -43.122906, PF .7489626279, maxDD 6.758%, fees 33.941083, ending equity
+956.877094 and no open positions. LONG weakest legs net -15.193502 (PF .7992)
+and SHORT strongest legs net -27.929405 (PF .7094). Fifty-five trades finish
+at a stop and one at target. DOGE/ETH are positive observed subsets, but four
+symbols and both sides are negative; no post-hoc symbol selection is allowed.
+Ten of 21 active days are positive. Reject both directional variants as-is.
+
+E019 keeps the exact E018 contrarian pair entry and tests alignment between
+the 4h ranking horizon and holding horizon. Each surviving leg closes at the
+open exactly 4 hours after its pair entry, with adverse slippage and fees.
+Actual 1m stops, partials and targets during the preceding completed candles
+remain authoritative and occur first; the scheduled exit sees only the new
+4h-anchor open and cannot use later bar extremes. If a leg exits earlier, the
+other leg remains managed until its own stop/target or the shared 4h horizon.
+Do not rebalance while either leg is active. All E018 entry/risk/cost settings
+stay frozen; no symbol/side selection or threshold change.
+
+Command: `python -m research.replay --month 2026-09 --decision-interval 15m --execution 1m --portfolio-policy relative-strength-reversal --exit-policy pair-horizon --output research/results/E019-relative-strength-reversal-4h-exit.json`
+
+## E019 result and research boundary
+
+E019 FAILS: 60 closed trades, 22 winners (36.67%), net -86.665693,
+PF .5269072028, maxDD 9.999%, fees 35.048065, ending equity 913.334307
+and no open positions. Nineteen scheduled 4h exits net +34.908651, but 40
+positions stopped before the horizon for -122.878116; one target nets +1.303772.
+LONG and SHORT legs are both negative and only 4 of 20 active days are positive.
+Do not remove/widen the protective stop based on this result: that would evade
+the frozen risk premise rather than demonstrate an edge. Reject E019.
+
+E017-E019 cover continuation, reversal, and horizon-aligned reversal for the
+cross-sectional pair. All fail post-cost. September has now informed 18
+strategy/exit trials (E002-E019; E001 was measurement), so it is exhausted for
+strategy selection. No more September-driven threshold, direction, exit or
+family changes are permitted. E018 remains merely the least-negative pair
+variant, not a candidate and not eligible for symbol selection or promotion.
+
+Next run must first implement a chronological multi-month walk-forward harness
+and register development/validation calendar periods before downloading or
+reading their strategy returns. New hypotheses must be selected on declared
+development periods only; any viewed period is permanently marked exposed.
+Validation still requires >=3 months, aggregate PF >=1.2, >=100 trades, DD
+<=20%, positive normal and doubled costs, followed by >=7 days forward PAPER.
+Main remains unchanged and PR #11 stays draft.

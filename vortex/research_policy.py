@@ -309,3 +309,38 @@ def compression_retest(symbol, bars, higher, min_score, **options) -> Signal | N
                   'retest_delay_bars': 1.0},
         votes=('compression_retest',), atr_value=volatility,
     )
+
+
+def relative_strength_pair(histories: dict[str, list], min_score: int, *,
+                           contrarian: bool = False) -> dict[str, Signal]:
+    """E017: simultaneous strongest LONG / weakest SHORT on frozen 4h returns."""
+    if len(histories) < 2 or any(len(bars) < 17 for bars in histories.values()):
+        return {}
+    returns = {symbol: bars[-1].close / bars[-17].close - 1
+               for symbol, bars in histories.items()}
+    ranked = sorted(returns, key=lambda symbol: (returns[symbol], symbol))
+    weakest, strongest = ranked[0], ranked[-1]
+    dispersion = returns[strongest] - returns[weakest]
+    if dispersion < .02:
+        return {}
+    signals = {}
+    legs = ((weakest, 1), (strongest, -1)) if contrarian else ((strongest, 1), (weakest, -1))
+    for symbol, direction in legs:
+        bars = histories[symbol]
+        volatility = atr(bars)
+        current = bars[-1]
+        if volatility <= 0 or not .0008 <= volatility / current.close <= .045:
+            return {}  # pair is atomic; one invalid leg cancels both
+        signals[symbol] = Signal(
+            symbol, 'LONG' if direction == 1 else 'SHORT', current.ts,
+            current.close, current.close - direction * 1.5 * volatility,
+            current.close + direction * 4.5 * volatility, max(min_score, 7),
+            ('RELATIVE_STRENGTH_REVERSAL' if contrarian else 'RELATIVE_STRENGTH_PAIR')
+            + ' frozen 4h cross-sectional rank',
+            features={'return_4h': returns[symbol], 'pair_dispersion': dispersion,
+                      'pair_rank': 1.0 if direction == 1 else -1.0,
+                      'pair_exit_ts': current.close_ts + 1 + 14_400_000},
+            votes=(('relative_strength_reversal' if contrarian
+                    else 'relative_strength_pair'),), atr_value=volatility,
+        )
+    return signals

@@ -384,3 +384,107 @@ def test_compression_retest_cuts_higher_history_at_expansion(monkeypatch):
     bars[-1]=replace(bars[-1],open=100,low=99,high=102,close=101)
     policy.compression_retest('BTCUSDT',bars,bars,5)
     assert observed and all(c.close_ts<=bars[-2].close_ts for c in observed)
+
+
+def test_relative_strength_pair_is_atomic_and_uses_frozen_rank(monkeypatch):
+    import vortex.research_policy as policy
+    from dataclasses import replace
+    small,_=fixture_history()
+    histories={
+        'AAAUSDT':[replace(c,close=100+i*.2) for i,c in enumerate(small)],
+        'BBBUSDT':[replace(c,close=100-i*.2) for i,c in enumerate(small)],
+        'CCCUSDT':small,
+    }
+    monkeypatch.setattr(policy,'atr',lambda _bars: 1.0)
+    pair=policy.relative_strength_pair(histories,5)
+    assert set(pair)=={'AAAUSDT','BBBUSDT'}
+    assert pair['AAAUSDT'].side=='LONG' and pair['BBBUSDT'].side=='SHORT'
+    assert pair['AAAUSDT'].features['pair_dispersion']>=.02
+    assert (pair['AAAUSDT'].features['pair_exit_ts']
+            - histories['AAAUSDT'][-1].close_ts - 1)==14_400_000
+    reversed_pair=policy.relative_strength_pair(histories,5,contrarian=True)
+    assert reversed_pair['AAAUSDT'].side=='SHORT'
+    assert reversed_pair['BBBUSDT'].side=='LONG'
+    assert reversed_pair['AAAUSDT'].votes==('relative_strength_reversal',)
+    tied={key:small for key in histories}
+    assert policy.relative_strength_pair(tied,5)=={}
+
+
+def test_relative_strength_pair_reserves_half_margin_per_leg(monkeypatch):
+    from dataclasses import replace
+    symbols=('AAAUSDT','BBBUSDT')
+    bars=[Candle(START+i*900000,100,101,99,100,10,START+(i+1)*900000-1)
+          for i in range(80)]
+    def pair(histories,threshold,**_options):
+        current=next(iter(histories.values()))[-1]
+        return {
+            'AAAUSDT':Signal('AAAUSDT','LONG',current.ts,100,90,130,7,'pair'),
+            'BBBUSDT':Signal('BBBUSDT','SHORT',current.ts,100,110,70,7,'pair'),
+        }
+    monkeypatch.setattr(module,'relative_strength_pair',pair)
+    original=module.size_trade; calls=[]
+    def sized(signal,equity,cfg,filt,committed_margin=0,max_new_margin=None):
+        calls.append((committed_margin,max_new_margin))
+        return original(signal,equity,cfg,filt,committed_margin,max_new_margin)
+    monkeypatch.setattr(module,'size_trade',sized)
+    cfg=replace(Settings(),symbols=symbols,timeframe='15m')
+    report=run_portfolio({s:bars for s in symbols},{s:[] for s in symbols},
+                         {s:Filters(.01,.01,5,.01) for s in symbols},cfg,
+                         portfolio_policy='relative-strength-pair')
+    assert report['open_positions']==['AAAUSDT','BBBUSDT']
+    assert len(calls)==2 and calls[0][1]==pytest.approx(125)
+    assert calls[0][0]==0 and 0<calls[1][0]<=125
+
+
+def test_relative_strength_pair_cancels_both_when_one_leg_cannot_size(monkeypatch):
+    from dataclasses import replace
+    symbols=('AAAUSDT','BBBUSDT')
+    bars=[Candle(START+i*900000,100,101,99,100,10,START+(i+1)*900000-1)
+          for i in range(80)]
+    def pair(histories,threshold,**_options):
+        current=next(iter(histories.values()))[-1]
+        return {
+            'AAAUSDT':Signal('AAAUSDT','LONG',current.ts,100,90,130,7,'pair'),
+            'BBBUSDT':Signal('BBBUSDT','SHORT',current.ts,100,110,70,7,'pair'),
+        }
+    monkeypatch.setattr(module,'relative_strength_pair',pair)
+    calls=0
+    def reject_second(*args,**kwargs):
+        nonlocal calls
+        calls+=1
+        return (1,20) if calls%2 else None
+    monkeypatch.setattr(module,'size_trade',reject_second)
+    cfg=replace(Settings(),symbols=symbols,timeframe='15m')
+    report=run_portfolio({s:bars for s in symbols},{s:[] for s in symbols},
+                         {s:Filters(.01,.01,5,.01) for s in symbols},cfg,
+                         portfolio_policy='relative-strength-pair')
+    assert report['open_positions']==[] and report['closed_trades']==0
+
+
+def test_pair_horizon_closes_survivors_at_frozen_open(monkeypatch):
+    from dataclasses import replace
+    symbols=('AAAUSDT','BBBUSDT')
+    bars=[Candle(START+i*900000,100,101,99,100,10,START+(i+1)*900000-1)
+          for i in range(80)]
+    def pair(histories,threshold,**_options):
+        current=next(iter(histories.values()))[-1]
+        exit_ts=current.close_ts+1+14_400_000
+        features={'pair_exit_ts':exit_ts}
+        return {
+            'AAAUSDT':Signal('AAAUSDT','LONG',current.ts,100,90,130,7,'pair',
+                             features=features),
+            'BBBUSDT':Signal('BBBUSDT','SHORT',current.ts,100,110,70,7,'pair',
+                             features=features),
+        }
+    monkeypatch.setattr(module,'relative_strength_pair',pair)
+    cfg=replace(Settings(),symbols=symbols,timeframe='15m')
+    report=run_portfolio({s:bars for s in symbols},{s:[] for s in symbols},
+                         {s:Filters(.01,.01,5,.01) for s in symbols},cfg,
+                         diagnostics=True,exit_policy='pair-horizon',
+                         portfolio_policy='relative-strength-reversal')
+    assert report['closed_trades']==4
+    assert {trade['reason'] for trade in report['trades']}=={'pair_horizon'}
+    assert all(trade['exit_ts']-trade['entry_ts']==14_400_000
+               for trade in report['trades'])
+    assert all(trade['diagnostics']['terminal_bar']['open_exit']
+               for trade in report['trades'])

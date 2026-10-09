@@ -33,7 +33,8 @@ def floor_step(value: float, step: float) -> float:
 
 
 def size_trade(signal: Signal, equity: float, cfg: Settings, filt: Filters,
-               committed_margin: float = 0) -> tuple[float, float] | None:
+               committed_margin: float = 0,
+               max_new_margin: float | None = None) -> tuple[float, float] | None:
     stop_gap = abs(signal.entry - signal.stop)
     if equity <= 0 or stop_gap <= 0 or not math.isfinite(stop_gap):
         return None
@@ -47,6 +48,10 @@ def size_trade(signal: Signal, equity: float, cfg: Settings, filt: Filters,
     # Config accepts 1..10 but this bot's trading policy never exceeds 5x.
     leverage = min(cfg.max_leverage, 5)
     max_by_margin = max(0.0, equity * cfg.max_margin_fraction - committed_margin)
+    if max_new_margin is not None:
+        if not math.isfinite(max_new_margin) or max_new_margin <= 0:
+            return None
+        max_by_margin = min(max_by_margin, max_new_margin)
     max_by_leverage = max_by_margin * leverage / signal.entry
     qty = floor_step(min(max_by_risk, max_by_leverage), filt.step)
     if qty < filt.min_qty or qty * signal.entry < filt.min_notional:

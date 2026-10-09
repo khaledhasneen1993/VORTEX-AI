@@ -15,7 +15,7 @@ from .reports import summary
 from .config import Settings
 from .risk import Filters, RiskGate, size_trade
 from .strategy import analyze
-from .research_policy import fixed_r_levels
+from .research_policy import fixed_r_levels, relative_strength_pair
 
 
 def run_portfolio(
@@ -26,14 +26,20 @@ def run_portfolio(
     macro: dict[str, list[Candle]] | None = None,
     minute: dict[str, list[Candle]] | None = None,
     *, execution_interval: str = "5m", diagnostics: bool = False,
-    exit_policy: str = "baseline",
+    exit_policy: str = "baseline", portfolio_policy: str = "baseline",
 ) -> dict:
     if execution_interval not in {"5m", "1m"}:
         raise ValueError("Execution interval must be 5m or 1m")
     if execution_interval == "1m" and minute is None:
         raise ValueError("1m execution requires actual minute candles")
-    if exit_policy not in {"baseline", "fixed-1r", "fixed-3r", "breakout-invalidation"}:
+    if exit_policy not in {"baseline", "fixed-1r", "fixed-3r",
+                           "breakout-invalidation", "pair-horizon"}:
         raise ValueError("Unknown exit policy")
+    if portfolio_policy not in {"baseline", "relative-strength-pair",
+                                "relative-strength-reversal"}:
+        raise ValueError("Unknown portfolio policy")
+    if portfolio_policy != "baseline" and config.timeframe != "15m":
+        raise ValueError("Relative-strength pair requires 15m decisions")
     if not candles or set(candles) != set(higher) or set(candles) != set(filters) or (macro is not None and set(candles) != set(macro)):
         raise ValueError("Each portfolio symbol requires bars, HTF and exchange filters")
     if minute is not None and set(candles) != set(minute):
@@ -99,6 +105,37 @@ def run_portfolio(
         risk.can_open(opening_equity, len(active))
         if risk.blocked:
             pending.clear()  # keep managing open stops, but prohibit new entries
+        paired_sizing = {}
+        if portfolio_policy != "baseline" and pending:
+            pair_ok = len(pending) == 2 and not active and not risk.blocked
+            mark = wallet
+            reserved_margin = 0.0
+            if pair_ok:
+                for sym, sig in sorted(pending.items()):
+                    b = bar[sym]
+                    sign = 1 if sig.side == "LONG" else -1
+                    px = b.open * (1 + slip if sign == 1 else 1 - slip)
+                    gap = abs(sig.entry - sig.stop)
+                    if abs(px - sig.entry) > gap * .35 or gap <= 0:
+                        pair_ok = False
+                        break
+                    new = Signal(sym, sig.side, sig.ts, px,
+                                 px - sign * gap,
+                                 px + sign * abs(sig.target - sig.entry),
+                                 sig.score, sig.reason)
+                    allowed, _ = risk.can_open(mark, len(paired_sizing))
+                    sized = (size_trade(new, mark, config, filters[sym], reserved_margin,
+                                        max_new_margin=mark * config.max_margin_fraction / 2)
+                             if allowed else None)
+                    if sized is None:
+                        pair_ok = False
+                        break
+                    qty, margin = sized
+                    paired_sizing[sym] = (px, new, qty, margin)
+                    reserved_margin += margin
+            if not pair_ok:
+                pending.clear()
+                paired_sizing.clear()
         # The decision to enter is from the *previous completed* candle.
         for sym, sig in sorted(list(pending.items()), key=lambda p: -p[1].score):
             if risk.blocked:
@@ -106,26 +143,34 @@ def run_portfolio(
             if sym in active:
                 del pending[sym]
                 continue
-            b = bar[sym]
-            sign = 1 if sig.side == "LONG" else -1
-            px = b.open * (1 + slip if sign == 1 else 1 - slip)
-            gap = abs(sig.entry - sig.stop)
-            if abs(px - sig.entry) > gap * .35 or gap <= 0:
-                del pending[sym]
-                continue
-            new = Signal(sym, sig.side, sig.ts, px,
-                         px - sign * gap, px + sign * abs(sig.target - sig.entry),
-                         sig.score, sig.reason)
-            mark = wallet + sum(
-                (bar[s].open - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
-                for s, p in active.items())
-            allowed, _ = risk.can_open(mark, len(active))
-            committed = sum(p.margin for p in active.values())
-            sized = size_trade(new, mark, config, filters[sym], committed) if allowed else None
+            prepared = paired_sizing.get(sym)
+            if prepared is not None:
+                px, new, qty, margin = prepared
+                gap = abs(sig.entry - sig.stop)
+                sized = (qty, margin)
+            else:
+                b = bar[sym]
+                sign = 1 if sig.side == "LONG" else -1
+                px = b.open * (1 + slip if sign == 1 else 1 - slip)
+                gap = abs(sig.entry - sig.stop)
+                if abs(px - sig.entry) > gap * .35 or gap <= 0:
+                    del pending[sym]
+                    continue
+                new = Signal(sym, sig.side, sig.ts, px,
+                             px - sign * gap, px + sign * abs(sig.target - sig.entry),
+                             sig.score, sig.reason)
+                mark = wallet + sum(
+                    (bar[s].open - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
+                    for s, p in active.items())
+                allowed, _ = risk.can_open(mark, len(active))
+                committed = sum(p.margin for p in active.values())
+                sized = size_trade(new, mark, config, filters[sym], committed) if allowed else None
             if sized:
                 if (exit_policy == "breakout-invalidation" and
                         not {"channel_high", "channel_low"} <= sig.features.keys()):
                     raise ValueError("Breakout invalidation requires frozen channel features")
+                if exit_policy == "pair-horizon" and "pair_exit_ts" not in sig.features:
+                    raise ValueError("Pair horizon requires a frozen exit timestamp")
                 qty, margin = sized
                 fee = qty * px * config.fee_rate
                 fees_total += fee
@@ -160,12 +205,16 @@ def run_portfolio(
                 boundary = p.features["channel_high" if p.side == "LONG" else "channel_low"]
                 invalidate = (previous.close <= boundary if p.side == "LONG"
                               else previous.close >= boundary)
+            horizon_exit = (exit_policy == "pair-horizon" and
+                            ts >= p.features.get("pair_exit_ts", float("inf")))
             for execution_index, eb in enumerate(execution_bars):
                 existing_stop = p.stop
                 sign = 1 if p.side == "LONG" else -1
                 fixed_target_r = {"fixed-1r": 1.0, "fixed-3r": 3.0}.get(exit_policy)
-                if invalidate and execution_index == 0:
-                    actions = [ExitStep(p.qty, eb.open, "breakout_invalidation", True)]
+                open_exit_reason = ("breakout_invalidation" if invalidate else
+                                    "pair_horizon" if horizon_exit else None)
+                if open_exit_reason is not None and execution_index == 0:
+                    actions = [ExitStep(p.qty, eb.open, open_exit_reason, True)]
                 else:
                     actions = (fixed_r_levels(p, eb.low, eb.high, eb.open, fixed_target_r)
                                if fixed_target_r is not None else
@@ -175,10 +224,10 @@ def run_portfolio(
                 if diagnostics:
                     trace = traces[sym]
                     terminal = any(a.final for a in actions)
-                    open_invalidation = invalidate and execution_index == 0
-                    stop_touch = (False if open_invalidation else
+                    open_exit = open_exit_reason is not None and execution_index == 0
+                    stop_touch = (False if open_exit else
                                   eb.low <= existing_stop if sign == 1 else eb.high >= existing_stop)
-                    one_r_touch = (False if open_invalidation else
+                    one_r_touch = (False if open_exit else
                                    (eb.high - p.entry if sign == 1 else p.entry - eb.low)
                                    >= p.initial_risk)
                     trace["exit_bar_ambiguous"] = terminal and stop_touch and one_r_touch
@@ -195,7 +244,7 @@ def run_portfolio(
                     else:
                         trace["terminal_bar"] = ({"ts": eb.ts, "low": eb.open,
                                                   "high": eb.open, "open_exit": True}
-                                                 if open_invalidation else
+                                                 if open_exit else
                                                  {"ts": eb.ts, "low": eb.low, "high": eb.high})
                 for action in actions:
                     px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
@@ -249,30 +298,44 @@ def run_portfolio(
         # After bar close, queue signals for next bar only; forbid final-bar entries.
         if i + 1 >= len(stamps):
             continue
-        for sym in symbols:
-            if sym in active or sym in pending or ts < cool.get(sym, 0):
-                continue
-            history = [by_symbol[sym][when] for when in stamps[max(0, i-219):i+1]]
-            hi_end = bisect_right(upper_times[sym], bar[sym].close_ts)
-            upper = higher[sym][max(0, hi_end-120):hi_end]
-            if macro is not None:
-                m_end = bisect_right(macro_times[sym], bar[sym].close_ts)
-                macro_upper = macro[sym][max(0, m_end-250):m_end]
-            else:
-                macro_upper = None
-            vote_options = ({"strict_votes": config.strict_votes,
-                             "min_strong_score": config.min_strong_score}
-                            if not config.strict_votes else {})
-            if minute is not None:
-                ix = bisect_right(minute_closes[sym], bar[sym].close_ts)
-                minute_window = minute[sym][max(0, ix - 90):ix]
-                sig = analyze(sym, history, upper, config.min_score, macro=macro_upper,
-                              minute=minute_window, **vote_options)
-            else:
-                sig = (analyze(sym, history, upper, config.min_score, macro=macro_upper, **vote_options)
-                       if macro is not None else analyze(sym, history, upper, config.min_score, **vote_options))
-            if sig:
-                pending[sym] = sig
+        if portfolio_policy != "baseline":
+            next_open = bar[symbols[0]].close_ts + 1
+            if not active and not pending and next_open % 14_400_000 == 0:
+                histories = {sym:[by_symbol[sym][when]
+                                  for when in stamps[max(0, i-219):i+1]]
+                             for sym in symbols}
+                pair = relative_strength_pair(
+                    histories, config.min_score,
+                    contrarian=portfolio_policy == "relative-strength-reversal")
+                if pair and all(ts >= cool.get(sym, 0) for sym in pair):
+                    pending.update(pair)
+        else:
+            for sym in symbols:
+                if sym in active or sym in pending or ts < cool.get(sym, 0):
+                    continue
+                history = [by_symbol[sym][when] for when in stamps[max(0, i-219):i+1]]
+                hi_end = bisect_right(upper_times[sym], bar[sym].close_ts)
+                upper = higher[sym][max(0, hi_end-120):hi_end]
+                if macro is not None:
+                    m_end = bisect_right(macro_times[sym], bar[sym].close_ts)
+                    macro_upper = macro[sym][max(0, m_end-250):m_end]
+                else:
+                    macro_upper = None
+                vote_options = ({"strict_votes": config.strict_votes,
+                                 "min_strong_score": config.min_strong_score}
+                                if not config.strict_votes else {})
+                if minute is not None:
+                    ix = bisect_right(minute_closes[sym], bar[sym].close_ts)
+                    minute_window = minute[sym][max(0, ix - 90):ix]
+                    sig = analyze(sym, history, upper, config.min_score, macro=macro_upper,
+                                  minute=minute_window, **vote_options)
+                else:
+                    sig = (analyze(sym, history, upper, config.min_score,
+                                   macro=macro_upper, **vote_options)
+                           if macro is not None else
+                           analyze(sym, history, upper, config.min_score, **vote_options))
+                if sig:
+                    pending[sym] = sig
     stats = summary(trades, curve)
     pnl = [t["net_pnl"] for t in trades]
     wins = sum(x > 0 for x in pnl)
@@ -288,6 +351,7 @@ def run_portfolio(
         "open_positions": sorted(active),
         "realized_net_pnl": round(sum(pnl), 6),
         "execution_interval": execution_interval, "exit_policy": exit_policy,
+        "portfolio_policy": portfolio_policy,
         "diagnostics_enabled": diagnostics,
         "closed_trades": len(pnl),
         "win_rate": (wins / len(pnl) if pnl else None),

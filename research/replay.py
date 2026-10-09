@@ -74,7 +74,8 @@ def main():
     parser.add_argument('--decision-interval', choices=['5m','15m'], default='5m')
     parser.add_argument('--execution', choices=['5m','1m'], default='5m')
     parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor','invert-direction','trend-pullback','range-reversion','range-reversion-ablation','compression-expansion','compression-expansion-cost','compression-retest'], default='baseline')
-    parser.add_argument('--exit-policy', choices=['baseline','fixed-1r','fixed-3r','breakout-invalidation'], default='baseline')
+    parser.add_argument('--exit-policy', choices=['baseline','fixed-1r','fixed-3r','breakout-invalidation','pair-horizon'], default='baseline')
+    parser.add_argument('--portfolio-policy', choices=['baseline','relative-strength-pair','relative-strength-reversal'], default='baseline')
     parser.add_argument('--cost-multiplier', type=float, default=1)
     parser.add_argument('--cache', type=Path, default=Path('data/research-cache'))
     parser.add_argument('--output', type=Path, required=True)
@@ -136,7 +137,7 @@ def main():
     higher_interval = '15m' if args.decision_interval == '5m' else '1h'
     report = run_portfolio(decision,history(higher_interval),filters,cfg,macro=history('1h'),
                            minute=history('1m'),execution_interval=args.execution,diagnostics=True,
-                           exit_policy=args.exit_policy)
+                           exit_policy=args.exit_policy,portfolio_policy=args.portfolio_policy)
     commit = subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
     dirty = subprocess.check_output(['git','status','--porcelain'],text=True).strip()
     config = asdict(cfg); config['data_dir'] = str(config['data_dir'])
@@ -144,7 +145,8 @@ def main():
               'source_hashes':source_hashes,
               'decision_interval':args.decision_interval,
               'execution_interval':args.execution, 'entry_policy':args.entry_policy,
-              'exit_policy':args.exit_policy, 'cost_multiplier':args.cost_multiplier,
+              'exit_policy':args.exit_policy, 'portfolio_policy':args.portfolio_policy,
+              'cost_multiplier':args.cost_multiplier,
               'filter_source':filter_source,'filter_sha256':sha256(exchange_raw).hexdigest(),
               'filter_server_time':exchange['serverTime'],
               'config':config,'filters':{s:asdict(f) for s,f in filters.items()},

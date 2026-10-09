@@ -559,6 +559,10 @@ def test_opening_range_breakout_is_one_frozen_daily_decision():
     assert signal is not None and signal.side == 'LONG'
     assert signal.target > signal.entry and signal.stop < signal.entry
     assert signal.features['opening_range_high'] == 101
+    reversed_signal = policy.opening_range_breakout(
+        'BTCUSDT', bars, [], 5, contrarian=True)
+    assert reversed_signal is not None and reversed_signal.side == 'SHORT'
+    assert reversed_signal.votes == ('opening_range_reversion',)
     off_time = [replace(bar, ts=bar.ts+900000, close_ts=bar.close_ts+900000)
                 for bar in bars]
     assert policy.opening_range_breakout('BTCUSDT', off_time, [], 5) is None

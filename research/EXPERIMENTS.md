@@ -815,3 +815,34 @@ locked unless development passes the registered gate.
 
 Development command:
 `python -m research.walk_forward --phase development --output research/results/W007-development-normal.json`
+
+## W007 result and W008 preregistration
+
+The first W007 launch stopped before replay because two cached downloads were
+truncated ZIPs. They were preserved as `.invalid-*` with SHA256
+`690612e04eb66083fb8f3f34f4c7ca2feaca349bd081caa7fcd65d211a175338`
+(BTC 1m 2025-12) and
+`7636ec1e837bdf2c61f3897f56387321fb1cc13cd99b51e983d2514c1c38613a`
+(ETH 1m 2026-08). No replay/result was produced. BTC warmup was downloaded
+again and fully validated before the successful run; ETH August is unrelated
+to this registered period and remains isolated. No strategy setting changed.
+
+W007 FAILS: 93 closed trades, 39 winners, net -210.387329, PF .6326645382,
+maxDD 22.022%, fees 85.102790 and ending equity 789.612671. It loses
+-125.284540 before closed-trade fees and also fails the >=100-trade minimum.
+January loses -94.301537, February gains +28.326038 and March loses
+-144.411830. LONG loses -221.791391 while SHORT gains +11.404062, but side or
+symbol selection after observation is forbidden. Seventy stops lose
+-527.453686 and 23 targets gain +317.066357. Result SHA256 is
+`9eb683b81f5c955b9754e1e68d34448d5873c6dcaa5514a066b7c86567910f5a`.
+Reject W007 and keep validation locked.
+
+W008 changes direction only. At the identical 04:00 UTC decision, LONG below
+the opening low and SHORT above the opening high, mirroring the exact W007
+structural risk distance around entry. Preserve the 00:00-01:00 range, ATR
+bounds, 0.1 ATR buffer, 2R target, baseline exits, costs and account caps.
+This tests session mean reversion without filtering W007's observed losing side
+or symbols and is registered before W008 returns are read.
+
+Development command:
+`python -m research.walk_forward --phase development --output research/results/W008-development-normal.json`

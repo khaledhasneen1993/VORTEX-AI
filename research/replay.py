@@ -92,7 +92,7 @@ def main():
                         help='One YYYY-MM month or a consecutive comma-separated range')
     parser.add_argument('--decision-interval', choices=['5m','15m'], default='5m')
     parser.add_argument('--execution', choices=['5m','1m'], default='5m')
-    parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor','invert-direction','trend-pullback','range-reversion','range-reversion-ablation','compression-expansion','compression-expansion-cost','compression-retest','time-series-momentum','time-series-reversal','momentum-pullback','liquidity-sweep-reversal','liquidity-sweep-continuation','opening-range-breakout'], default='baseline')
+    parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor','invert-direction','trend-pullback','range-reversion','range-reversion-ablation','compression-expansion','compression-expansion-cost','compression-retest','time-series-momentum','time-series-reversal','momentum-pullback','liquidity-sweep-reversal','liquidity-sweep-continuation','opening-range-breakout','opening-range-reversion'], default='baseline')
     parser.add_argument('--exit-policy', choices=['baseline','fixed-1r','fixed-3r','breakout-invalidation','pair-horizon'], default='baseline')
     parser.add_argument('--portfolio-policy', choices=['baseline','relative-strength-pair','relative-strength-reversal'], default='baseline')
     parser.add_argument('--cost-multiplier', type=float, default=1)
@@ -136,8 +136,9 @@ def main():
                        (months if interval == '5m' else [previous,*months])), []) for sym in cfg.symbols}
     original_analyze = portfolio.analyze
     def research_analyze(*pos, **kw):
-        if args.entry_policy == 'opening-range-breakout':
-            return opening_range_breakout(*pos, **kw)
+        if args.entry_policy in {'opening-range-breakout', 'opening-range-reversion'}:
+            return opening_range_breakout(
+                *pos, contrarian=args.entry_policy == 'opening-range-reversion', **kw)
         if args.entry_policy in {'liquidity-sweep-reversal', 'liquidity-sweep-continuation'}:
             return liquidity_sweep_reversal(
                 *pos, continuation=args.entry_policy == 'liquidity-sweep-continuation', **kw)

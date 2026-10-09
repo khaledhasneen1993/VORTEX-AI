@@ -5,6 +5,7 @@ import argparse
 from dataclasses import asdict, replace
 import json
 import logging
+import sqlite3
 from math import isfinite
 from pathlib import Path
 import time
@@ -13,6 +14,7 @@ from .binance import Market, MarketError
 from .config import Settings
 from .derivatives import DerivativesTracker
 from .models import Signal
+from .manual_telegram import ManualTelegram
 from .radar import discover
 from .risk import Filters, size_trade
 from .strategy import analyze
@@ -76,6 +78,7 @@ def main(argv=None):
     parser.add_argument('--day-start-equity', type=float, default=None)
     parser.add_argument('--committed-margin', type=float, default=0)
     parser.add_argument('--positions', type=int, default=0)
+    parser.add_argument('--telegram', action='store_true', help='Send manual cards to your configured private Telegram chat')
     args = parser.parse_args(argv)
     if args.equity is not None and args.day_start_equity is None:
         parser.error('--equity requires --day-start-equity')
@@ -84,6 +87,12 @@ def main(argv=None):
                    for x in [args.equity, args.day_start_equity])):
         parser.error('Account snapshot values must be finite and valid')
     cfg = Settings.from_env()
+    telegram = None
+    if args.telegram:
+        try:
+            telegram = ManualTelegram(cfg.data_dir / 'manual_telegram.sqlite3')
+        except ValueError as exc:
+            parser.error(str(exc))
     args.output.mkdir(parents=True, exist_ok=False)
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
                         handlers=[logging.StreamHandler(), logging.FileHandler(args.output / 'session.log')])
@@ -94,6 +103,8 @@ def main(argv=None):
     step = 300000 if cfg.timeframe == '5m' else 900000
     began = time.monotonic()
     log.info('MANUAL_REVIEW_STARTED: public data only; no keys, account connection or orders')
+    if telegram:
+        log.info('TELEGRAM_ENABLED: manual cards only; credentials are not logged')
     with (args.output / 'cards.jsonl').open('x', encoding='utf-8') as out:
         while time.monotonic() - began < args.duration_seconds:
             try:
@@ -133,6 +144,12 @@ def main(argv=None):
                             out.write(json.dumps(card, ensure_ascii=False) + '\n')
                             out.flush()
                             log.info('MANUAL_CARD %s', json.dumps(card, ensure_ascii=False))
+                            if telegram:
+                                try:
+                                    status = telegram.send(card, market.server_ms())
+                                    log.info('TELEGRAM_CARD %s status=%s', symbol, status)
+                                except (OSError, ValueError, sqlite3.Error) as exc:
+                                    log.warning('Telegram delivery unavailable (%s); card saved locally', type(exc).__name__)
                     last_bucket = now // step
             except (MarketError, ValueError, KeyError, OSError) as exc:
                 log.error('Manual scan failed closed: %s', exc)
@@ -140,6 +157,8 @@ def main(argv=None):
             if remaining > 0:
                 time.sleep(min(cfg.loop_seconds, remaining))
     log.info('MANUAL_REVIEW_ENDED: no exchange orders submitted')
+    if telegram:
+        telegram.close()
 
 
 if __name__ == '__main__':

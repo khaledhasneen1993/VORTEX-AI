@@ -34,4 +34,41 @@ Leave the amount unset until the operator chooses it. A later session can use
 `--equity AMOUNT --day-start-equity DAY_START --committed-margin IN_USE --positions COUNT`.
 Do not overwrite old output directories. Cards append to cards.jsonl, logs to
 session.log. Public network requests may exceed the timer briefly while an
-in-flight request finishes. No alert delivery to third parties is performed.
+in-flight request finishes. Telegram delivery is opt-in as described below.
+
+## Telegram manual cards (2026-10-09)
+
+The operator configured their own private bot/chat and reported a successful
+test message. Credentials stay in the phone's ignored `.env` with mode 600:
+`VORTEX_TELEGRAM_TOKEN` and `VORTEX_TELEGRAM_CHAT_ID`. No credentials or personal
+chat IDs are committed. Add `--telegram` to the manual command to send accepted,
+unexpired cards. Default remains local cards only. No strategy or financial
+parameter changes are made, and no Binance account/order integration is added.
+
+Messages include direction, indicative entry/stop/target, votes, score, leverage,
+expiry in UTC, and optional illustrative sizing. Unset amount stays unset.
+Cards are still saved locally if delivery fails. Logs show sanitized delivery
+status, never API URLs or tokens.
+
+`DATA_DIR/manual_telegram.sqlite3` persists an atomic send-attempt claim keyed by
+bot/chat hash, symbol, candle timestamp and direction, across output directories
+and restarts sharing that DATA_DIR. An uncertain network response/crash is not
+retried: at-most-once attempts avoid duplicates but can lose a notification.
+Failure pauses subsequent delivery attempts for 60 seconds. Expired cards are
+never intentionally submitted, but network/Telegram delays may deliver them
+after expiry; review the timestamp on receipt. No delivery guarantee is made.
+
+Stop the old watcher with Ctrl+C before updating. In Termux/tmux:
+
+```sh
+cd ~/VORTEX-20M
+git pull --ff-only origin research/hourly-development
+source .venv/bin/activate
+termux-wake-lock
+python -m vortex.manual_signals --telegram --duration-seconds 10800 --output runs/manual-telegram-$(date +%Y%m%d-%H%M%S)
+```
+
+Mocked tests cover expiry, missing credentials, message content and persistent
+duplicate prevention after successful/uncertain sends. No hosted test sends a
+real Telegram message or Binance order. This is delivery plumbing, not evidence
+of trading profitability.

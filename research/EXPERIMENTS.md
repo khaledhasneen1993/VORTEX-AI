@@ -429,3 +429,57 @@ filter, or symbol/side selection. September remains exposed development data.
 This directly tests whether failed expansion should be abandoned when its
 structural premise is invalidated, rather than waiting for the full ATR stop.
 It is not yet executed. Main remains unchanged and no candidate is promoted.
+
+## E015 result and E016 registration
+
+E015 FAILS severely: 118 closed trades, 33 winners (27.97%), net -176.418197,
+PF .4637627060, maxDD 18.091%, fees 112.569058, ending equity 823.581803 and
+no open positions. Fifty-four breakout-invalidation exits are all net losers
+and total -202.444806; 60 later stop exits net -6.525824 and 4 final targets
+net +32.552433. All six symbols are negative and only 7 of 29 active days are
+positive. Earlier exits also free portfolio capacity and produce 7 additional
+accepted trades versus E013, increasing turnover. Reject this exit policy; do
+not tune its boundary or delay, and restore baseline exits.
+
+E016 changes entry timing based on the observed immediate breakout failures.
+Start from the exact E013 compression-expansion candidate, but do NOT enter at
+the next open. Inspect exactly one subsequent completed 15m candle. LONG must
+touch at or below the original channel_high with its low, then close strictly
+above channel_high with a bullish body. SHORT must touch at or above the
+original channel_low with its high, then close strictly below channel_low with
+a bearish body. This is a one-bar retest-and-reclaim, not delayed optimization:
+if that immediately subsequent candle fails, discard the setup permanently.
+
+Use only histories available at each close. Recompute E013 on data ending at
+the expansion candle and cut higher history to that timestamp. On a valid
+retest, enter at the following 15m open, size a new 1.5-ATR stop and 4.5-ATR
+target from ATR14 through the retest candle, and use baseline staged exits.
+Preserve E013's compression, expansion, volume and true-range gates; no cost
+filter, macro trend, symbol selection or threshold search. All risk/account
+settings and normal costs remain frozen. September is development-only.
+
+Command: `python -m research.replay --month 2026-09 --decision-interval 15m --execution 1m --entry-policy compression-retest --output research/results/E016-compression-retest-15m.json`
+
+## E016 result and next-run boundary
+
+E016 FAILS severely: 27 closed trades, 7 winners (25.93%), net -137.167120,
+PF .1273937409, maxDD 14.092%, fees 29.340363, ending equity 862.832880
+and no open positions. Twenty-six positions end at a stop for -147.986564;
+only one reaches the final target for +10.819444. All six symbols are negative
+and only 4 of 17 active days are positive. The smaller sample does not excuse
+the strongly negative expectancy. Reject the retest entry without tuning.
+
+E013-E016 have now measured direct expansion, a cost gate, failed-breakout
+invalidation and one-bar retest. All are negative after costs; E015/E016 are
+materially worse. Retire this family on exposed September. Do not combine its
+best-looking symbols or days, adjust the percentile/volume/range thresholds,
+or relabel E013's pre-fee movement as an edge.
+
+The next hypothesis must be orthogonal and registered before implementation.
+Investigate a cross-sectional, market-relative family that limits correlated
+directional exposure by comparing the same timestamp across all six symbols,
+rather than another per-symbol breakout/mean-reversion rule. Specify ranking
+lookback, minimum dispersion, simultaneous long/short selection, and portfolio
+conflict handling before replay. It must retain the frozen account risk limits,
+actual 1m execution, costs, and development-only status of September. Main
+remains unchanged; no current candidate qualifies for independent validation.

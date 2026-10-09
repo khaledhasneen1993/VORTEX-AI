@@ -291,3 +291,96 @@ def test_compression_cost_ablation_reuses_frozen_e004_formula():
     viable=replace(signal,stop=99.51)
     assert filter_signal(viable,'cost-floor') is viable
     assert viable.votes==('compression_expansion',)
+
+
+def test_breakout_invalidation_exits_next_open_without_future_extremes(monkeypatch):
+    from dataclasses import replace
+    small,_=fixture_history()
+    failed=list(small)
+    failed[75]=replace(failed[75],open=100,high=101,low=97,close=98)
+    def compression_candidate(sym,bars,higher,threshold,**kwargs):
+        if len(bars)==75:
+            return Signal(sym,'LONG',bars[-1].ts,100,90,130,7,'fixture',
+                          features={'channel_high':99,'channel_low':95},
+                          votes=('compression_expansion',),atr_value=10/1.5)
+    monkeypatch.setattr(module,'analyze',compression_candidate)
+    report=run_portfolio({'BTCUSDT':failed},{'BTCUSDT':[]},
+                         {'BTCUSDT':Filters(.001,.001,5,.01)},Settings(),
+                         execution_interval='5m',diagnostics=True,
+                         exit_policy='breakout-invalidation')
+    trade=report['trades'][0]
+    assert trade['reason']=='breakout_invalidation'
+    assert trade['exit_ts']==failed[76].ts
+    assert trade['diagnostics']['terminal_bar']=={
+        'ts':failed[76].ts,'low':failed[76].open,'high':failed[76].open,'open_exit':True}
+    assert not trade['diagnostics']['exit_bar_ambiguous']
+
+
+def test_breakout_invalidation_never_overrides_tp1(monkeypatch):
+    from dataclasses import replace
+    small,_=fixture_history()
+    staged=list(small)
+    staged[75]=replace(staged[75],open=100,high=111,low=97,close=98)
+    def compression_candidate(sym,bars,higher,threshold,**kwargs):
+        if len(bars)==75:
+            return Signal(sym,'LONG',bars[-1].ts,100,90,130,7,'fixture',
+                          features={'channel_high':99,'channel_low':95},
+                          votes=('compression_expansion',),atr_value=10/1.5)
+    monkeypatch.setattr(module,'analyze',compression_candidate)
+    report=run_portfolio({'BTCUSDT':staged},{'BTCUSDT':[]},
+                         {'BTCUSDT':Filters(.001,.001,5,.01)},Settings(),
+                         execution_interval='5m',diagnostics=True,
+                         exit_policy='breakout-invalidation')
+    assert report['trades'][0]['reason']=='stop'
+    assert [x['reason'] for x in report['trades'][0]['diagnostics']['partial_exits']]
+    assert report['trades'][0]['diagnostics']['partial_exits'][0]['reason']=='tp1'
+
+
+def test_breakout_invalidation_requires_channel_features(monkeypatch):
+    small,_=fixture_history()
+    monkeypatch.setattr(module,'analyze',candidate)
+    with pytest.raises(ValueError,match='requires frozen channel'):
+        run_portfolio({'BTCUSDT':small},{'BTCUSDT':[]},
+                      {'BTCUSDT':Filters(.001,.001,5,.01)},Settings(),
+                      execution_interval='5m',exit_policy='breakout-invalidation')
+
+
+def test_compression_retest_is_exactly_one_completed_bar(monkeypatch):
+    from dataclasses import replace
+    import vortex.research_policy as policy
+    bars=[]
+    for i in range(131):
+        close=100 + (1 if i % 2 else -1)
+        bars.append(Candle(START+i*900000,close,close+.2,close-.2,close,10,
+                           START+(i+1)*900000-1))
+    for i in range(109,129):
+        close=100 + (.01 if i % 2 else -.01)
+        bars[i]=replace(bars[i],open=close,high=close+.05,low=close-.05,close=close)
+    bars[129]=replace(bars[129],open=100,high=102.2,low=99.8,close=102,volume=15)
+    bars[130]=replace(bars[130],open=101,high=101.7,low=100,close=101.5,volume=10)
+    monkeypatch.setattr(policy,'atr',lambda _bars: 1.0)
+    signal=policy.compression_retest('BTCUSDT',bars,bars,5)
+    assert signal is not None and signal.side=='LONG'
+    assert signal.ts==bars[-1].ts and signal.entry==101.5
+    assert signal.stop==100 and signal.target==106
+    assert signal.features['retest_delay_bars']==1
+    assert signal.votes==('compression_retest',)
+    failed=list(bars); failed[-1]=replace(failed[-1],open=101,close=100)
+    assert policy.compression_retest('BTCUSDT',failed,failed,5) is None
+
+
+def test_compression_retest_cuts_higher_history_at_expansion(monkeypatch):
+    from dataclasses import replace
+    import vortex.research_policy as policy
+    small,_=fixture_history()
+    bars=[replace(c,ts=START+i*900000,close_ts=START+(i+1)*900000-1)
+          for i,c in enumerate((small*2)[:122])]
+    observed=[]
+    def spy(symbol, prior, higher, threshold, **options):
+        observed.extend(higher)
+        return Signal(symbol,'LONG',prior[-1].ts,100,99,103,7,'fixture',
+                      features={'channel_high':100,'channel_low':95})
+    monkeypatch.setattr(policy,'compression_expansion',spy)
+    bars[-1]=replace(bars[-1],open=100,low=99,high=102,close=101)
+    policy.compression_retest('BTCUSDT',bars,bars,5)
+    assert observed and all(c.close_ts<=bars[-2].close_ts for c in observed)

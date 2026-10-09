@@ -271,3 +271,41 @@ def compression_expansion(symbol, bars, higher, min_score, **_options) -> Signal
                   'channel_high': channel_high, 'channel_low': channel_low},
         votes=('compression_expansion',), atr_value=volatility,
     )
+
+
+def compression_retest(symbol, bars, higher, min_score, **options) -> Signal | None:
+    """E016: require the immediately following 15m candle to retest and reclaim."""
+    if len(bars) < 122:
+        return None
+    expansion, current = bars[-2:]
+    if current.ts - expansion.ts != 900_000:
+        return None
+    prior_higher = [bar for bar in higher if bar.close_ts <= expansion.close_ts]
+    candidate = compression_expansion(symbol, bars[:-1], prior_higher, min_score, **options)
+    if candidate is None:
+        return None
+    if candidate.side == 'LONG':
+        boundary = candidate.features['channel_high']
+        accepted = (current.low <= boundary and current.close > boundary
+                    and current.close > current.open)
+        direction = 1
+    else:
+        boundary = candidate.features['channel_low']
+        accepted = (current.high >= boundary and current.close < boundary
+                    and current.close < current.open)
+        direction = -1
+    if not accepted:
+        return None
+    volatility = atr(bars)
+    if volatility <= 0 or not 0.0008 <= volatility / current.close <= 0.045:
+        return None
+    stop = current.close - direction * 1.5 * volatility
+    target = current.close + direction * 4.5 * volatility
+    return Signal(
+        symbol, candidate.side, current.ts, current.close, stop, target,
+        max(min_score, 7),
+        'COMPRESSION_RETEST immediate 15m boundary touch and directional reclaim',
+        features={**candidate.features, 'retest_boundary': boundary,
+                  'retest_delay_bars': 1.0},
+        votes=('compression_retest',), atr_value=volatility,
+    )

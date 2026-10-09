@@ -1,0 +1,3084 @@
+{
+  "month": "2026-09",
+  "base_commit": "f2184089cba21ce98c6cffecfc09af5584c55d0d",
+  "working_tree_dirty": true,
+  "source_hashes": {
+    "research/replay.py": "3fc084e2a3f992556bbf77cfe97354cb4886798a3c69f73f7dc1c7f408a9f428",
+    "vortex/__init__.py": "cfee7d74433527418170927ec5e2f53eeb35c419621fa6969ce6b2580f892c5d",
+    "vortex/alerts.py": "43ced462482eeb35cf5bc97244c9b588198c8ac9f77fe8aefda4eaefdbee8164",
+    "vortex/backtest.py": "5a0c0c2685d413c251131a389d8e4a26ff7bcc148ae350fc2ef2d666f77fb19c",
+    "vortex/binance.py": "220b7a38e24daad95e5472c22069425edb54de2981851278854a1361c0c2de83",
+    "vortex/claude_review.py": "f546259641fbe08b8ebb0e79dc66a150bfcad3141fc916a294a718dc7e25eedf",
+    "vortex/cli.py": "d7cbff97058dd847e5cf8c01fc0603f74adbd04668cda3f05f39e3ba121656cc",
+    "vortex/config.py": "297ae8732610a34aa8b7ef525663a7377d13e82d80f68fb62d34f48bf5a1dfa7",
+    "vortex/dashboard.py": "186dd17d2f5b8ae01564cba221fd9af3082c8bc1971685d2b61a9e60bed60076",
+    "vortex/derivatives.py": "61720087c7e610fa8ee7ce87aa88c937a6a97dd7a0836b60420992cf4223ff49",
+    "vortex/exchange_testnet.py": "5d1385028b8d0a0ccb69f04cd240eba9118753cbc7739ef1f42930e1950f5d20",
+    "vortex/exits.py": "fab9064c300cd0a825b618acb0d17b26b2084fb43f89486d4df57d4457fb59af",
+    "vortex/indicators.py": "e3af87e91809da60703bef17a01aa487431a6bea2d52023b5e37e4a435e302e4",
+    "vortex/locks.py": "734d00a0aa3f52900f78aca66eb26306e3ded358294df47c52ada9131b63d6e0",
+    "vortex/microstructure.py": "1a6b2f184e53eea50eb1126924aa72308754329bfdd259c16042c988dbc4f8e8",
+    "vortex/ml.py": "104b4ab72ba04c592dad056c90ca7fcb77b6400454f40f38108dd7f005999caa",
+    "vortex/models.py": "ed7c59b6b0611125c5ad9407fcabad2b15b19ae8b9accd82af443d836de0bbf7",
+    "vortex/paper.py": "a295663d75d560b03f61b0bfca99d4db882f58564d4509886092c7a55430a079",
+    "vortex/portfolio.py": "2929dc842f375954f779d1d8bf967834c96bdc77b047f83605fd610d6b4c57c3",
+    "vortex/radar.py": "c30297927d549839ecbf98a237e69536a8bb4b39e912fb741b797de1ac08e75c",
+    "vortex/reports.py": "c3830063a5b57e3b58e00b71c02f027bd518e9fe9ec829933149a843f1c33374",
+    "vortex/research_policy.py": "b62c8d2b5a2cefbc1e8d125919700439bb4059af830fee0b1071a6275c0f5ef9",
+    "vortex/reversal.py": "19cfbe89a533ca242343825b96a36fbab4df1e54432d290132d6b5a57e65c0d5",
+    "vortex/risk.py": "dde6af861a02125246de02607508ffc93f07358e4244f97a40ccb068c65ade33",
+    "vortex/strategies.py": "9b0ec64bab5f24cde284593272154ff6f178af7211b701fb20608b846dbdd2be",
+    "vortex/strategy.py": "5ece29345c7a4744bd029bbca579caba3b6a1b21e60240e636c87e3c654a8a50",
+    "vortex/stream.py": "02c86799aa48677e1463bb4acd9654d57b6672e9d985f2aa9c29e6ea908b5a99",
+    "vortex/testnet_guard.py": "c8178750393dd1d1348ce5c73d96fb62d5b37bc3561b6f6b8779cdaeb5fb6443",
+    "vortex/testnet_runner.py": "58701405936e24d2c7bb3c48cab10f08f13c79a4df3b10bded85337d0691133c",
+    "vortex/testnet_stages.py": "ab6f78900175579b885321c7ac5ece539316bd415a0fe048ea2e5f28556ab741"
+  },
+  "decision_interval": "15m",
+  "execution_interval": "1m",
+  "entry_policy": "compression-retest",
+  "exit_policy": "baseline",
+  "cost_multiplier": 1,
+  "filter_source": "https://www.binance.com/fapi/v1/exchangeInfo",
+  "filter_sha256": "eb1e3708f146c2581b28e218332dab6b81815c570ce877c3b9607188debdac51",
+  "filter_server_time": 1791362591474,
+  "config": {
+    "mode": "paper",
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "BNBUSDT",
+      "XRPUSDT",
+      "DOGEUSDT"
+    ],
+    "timeframe": "15m",
+    "starting_equity": 1000.0,
+    "risk_per_trade": 0.1,
+    "max_daily_loss": 0.5,
+    "max_positions": 3,
+    "max_leverage": 5,
+    "max_margin_fraction": 0.25,
+    "max_spread_bps": 12.0,
+    "min_score": 5,
+    "strict_votes": true,
+    "min_strong_score": 7,
+    "trailing_atr_mult": 1.0,
+    "cooldown_minutes": 15,
+    "loop_seconds": 20,
+    "fee_rate": 0.0005,
+    "slippage_bps": 3.0,
+    "data_dir": "data"
+  },
+  "filters": {
+    "BTCUSDT": {
+      "step": 0.001,
+      "min_qty": 0.001,
+      "min_notional": 50.0,
+      "tick": 0.1
+    },
+    "ETHUSDT": {
+      "step": 0.001,
+      "min_qty": 0.001,
+      "min_notional": 20.0,
+      "tick": 0.01
+    },
+    "SOLUSDT": {
+      "step": 0.01,
+      "min_qty": 0.01,
+      "min_notional": 5.0,
+      "tick": 0.01
+    },
+    "BNBUSDT": {
+      "step": 0.01,
+      "min_qty": 0.01,
+      "min_notional": 5.0,
+      "tick": 0.01
+    },
+    "XRPUSDT": {
+      "step": 0.1,
+      "min_qty": 0.1,
+      "min_notional": 5.0,
+      "tick": 0.0001
+    },
+    "DOGEUSDT": {
+      "step": 1.0,
+      "min_qty": 1.0,
+      "min_notional": 5.0,
+      "tick": 1e-05
+    }
+  },
+  "sources": [
+    {
+      "symbol": "BTCUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/5m/BTCUSDT-5m-2026-09.zip",
+      "sha256_zip": "3a2d163a2bd28ca614fa0840a92ecbcde0d9c4962b278dd619d5bf81a9918e26",
+      "rows": 8640
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/15m/BTCUSDT-15m-2026-08.zip",
+      "sha256_zip": "0702d68a42de591fb39929d10327f1258ce1d59b9d81158c07e412029eb36306",
+      "rows": 2976
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/15m/BTCUSDT-15m-2026-09.zip",
+      "sha256_zip": "e879fa6903fd905201bd1f59e456773638cdf8c13848da79331cee89b0046964",
+      "rows": 2880
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-08.zip",
+      "sha256_zip": "b594301740cbb39818ba60f2835e4636aa06ad53308e25b1b312f1443fe0ccfe",
+      "rows": 744
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-09.zip",
+      "sha256_zip": "07ab960882feb6d3120673a851f2a654c4c3f31f3a74d1f3fc4b0351a8ee1483",
+      "rows": 720
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1m/BTCUSDT-1m-2026-08.zip",
+      "sha256_zip": "adfd0846ea580681aeb18a6bdf06660dcfcc1a7b6819ea2eecfc3c53240ec67a",
+      "rows": 44640
+    },
+    {
+      "symbol": "BTCUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1m/BTCUSDT-1m-2026-09.zip",
+      "sha256_zip": "e1a821b5bf6b48d57da01c3e390b8a467a698155def5c18c2c63c0eb044a3247",
+      "rows": 43200
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/5m/ETHUSDT-5m-2026-09.zip",
+      "sha256_zip": "143312487ffcc01c174156343fbf05ea48cbfa4e4602937caafb3e0ad3dbca9a",
+      "rows": 8640
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/15m/ETHUSDT-15m-2026-08.zip",
+      "sha256_zip": "468f78cf3a11df085e538ae44edfe73ad9bf69ba8ab7bed83788aad26ad538bb",
+      "rows": 2976
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/15m/ETHUSDT-15m-2026-09.zip",
+      "sha256_zip": "1dc572ea53979b37c55d950b2a8ad337eb3846cdcfd85864a609c70c526d934a",
+      "rows": 2880
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1h/ETHUSDT-1h-2026-08.zip",
+      "sha256_zip": "52ede96e424bdc696b4b7a30aa4f2f56cd32e58c6598400f25f7b3a8dc6cf50a",
+      "rows": 744
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1h/ETHUSDT-1h-2026-09.zip",
+      "sha256_zip": "f4331baae4c38dea1c123836808f3353473cc28e6c434ef38669698ae79599fc",
+      "rows": 720
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1m/ETHUSDT-1m-2026-08.zip",
+      "sha256_zip": "038b412935c3349e95b4abe3e9cec8a7fd521d16ce73fff3c2f92d605b252b9e",
+      "rows": 44640
+    },
+    {
+      "symbol": "ETHUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1m/ETHUSDT-1m-2026-09.zip",
+      "sha256_zip": "c85c7ec631fa7fe3a90c30e4ef6a76aeac0b88be895872388d87a6a8fd3d2892",
+      "rows": 43200
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/5m/SOLUSDT-5m-2026-09.zip",
+      "sha256_zip": "9b71841a30ba4e98cab7c3591240dcfccba0efde6889785b586f9af1e84079fe",
+      "rows": 8640
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/15m/SOLUSDT-15m-2026-08.zip",
+      "sha256_zip": "7861d59b7f70f3d7d56e8c1c12538f8001110467524215593e60173e7df50655",
+      "rows": 2976
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/15m/SOLUSDT-15m-2026-09.zip",
+      "sha256_zip": "d6b4f23739c277032b3ffaf849b5a9bbb5c1026dbcfb0de0c80d35909ec63a33",
+      "rows": 2880
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1h/SOLUSDT-1h-2026-08.zip",
+      "sha256_zip": "a25ab3dfcabcf739bd8bdd0aa9b1302865d5c571a5af1ffbb6e4a2b5c26ab833",
+      "rows": 744
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1h/SOLUSDT-1h-2026-09.zip",
+      "sha256_zip": "e57f44b7df1f4269a06395c161d3618d9bc3d56e623825fc77c615d713a19263",
+      "rows": 720
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1m/SOLUSDT-1m-2026-08.zip",
+      "sha256_zip": "0d895f66c4c07969845decf7d8e8752b0d8cb5409ca737b7b48c8751d4fd6f1f",
+      "rows": 44640
+    },
+    {
+      "symbol": "SOLUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1m/SOLUSDT-1m-2026-09.zip",
+      "sha256_zip": "58bcf27df2447043d9e955674de7c73bc42b848a7b8beb08d7800c9dd04813d1",
+      "rows": 43200
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/5m/BNBUSDT-5m-2026-09.zip",
+      "sha256_zip": "411a9b7027b663898e1eaf9f25251e41578100b9023faf8016e5d7b0b71d9ade",
+      "rows": 8640
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/15m/BNBUSDT-15m-2026-08.zip",
+      "sha256_zip": "550d884c0cc6bf8987e811cb1d288410d23c8b4f571768fad24b1110a9f87c81",
+      "rows": 2976
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/15m/BNBUSDT-15m-2026-09.zip",
+      "sha256_zip": "b1a5b3b8938051ec85f7c02e2dbeb81ce911ef75b146996307e418f9b7b4dfa0",
+      "rows": 2880
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/1h/BNBUSDT-1h-2026-08.zip",
+      "sha256_zip": "20c98a1ccd5eb2f8d8d120d1d96e7d63dd5cacd79062813e2fa8097b92cff39c",
+      "rows": 744
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/1h/BNBUSDT-1h-2026-09.zip",
+      "sha256_zip": "2ebd9f79a198e86070fe860b7a3cfbacc1cffbb85cf281f981ce3d9363c4e6a7",
+      "rows": 720
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/1m/BNBUSDT-1m-2026-08.zip",
+      "sha256_zip": "720458d20a8e5ee8519abc29b7fec1c7e4e074d675ef3fb11fcbfa5d0184a2c1",
+      "rows": 44640
+    },
+    {
+      "symbol": "BNBUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BNBUSDT/1m/BNBUSDT-1m-2026-09.zip",
+      "sha256_zip": "e467378d964bad51920c0ea87517503d644e7d1ce001a0e742c2edd57c463097",
+      "rows": 43200
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/5m/XRPUSDT-5m-2026-09.zip",
+      "sha256_zip": "0feab324d90dc5a88c58e2e3c443101b517849d6fcfcc11e341da9ca84a71ec9",
+      "rows": 8640
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/15m/XRPUSDT-15m-2026-08.zip",
+      "sha256_zip": "98836ee605b9189f09f1f6b6f16d4a4839f80ec97e2fac8047b1d2d63e637d2b",
+      "rows": 2976
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/15m/XRPUSDT-15m-2026-09.zip",
+      "sha256_zip": "9c88a2290a1083fb16baa66ecfb80ab9d694adc2f6a94720f1bb7791d721ccb4",
+      "rows": 2880
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/1h/XRPUSDT-1h-2026-08.zip",
+      "sha256_zip": "387e1aa225a3984ac4add2764a9b948c0a255fb38c24b8714690d1d5dce4d48c",
+      "rows": 744
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/1h/XRPUSDT-1h-2026-09.zip",
+      "sha256_zip": "490701edf518fec0d78441d9bc6adcd92e62c837aca2f4e4e7d6ef37a6c9c68a",
+      "rows": 720
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/1m/XRPUSDT-1m-2026-08.zip",
+      "sha256_zip": "e4108def774c3daf34c1639d0a0a0ad5a4addc35df4cf927b493fc887c242854",
+      "rows": 44640
+    },
+    {
+      "symbol": "XRPUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/XRPUSDT/1m/XRPUSDT-1m-2026-09.zip",
+      "sha256_zip": "a28a4de41559ead96b00db22ab4fa6aecbffd48331b7e876386b99da04861e48",
+      "rows": 43200
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "5m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/5m/DOGEUSDT-5m-2026-09.zip",
+      "sha256_zip": "11f5c2d2ba7a505db6b3dbd6d271616eae55086c2cf6396364cd30343eceb626",
+      "rows": 8640
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "15m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/15m/DOGEUSDT-15m-2026-08.zip",
+      "sha256_zip": "d9f1cb766e7de8acb8ba1d5142d2e167ef5c3d4cc3bb2d372bd276aa02197bd8",
+      "rows": 2976
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "15m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/15m/DOGEUSDT-15m-2026-09.zip",
+      "sha256_zip": "93bf6356322a165c57e5ffec8cdbcb9ecbe6f245a2fb2b3f95db8aa5ebb60850",
+      "rows": 2880
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "1h",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/1h/DOGEUSDT-1h-2026-08.zip",
+      "sha256_zip": "71247f5f7704590576a4cecef0606135f8601a46ae91d1368aab0dbb809e736a",
+      "rows": 744
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "1h",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/1h/DOGEUSDT-1h-2026-09.zip",
+      "sha256_zip": "554d03c9b5f688e25d7143791099884de8f4c582240aabe934eeca917e91f0c7",
+      "rows": 720
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "1m",
+      "month": "2026-08",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/1m/DOGEUSDT-1m-2026-08.zip",
+      "sha256_zip": "bce45b036618e8d7d1fc370de004813e7d055e807657fabd730833fe77b63739",
+      "rows": 44640
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "interval": "1m",
+      "month": "2026-09",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/DOGEUSDT/1m/DOGEUSDT-1m-2026-09.zip",
+      "sha256_zip": "6a2dd23e5b5a1c259ec2af3f2bcda0d2459131f50b8128199541921cccb4d523",
+      "rows": 43200
+    }
+  ],
+  "limitations": [
+    "Current exchange filters, not historical filters",
+    "OHLC intrabar ties remain stop-first, including 1m",
+    "No historical funding, liquidation or order-book replay",
+    "MFE/MAE excludes terminal bar and is a pre-exit lower bound; within-minute sequence unknown",
+    "Risk gate and equity drawdown sampled at 5m boundaries; 1m changes exit execution only"
+  ],
+  "report": {
+    "metrics": {
+      "closed_trades": 27,
+      "win_rate_pct": 25.926,
+      "profit_factor": 0.1274,
+      "max_drawdown_pct": 14.092,
+      "average_r": -0.6949,
+      "equity_curve": [
+        {
+          "ts": 1788220800000,
+          "equity": 1000.0
+        },
+        {
+          "ts": 1788242399999,
+          "equity": 1000.0
+        },
+        {
+          "ts": 1788263999999,
+          "equity": 1000.0
+        },
+        {
+          "ts": 1788286499999,
+          "equity": 1000.0
+        },
+        {
+          "ts": 1788308099999,
+          "equity": 1000.0
+        },
+        {
+          "ts": 1788329699999,
+          "equity": 1000.0
+        },
+        {
+          "ts": 1788351299999,
+          "equity": 1002.817605
+        },
+        {
+          "ts": 1788372899999,
+          "equity": 1002.817605
+        },
+        {
+          "ts": 1788395399999,
+          "equity": 1002.817605
+        },
+        {
+          "ts": 1788416999999,
+          "equity": 991.803719
+        },
+        {
+          "ts": 1788438599999,
+          "equity": 991.803719
+        },
+        {
+          "ts": 1788460199999,
+          "equity": 991.803719
+        },
+        {
+          "ts": 1788481799999,
+          "equity": 991.803719
+        },
+        {
+          "ts": 1788504299999,
+          "equity": 983.592576
+        },
+        {
+          "ts": 1788525899999,
+          "equity": 983.954915
+        },
+        {
+          "ts": 1788547499999,
+          "equity": 983.954915
+        },
+        {
+          "ts": 1788569099999,
+          "equity": 983.954915
+        },
+        {
+          "ts": 1788590699999,
+          "equity": 983.954915
+        },
+        {
+          "ts": 1788613199999,
+          "equity": 983.954915
+        },
+        {
+          "ts": 1788634799999,
+          "equity": 983.954915
+        },
+        {
+          "ts": 1788656399999,
+          "equity": 983.954915
+        },
+        {
+          "ts": 1788677999999,
+          "equity": 983.954915
+        },
+        {
+          "ts": 1788699599999,
+          "equity": 983.51199
+        },
+        {
+          "ts": 1788722099999,
+          "equity": 994.774359
+        },
+        {
+          "ts": 1788743699999,
+          "equity": 994.774359
+        },
+        {
+          "ts": 1788765299999,
+          "equity": 994.774359
+        },
+        {
+          "ts": 1788786899999,
+          "equity": 994.774359
+        },
+        {
+          "ts": 1788808499999,
+          "equity": 990.47395
+        },
+        {
+          "ts": 1788830999999,
+          "equity": 990.47395
+        },
+        {
+          "ts": 1788852599999,
+          "equity": 990.47395
+        },
+        {
+          "ts": 1788874199999,
+          "equity": 979.367023
+        },
+        {
+          "ts": 1788895799999,
+          "equity": 979.367023
+        },
+        {
+          "ts": 1788917399999,
+          "equity": 979.367023
+        },
+        {
+          "ts": 1788939899999,
+          "equity": 969.422009
+        },
+        {
+          "ts": 1788961499999,
+          "equity": 969.422009
+        },
+        {
+          "ts": 1788983099999,
+          "equity": 969.422009
+        },
+        {
+          "ts": 1789004699999,
+          "equity": 969.422009
+        },
+        {
+          "ts": 1789026299999,
+          "equity": 969.422009
+        },
+        {
+          "ts": 1789048799999,
+          "equity": 964.659711
+        },
+        {
+          "ts": 1789070399999,
+          "equity": 970.727509
+        },
+        {
+          "ts": 1789091999999,
+          "equity": 970.727509
+        },
+        {
+          "ts": 1789113599999,
+          "equity": 970.727509
+        },
+        {
+          "ts": 1789135199999,
+          "equity": 970.727509
+        },
+        {
+          "ts": 1789157699999,
+          "equity": 970.727509
+        },
+        {
+          "ts": 1789179299999,
+          "equity": 970.727509
+        },
+        {
+          "ts": 1789200899999,
+          "equity": 970.727509
+        },
+        {
+          "ts": 1789222499999,
+          "equity": 969.395614
+        },
+        {
+          "ts": 1789244099999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789266599999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789288199999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789309799999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789331399999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789352999999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789375499999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789397099999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789418699999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789440299999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789461899999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789484399999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789505999999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789527599999,
+          "equity": 965.988867
+        },
+        {
+          "ts": 1789549199999,
+          "equity": 959.162029
+        },
+        {
+          "ts": 1789571699999,
+          "equity": 957.654119
+        },
+        {
+          "ts": 1789593299999,
+          "equity": 943.930073
+        },
+        {
+          "ts": 1789614899999,
+          "equity": 943.930073
+        },
+        {
+          "ts": 1789636499999,
+          "equity": 943.930073
+        },
+        {
+          "ts": 1789658099999,
+          "equity": 936.116057
+        },
+        {
+          "ts": 1789680599999,
+          "equity": 936.116057
+        },
+        {
+          "ts": 1789702199999,
+          "equity": 936.116057
+        },
+        {
+          "ts": 1789723799999,
+          "equity": 936.116057
+        },
+        {
+          "ts": 1789745399999,
+          "equity": 936.116057
+        },
+        {
+          "ts": 1789766999999,
+          "equity": 936.116057
+        },
+        {
+          "ts": 1789789499999,
+          "equity": 936.116057
+        },
+        {
+          "ts": 1789811099999,
+          "equity": 934.032069
+        },
+        {
+          "ts": 1789832699999,
+          "equity": 941.39315
+        },
+        {
+          "ts": 1789854299999,
+          "equity": 940.499259
+        },
+        {
+          "ts": 1789875899999,
+          "equity": 940.499259
+        },
+        {
+          "ts": 1789898399999,
+          "equity": 940.499259
+        },
+        {
+          "ts": 1789919999999,
+          "equity": 940.499259
+        },
+        {
+          "ts": 1789941599999,
+          "equity": 940.499259
+        },
+        {
+          "ts": 1789963199999,
+          "equity": 940.499259
+        },
+        {
+          "ts": 1789984799999,
+          "equity": 940.499259
+        },
+        {
+          "ts": 1790007299999,
+          "equity": 940.499259
+        },
+        {
+          "ts": 1790028899999,
+          "equity": 940.499259
+        },
+        {
+          "ts": 1790050499999,
+          "equity": 940.499259
+        },
+        {
+          "ts": 1790072099999,
+          "equity": 934.374533
+        },
+        {
+          "ts": 1790093699999,
+          "equity": 913.037627
+        },
+        {
+          "ts": 1790116199999,
+          "equity": 913.037627
+        },
+        {
+          "ts": 1790137799999,
+          "equity": 913.037627
+        },
+        {
+          "ts": 1790159399999,
+          "equity": 913.037627
+        },
+        {
+          "ts": 1790180999999,
+          "equity": 913.037627
+        },
+        {
+          "ts": 1790202599999,
+          "equity": 913.037627
+        },
+        {
+          "ts": 1790225099999,
+          "equity": 912.462
+        },
+        {
+          "ts": 1790246699999,
+          "equity": 912.462
+        },
+        {
+          "ts": 1790268299999,
+          "equity": 912.462
+        },
+        {
+          "ts": 1790289899999,
+          "equity": 912.462
+        },
+        {
+          "ts": 1790311499999,
+          "equity": 905.034041
+        },
+        {
+          "ts": 1790333999999,
+          "equity": 900.886615
+        },
+        {
+          "ts": 1790355599999,
+          "equity": 900.886615
+        },
+        {
+          "ts": 1790377199999,
+          "equity": 900.886615
+        },
+        {
+          "ts": 1790398799999,
+          "equity": 900.886615
+        },
+        {
+          "ts": 1790420399999,
+          "equity": 896.586861
+        },
+        {
+          "ts": 1790442899999,
+          "equity": 889.622998
+        },
+        {
+          "ts": 1790464499999,
+          "equity": 881.906868
+        },
+        {
+          "ts": 1790486099999,
+          "equity": 881.906868
+        },
+        {
+          "ts": 1790507699999,
+          "equity": 881.906868
+        },
+        {
+          "ts": 1790529299999,
+          "equity": 881.906868
+        },
+        {
+          "ts": 1790551799999,
+          "equity": 881.906868
+        },
+        {
+          "ts": 1790573399999,
+          "equity": 881.906868
+        },
+        {
+          "ts": 1790594999999,
+          "equity": 881.906868
+        },
+        {
+          "ts": 1790616599999,
+          "equity": 881.906868
+        },
+        {
+          "ts": 1790638199999,
+          "equity": 881.906868
+        },
+        {
+          "ts": 1790660699999,
+          "equity": 875.499637
+        },
+        {
+          "ts": 1790682299999,
+          "equity": 875.499637
+        },
+        {
+          "ts": 1790703899999,
+          "equity": 877.695232
+        },
+        {
+          "ts": 1790725499999,
+          "equity": 862.83288
+        },
+        {
+          "ts": 1790747099999,
+          "equity": 862.83288
+        },
+        {
+          "ts": 1790769599999,
+          "equity": 862.83288
+        },
+        {
+          "ts": 1790791199999,
+          "equity": 862.83288
+        },
+        {
+          "ts": 1790812799999,
+          "equity": 862.83288
+        }
+      ]
+    },
+    "equity_curve": [
+      {
+        "ts": 1788220800000,
+        "equity": 1000.0
+      },
+      {
+        "ts": 1788242399999,
+        "equity": 1000.0
+      },
+      {
+        "ts": 1788263999999,
+        "equity": 1000.0
+      },
+      {
+        "ts": 1788286499999,
+        "equity": 1000.0
+      },
+      {
+        "ts": 1788308099999,
+        "equity": 1000.0
+      },
+      {
+        "ts": 1788329699999,
+        "equity": 1000.0
+      },
+      {
+        "ts": 1788351299999,
+        "equity": 1002.817605
+      },
+      {
+        "ts": 1788372899999,
+        "equity": 1002.817605
+      },
+      {
+        "ts": 1788395399999,
+        "equity": 1002.817605
+      },
+      {
+        "ts": 1788416999999,
+        "equity": 991.803719
+      },
+      {
+        "ts": 1788438599999,
+        "equity": 991.803719
+      },
+      {
+        "ts": 1788460199999,
+        "equity": 991.803719
+      },
+      {
+        "ts": 1788481799999,
+        "equity": 991.803719
+      },
+      {
+        "ts": 1788504299999,
+        "equity": 983.592576
+      },
+      {
+        "ts": 1788525899999,
+        "equity": 983.954915
+      },
+      {
+        "ts": 1788547499999,
+        "equity": 983.954915
+      },
+      {
+        "ts": 1788569099999,
+        "equity": 983.954915
+      },
+      {
+        "ts": 1788590699999,
+        "equity": 983.954915
+      },
+      {
+        "ts": 1788613199999,
+        "equity": 983.954915
+      },
+      {
+        "ts": 1788634799999,
+        "equity": 983.954915
+      },
+      {
+        "ts": 1788656399999,
+        "equity": 983.954915
+      },
+      {
+        "ts": 1788677999999,
+        "equity": 983.954915
+      },
+      {
+        "ts": 1788699599999,
+        "equity": 983.51199
+      },
+      {
+        "ts": 1788722099999,
+        "equity": 994.774359
+      },
+      {
+        "ts": 1788743699999,
+        "equity": 994.774359
+      },
+      {
+        "ts": 1788765299999,
+        "equity": 994.774359
+      },
+      {
+        "ts": 1788786899999,
+        "equity": 994.774359
+      },
+      {
+        "ts": 1788808499999,
+        "equity": 990.47395
+      },
+      {
+        "ts": 1788830999999,
+        "equity": 990.47395
+      },
+      {
+        "ts": 1788852599999,
+        "equity": 990.47395
+      },
+      {
+        "ts": 1788874199999,
+        "equity": 979.367023
+      },
+      {
+        "ts": 1788895799999,
+        "equity": 979.367023
+      },
+      {
+        "ts": 1788917399999,
+        "equity": 979.367023
+      },
+      {
+        "ts": 1788939899999,
+        "equity": 969.422009
+      },
+      {
+        "ts": 1788961499999,
+        "equity": 969.422009
+      },
+      {
+        "ts": 1788983099999,
+        "equity": 969.422009
+      },
+      {
+        "ts": 1789004699999,
+        "equity": 969.422009
+      },
+      {
+        "ts": 1789026299999,
+        "equity": 969.422009
+      },
+      {
+        "ts": 1789048799999,
+        "equity": 964.659711
+      },
+      {
+        "ts": 1789070399999,
+        "equity": 970.727509
+      },
+      {
+        "ts": 1789091999999,
+        "equity": 970.727509
+      },
+      {
+        "ts": 1789113599999,
+        "equity": 970.727509
+      },
+      {
+        "ts": 1789135199999,
+        "equity": 970.727509
+      },
+      {
+        "ts": 1789157699999,
+        "equity": 970.727509
+      },
+      {
+        "ts": 1789179299999,
+        "equity": 970.727509
+      },
+      {
+        "ts": 1789200899999,
+        "equity": 970.727509
+      },
+      {
+        "ts": 1789222499999,
+        "equity": 969.395614
+      },
+      {
+        "ts": 1789244099999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789266599999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789288199999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789309799999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789331399999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789352999999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789375499999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789397099999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789418699999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789440299999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789461899999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789484399999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789505999999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789527599999,
+        "equity": 965.988867
+      },
+      {
+        "ts": 1789549199999,
+        "equity": 959.162029
+      },
+      {
+        "ts": 1789571699999,
+        "equity": 957.654119
+      },
+      {
+        "ts": 1789593299999,
+        "equity": 943.930073
+      },
+      {
+        "ts": 1789614899999,
+        "equity": 943.930073
+      },
+      {
+        "ts": 1789636499999,
+        "equity": 943.930073
+      },
+      {
+        "ts": 1789658099999,
+        "equity": 936.116057
+      },
+      {
+        "ts": 1789680599999,
+        "equity": 936.116057
+      },
+      {
+        "ts": 1789702199999,
+        "equity": 936.116057
+      },
+      {
+        "ts": 1789723799999,
+        "equity": 936.116057
+      },
+      {
+        "ts": 1789745399999,
+        "equity": 936.116057
+      },
+      {
+        "ts": 1789766999999,
+        "equity": 936.116057
+      },
+      {
+        "ts": 1789789499999,
+        "equity": 936.116057
+      },
+      {
+        "ts": 1789811099999,
+        "equity": 934.032069
+      },
+      {
+        "ts": 1789832699999,
+        "equity": 941.39315
+      },
+      {
+        "ts": 1789854299999,
+        "equity": 940.499259
+      },
+      {
+        "ts": 1789875899999,
+        "equity": 940.499259
+      },
+      {
+        "ts": 1789898399999,
+        "equity": 940.499259
+      },
+      {
+        "ts": 1789919999999,
+        "equity": 940.499259
+      },
+      {
+        "ts": 1789941599999,
+        "equity": 940.499259
+      },
+      {
+        "ts": 1789963199999,
+        "equity": 940.499259
+      },
+      {
+        "ts": 1789984799999,
+        "equity": 940.499259
+      },
+      {
+        "ts": 1790007299999,
+        "equity": 940.499259
+      },
+      {
+        "ts": 1790028899999,
+        "equity": 940.499259
+      },
+      {
+        "ts": 1790050499999,
+        "equity": 940.499259
+      },
+      {
+        "ts": 1790072099999,
+        "equity": 934.374533
+      },
+      {
+        "ts": 1790093699999,
+        "equity": 913.037627
+      },
+      {
+        "ts": 1790116199999,
+        "equity": 913.037627
+      },
+      {
+        "ts": 1790137799999,
+        "equity": 913.037627
+      },
+      {
+        "ts": 1790159399999,
+        "equity": 913.037627
+      },
+      {
+        "ts": 1790180999999,
+        "equity": 913.037627
+      },
+      {
+        "ts": 1790202599999,
+        "equity": 913.037627
+      },
+      {
+        "ts": 1790225099999,
+        "equity": 912.462
+      },
+      {
+        "ts": 1790246699999,
+        "equity": 912.462
+      },
+      {
+        "ts": 1790268299999,
+        "equity": 912.462
+      },
+      {
+        "ts": 1790289899999,
+        "equity": 912.462
+      },
+      {
+        "ts": 1790311499999,
+        "equity": 905.034041
+      },
+      {
+        "ts": 1790333999999,
+        "equity": 900.886615
+      },
+      {
+        "ts": 1790355599999,
+        "equity": 900.886615
+      },
+      {
+        "ts": 1790377199999,
+        "equity": 900.886615
+      },
+      {
+        "ts": 1790398799999,
+        "equity": 900.886615
+      },
+      {
+        "ts": 1790420399999,
+        "equity": 896.586861
+      },
+      {
+        "ts": 1790442899999,
+        "equity": 889.622998
+      },
+      {
+        "ts": 1790464499999,
+        "equity": 881.906868
+      },
+      {
+        "ts": 1790486099999,
+        "equity": 881.906868
+      },
+      {
+        "ts": 1790507699999,
+        "equity": 881.906868
+      },
+      {
+        "ts": 1790529299999,
+        "equity": 881.906868
+      },
+      {
+        "ts": 1790551799999,
+        "equity": 881.906868
+      },
+      {
+        "ts": 1790573399999,
+        "equity": 881.906868
+      },
+      {
+        "ts": 1790594999999,
+        "equity": 881.906868
+      },
+      {
+        "ts": 1790616599999,
+        "equity": 881.906868
+      },
+      {
+        "ts": 1790638199999,
+        "equity": 881.906868
+      },
+      {
+        "ts": 1790660699999,
+        "equity": 875.499637
+      },
+      {
+        "ts": 1790682299999,
+        "equity": 875.499637
+      },
+      {
+        "ts": 1790703899999,
+        "equity": 877.695232
+      },
+      {
+        "ts": 1790725499999,
+        "equity": 862.83288
+      },
+      {
+        "ts": 1790747099999,
+        "equity": 862.83288
+      },
+      {
+        "ts": 1790769599999,
+        "equity": 862.83288
+      },
+      {
+        "ts": 1790791199999,
+        "equity": 862.83288
+      },
+      {
+        "ts": 1790812799999,
+        "equity": 862.83288
+      }
+    ],
+    "average_r": -0.6949,
+    "max_drawdown_pct": 14.092,
+    "start_equity": 1000.0,
+    "cash_wallet": 862.83288,
+    "equity_with_unrealized": 862.83288,
+    "open_positions_unrealized_net": 0.0,
+    "open_positions": [],
+    "realized_net_pnl": -137.16712,
+    "execution_interval": "1m",
+    "exit_policy": "baseline",
+    "diagnostics_enabled": true,
+    "closed_trades": 27,
+    "win_rate": 0.25925925925925924,
+    "profit_factor": 0.127393740908848,
+    "max_mark_to_market_drawdown_pct": 14.092,
+    "total_fees": 29.340363,
+    "halted": false,
+    "warnings": [
+      "OHLC approximations; funding, liquidation, historic spread and queue not replayed",
+      "Historical results are NOT a forward-profit forecast"
+    ],
+    "trades": [
+      {
+        "symbol": "DOGEUSDT",
+        "side": "SHORT",
+        "entry_ts": 1788339600000,
+        "exit_ts": 1788348840000,
+        "entry": 0.08092571,
+        "exit": 0.08094999,
+        "net_pnl": 2.81760492,
+        "r_multiple": 0.396641,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.08138561788015337,
+          "initial_target": 0.07954600635953984,
+          "atr_at_signal": 0.0003066019201022555,
+          "score": 7,
+          "initial_qty": 15446.0,
+          "initial_margin": 249.995718778,
+          "entry_fee": 0.6249892969449999,
+          "total_fees": 1.2479458185218606,
+          "partial_exits": [
+            {
+              "ts": 1788346140000,
+              "qty": 3861.0,
+              "price": 0.08048995186348257,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.1562270928075,
+              "exit_fee": 0.15538585207245312,
+              "net_pnl": 1.3708685252138364
+            },
+            {
+              "ts": 1788346200000,
+              "qty": 3861.0,
+              "price": 0.08025993143797386,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.15622709280749997,
+              "exit_fee": 0.15494179764100852,
+              "net_pnl": 2.259421442534407
+            },
+            {
+              "ts": 1788348840000,
+              "qty": 7724.0,
+              "price": 0.0809499927145,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.31253511132999995,
+              "exit_fee": 0.312628871863399,
+              "net_pnl": -0.8126850499914293
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0008357150000000008,
+          "mae_price_before_exit_bar": 0.00031428500000001136,
+          "mfe_first_ts": 1788346200000,
+          "mae_first_ts": 1788339960000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.00923606812673577,
+            "compression_threshold": 0.012456404185480404,
+            "breakout_true_range_atr": 1.9460272599221657,
+            "relative_volume": 1.736601914510848,
+            "channel_high": 0.08207,
+            "channel_low": 0.08109,
+            "retest_boundary": 0.08109,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1788348840000,
+            "low": 0.08088,
+            "high": 0.08098
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "LONG",
+        "entry_ts": 1788399000000,
+        "exit_ts": 1788401040000,
+        "entry": 1.36410911,
+        "exit": 1.35348196,
+        "net_pnl": -11.01388622,
+        "r_multiple": -1.17268,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.353888125490319,
+          "initial_target": 1.3947720635290421,
+          "atr_at_signal": 0.006813989673120539,
+          "score": 7,
+          "initial_qty": 918.9,
+          "initial_margin": 250.69597223579996,
+          "entry_fee": 0.6267399305894998,
+          "total_fees": 1.24859721667625,
+          "partial_exits": [
+            {
+              "ts": 1788401040000,
+              "qty": 918.9,
+              "price": 1.3534819590526719,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.6267399305894998,
+              "exit_fee": 0.6218572860867501,
+              "net_pnl": -11.013886222175866
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0020908900000002895,
+          "mae_price_before_exit_bar": 0.009409109999999776,
+          "mfe_first_ts": 1788399000000,
+          "mae_first_ts": 1788400800000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.007819461530707544,
+            "compression_threshold": 0.012748987751915046,
+            "breakout_true_range_atr": 3.4026535636165858,
+            "relative_volume": 2.8068299726935857,
+            "channel_high": 1.3555,
+            "channel_low": 1.3416,
+            "retest_boundary": 1.3555,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1788401040000,
+            "low": 1.3535,
+            "high": 1.3552
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "SHORT",
+        "entry_ts": 1788486300000,
+        "exit_ts": 1788489540000,
+        "entry": 719.754009,
+        "exit": 723.80614887,
+        "net_pnl": -8.21114232,
+        "r_multiple": -1.244809,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 723.5890721513995,
+          "initial_target": 708.2488195458016,
+          "atr_at_signal": 2.556708767599647,
+          "score": 7,
+          "initial_qty": 1.72,
+          "initial_margin": 247.595379096,
+          "entry_fee": 0.61898844774,
+          "total_fees": 1.2414617357708186,
+          "partial_exits": [
+            {
+              "ts": 1788489540000,
+              "qty": 1.72,
+              "price": 723.8061488730449,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.61898844774,
+              "exit_fee": 0.6224732880308186,
+              "net_pnl": -8.211142317408035
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.19400900000005095,
+          "mae_price_before_exit_bar": 3.545990999999958,
+          "mfe_first_ts": 1788486300000,
+          "mae_first_ts": 1788489480000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.007793295936771305,
+            "compression_threshold": 0.008520278719898126,
+            "breakout_true_range_atr": 1.2783454638301166,
+            "relative_volume": 1.9300010551518099,
+            "channel_high": 730.65,
+            "channel_low": 721.01,
+            "retest_boundary": 721.01,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1788489540000,
+            "low": 723.3,
+            "high": 723.91
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "LONG",
+        "entry_ts": 1788513300000,
+        "exit_ts": 1788513720000,
+        "entry": 0.08773631,
+        "exit": 0.08770999,
+        "net_pnl": 0.36233894,
+        "r_multiple": 0.046166,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.08717621951569599,
+          "initial_target": 0.08941659345291203,
+          "atr_at_signal": 0.00037339565620267493,
+          "score": 7,
+          "initial_qty": 14013.0,
+          "initial_margin": 245.88979081379998,
+          "entry_fee": 0.6147244770345,
+          "total_fees": 1.2302452461625266,
+          "partial_exits": [
+            {
+              "ts": 1788513480000,
+              "qty": 3503.0,
+              "price": 0.08826991756235872,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.15367015221949998,
+              "exit_fee": 0.1546047606104713,
+              "net_pnl": 1.5609418691126322
+            },
+            {
+              "ts": 1788513720000,
+              "qty": 10510.0,
+              "price": 0.0877099921061,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.46105432481499997,
+              "exit_fee": 0.4609160085175555,
+              "net_pnl": -1.1986029282214719
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0005736870000000033,
+          "mae_price_before_exit_bar": 3.6312999999996154e-05,
+          "mfe_first_ts": 1788513480000,
+          "mae_first_ts": 1788513300000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.008086703146002733,
+            "compression_threshold": 0.01015998274266505,
+            "breakout_true_range_atr": 1.8079232452132,
+            "relative_volume": 2.092150849142197,
+            "channel_high": 0.08755,
+            "channel_low": 0.0865,
+            "retest_boundary": 0.08755,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1788513720000,
+            "low": 0.08771,
+            "high": 0.08786
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "SHORT",
+        "entry_ts": 1788679800000,
+        "exit_ts": 1788704460000,
+        "entry": 756.602951,
+        "exit": 746.07256461,
+        "net_pnl": 10.81944401,
+        "r_multiple": 1.863097,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "target",
+        "diagnostics": {
+          "initial_stop": 760.1876646789879,
+          "initial_target": 745.8488099630366,
+          "atr_at_signal": 2.3898091193252213,
+          "score": 7,
+          "initial_qty": 1.62,
+          "initial_margin": 245.13935612400005,
+          "entry_fee": 0.6128483903100002,
+          "total_fees": 1.2196772200060448,
+          "partial_exits": [
+            {
+              "ts": 1788700620000,
+              "qty": 0.4,
+              "price": 753.2441427922085,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.15132059020000002,
+              "exit_fee": 0.15064882855844172,
+              "net_pnl": 1.0415538643581685
+            },
+            {
+              "ts": 1788700800000,
+              "qty": 0.4,
+              "price": 751.4512482456628,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.15132059020000005,
+              "exit_fee": 0.15029024964913257,
+              "net_pnl": 1.759070261885785
+            },
+            {
+              "ts": 1788704460000,
+              "qty": 0.8200000000000002,
+              "price": 746.0725646060255,
+              "reason": "target",
+              "final": true,
+              "entry_fee_allocated": 0.3102072099100001,
+              "exit_fee": 0.3058897514884705,
+              "net_pnl": 8.018819881660699
+            }
+          ],
+          "mfe_price_before_exit_bar": 10.112951000000066,
+          "mae_price_before_exit_bar": 2.8070489999998927,
+          "mfe_first_ts": 1788704400000,
+          "mae_first_ts": 1788687120000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.006784662004464381,
+            "compression_threshold": 0.010932218366514897,
+            "breakout_true_range_atr": 2.037433928220482,
+            "relative_volume": 2.295804152619076,
+            "channel_high": 766.45,
+            "channel_low": 759.16,
+            "retest_boundary": 759.16,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1788704460000,
+            "low": 745.42,
+            "high": 746.55
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "LONG",
+        "entry_ts": 1788786900000,
+        "exit_ts": 1788788040000,
+        "entry": 79614.07706,
+        "exit": 79406.89361665,
+        "net_pnl": -4.30040893,
+        "r_multiple": -1.563607,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 79430.72283349551,
+          "initial_target": 80164.13973951344,
+          "atr_at_signal": 122.23615100298693,
+          "score": 7,
+          "initial_qty": 0.015,
+          "initial_margin": 238.84223118,
+          "entry_fee": 0.59710557795,
+          "total_fees": 1.192657280074841,
+          "partial_exits": [
+            {
+              "ts": 1788788040000,
+              "qty": 0.015,
+              "price": 79406.89361664547,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.59710557795,
+              "exit_fee": 0.595551702124841,
+              "net_pnl": -4.300408930392791
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0,
+          "mae_price_before_exit_bar": 173.97705999999016,
+          "mfe_first_ts": null,
+          "mae_first_ts": 1788787980000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.002595143643368875,
+            "compression_threshold": 0.004338254950766917,
+            "breakout_true_range_atr": 1.4180882823009915,
+            "relative_volume": 1.6006307329890552,
+            "channel_high": 79517.5,
+            "channel_low": 79230.0,
+            "retest_boundary": 79517.5,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1788788040000,
+            "low": 79342.6,
+            "high": 79450.0
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "LONG",
+        "entry_ts": 1788862500000,
+        "exit_ts": 1788865560000,
+        "entry": 0.09057717,
+        "exit": 0.08985476,
+        "net_pnl": -11.10692771,
+        "r_multiple": -1.168498,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.08988172273107482,
+          "initial_target": 0.09266349180677554,
+          "atr_at_signal": 0.00046362817928345115,
+          "score": 7,
+          "initial_qty": 13668.0,
+          "initial_margin": 247.601738244,
+          "entry_fee": 0.61900434561,
+          "total_fees": 1.233071763246222,
+          "partial_exits": [
+            {
+              "ts": 1788865560000,
+              "qty": 13668.0,
+              "price": 0.08985475821425551,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.61900434561,
+              "exit_fee": 0.6140674176362221,
+              "net_pnl": -11.10692771080194
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0003728350000000019,
+          "mae_price_before_exit_bar": 0.0006471650000000051,
+          "mfe_first_ts": 1788862800000,
+          "mae_first_ts": 1788865500000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.012549736239619181,
+            "compression_threshold": 0.01296174536300765,
+            "breakout_true_range_atr": 1.3954126274916556,
+            "relative_volume": 3.003587142765804,
+            "channel_high": 0.09024,
+            "channel_low": 0.08877,
+            "retest_boundary": 0.09024,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1788865560000,
+            "low": 0.08985,
+            "high": 0.08996
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "LONG",
+        "entry_ts": 1788929100000,
+        "exit_ts": 1788932460000,
+        "entry": 1.43453023,
+        "exit": 1.42430488,
+        "net_pnl": -9.94501342,
+        "r_multiple": -1.189513,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.4247322993835247,
+          "initial_target": 1.4639240218494247,
+          "atr_at_signal": 0.006531953744316637,
+          "score": 7,
+          "initial_qty": 853.3,
+          "initial_margin": 244.81692905179995,
+          "entry_fee": 0.6120423226294999,
+          "total_fees": 1.219721999550821,
+          "partial_exits": [
+            {
+              "ts": 1788932460000,
+              "qty": 853.3,
+              "price": 1.4243048796937097,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.6120423226294999,
+              "exit_fee": 0.6076796769213212,
+              "net_pnl": -9.945013415908187
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.002569770000000249,
+          "mae_price_before_exit_bar": 0.009130229999999795,
+          "mfe_first_ts": 1788929700000,
+          "mae_first_ts": 1788932400000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.009125981467219468,
+            "compression_threshold": 0.010564551042545906,
+            "breakout_true_range_atr": 1.7570590044201737,
+            "relative_volume": 1.9779839847637757,
+            "channel_high": 1.4265,
+            "channel_low": 1.4094,
+            "retest_boundary": 1.4265,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1788932460000,
+            "low": 1.4231,
+            "high": 1.4263
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789045200000,
+        "exit_ts": 1789061040000,
+        "entry": 0.08369488,
+        "exit": 0.08371999,
+        "net_pnl": 1.3054996,
+        "r_multiple": 0.113363,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.08449030619221268,
+          "initial_target": 0.08130861742336203,
+          "atr_at_signal": 0.000530281461475108,
+          "score": 7,
+          "initial_qty": 14478.0,
+          "initial_margin": 242.34690611040006,
+          "entry_fee": 0.6058672652760001,
+          "total_fees": 1.2104765424798372,
+          "partial_exits": [
+            {
+              "ts": 1789057080000,
+              "qty": 3619.0,
+              "price": 0.08292433164632967,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.15144589259800004,
+              "exit_fee": 0.15005157811403352,
+              "net_pnl": 2.4871314972209153
+            },
+            {
+              "ts": 1789061040000,
+              "qty": 10859.0,
+              "price": 0.08371999246520001,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.4544213726780001,
+              "exit_fee": 0.4545576990898035,
+              "net_pnl": -1.1816318953745975
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0010448840000000098,
+          "mae_price_before_exit_bar": 0.0005651159999999905,
+          "mfe_first_ts": 1789058100000,
+          "mae_first_ts": 1789048920000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.006245040936512086,
+            "compression_threshold": 0.011276188702349811,
+            "breakout_true_range_atr": 4.528689412295874,
+            "relative_volume": 8.584590629777292,
+            "channel_high": 0.08551,
+            "channel_low": 0.08466,
+            "retest_boundary": 0.08466,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1789061040000,
+            "low": 0.08365,
+            "high": 0.08375
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1789219800000,
+        "exit_ts": 1789227420000,
+        "entry": 2540.451907,
+        "exit": 2533.05440096,
+        "net_pnl": -4.73864163,
+        "r_multiple": -1.496718,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2533.814545327514,
+          "initial_target": 2560.3639920174573,
+          "atr_at_signal": 4.42490778165718,
+          "score": 7,
+          "initial_qty": 0.477,
+          "initial_margin": 242.3591119278,
+          "entry_fee": 0.6058977798195,
+          "total_fees": 1.2100312544493939,
+          "partial_exits": [
+            {
+              "ts": 1789227420000,
+              "qty": 0.477,
+              "price": 2533.054400963916,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.6058977798195,
+              "exit_fee": 0.604133474629894,
+              "net_pnl": -4.7386416336614605
+            }
+          ],
+          "mfe_price_before_exit_bar": 5.658093000000008,
+          "mae_price_before_exit_bar": 4.451907000000119,
+          "mfe_first_ts": 1789221540000,
+          "mae_first_ts": 1789227180000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.0039159340954735755,
+            "compression_threshold": 0.005295774609427873,
+            "breakout_true_range_atr": 3.3093963644564557,
+            "relative_volume": 3.385572186860843,
+            "channel_high": 2536.35,
+            "channel_low": 2522.01,
+            "retest_boundary": 2536.35,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1789227420000,
+            "low": 2530.4,
+            "high": 2536.42
+          }
+        }
+      },
+      {
+        "symbol": "SOLUSDT",
+        "side": "SHORT",
+        "entry_ts": 1789547400000,
+        "exit_ts": 1789549320000,
+        "entry": 96.521035,
+        "exit": 97.09047609,
+        "net_pnl": -8.3347481,
+        "r_multiple": -1.233054,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 97.06135768738997,
+          "initial_target": 94.90006693783006,
+          "atr_at_signal": 0.3602151249266526,
+          "score": 7,
+          "initial_qty": 12.51,
+          "initial_margin": 241.49562956999998,
+          "entry_fee": 0.6037390739249999,
+          "total_fees": 1.2110400018973246,
+          "partial_exits": [
+            {
+              "ts": 1789549320000,
+              "qty": 12.51,
+              "price": 97.09047609469619,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.6037390739249999,
+              "exit_fee": 0.6073009279723247,
+              "net_pnl": -8.334748096546639
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0,
+          "mae_price_before_exit_bar": 0.5289649999999995,
+          "mfe_first_ts": null,
+          "mae_first_ts": 1789549260000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.005870851447083545,
+            "compression_threshold": 0.009970246789292772,
+            "breakout_true_range_atr": 1.7181850941420826,
+            "relative_volume": 1.9756550169258666,
+            "channel_high": 97.7,
+            "channel_low": 96.77,
+            "retest_boundary": 96.77,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1789549320000,
+            "low": 97.04,
+            "high": 97.09
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "LONG",
+        "entry_ts": 1789583400000,
+        "exit_ts": 1789583700000,
+        "entry": 0.08004401,
+        "exit": 0.07920594,
+        "net_pnl": -13.72404586,
+        "r_multiple": -1.126973,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.07922971042764387,
+          "initial_target": 0.08248689271706831,
+          "atr_at_signal": 0.0005428637149040734,
+          "score": 7,
+          "initial_qty": 14955.0,
+          "initial_margin": 239.41162194599997,
+          "entry_fee": 0.598529054865,
+          "total_fees": 1.1907914825397903,
+          "partial_exits": [
+            {
+              "ts": 1789583700000,
+              "qty": 14955.0,
+              "price": 0.07920594151451558,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.598529054865,
+              "exit_fee": 0.5922624276747903,
+              "net_pnl": -13.724045862959024
+            }
+          ],
+          "mfe_price_before_exit_bar": 1.599400000001916e-05,
+          "mae_price_before_exit_bar": 0.0006240059999999825,
+          "mfe_first_ts": 1789583400000,
+          "mae_first_ts": 1789583580000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.008684370040825519,
+            "compression_threshold": 0.01097145437850234,
+            "breakout_true_range_atr": 5.5740692193947154,
+            "relative_volume": 8.568841595143905,
+            "channel_high": 0.07956,
+            "channel_low": 0.07828,
+            "retest_boundary": 0.07956,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1789583700000,
+            "low": 0.07902,
+            "high": 0.07951
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "LONG",
+        "entry_ts": 1789648200000,
+        "exit_ts": 1789649340000,
+        "entry": 2471.891345,
+        "exit": 2457.97469158,
+        "net_pnl": -7.81401673,
+        "r_multiple": -1.243003,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2458.7123052763595,
+          "initial_target": 2511.428464170922,
+          "atr_at_signal": 8.786026482427102,
+          "score": 7,
+          "initial_qty": 0.477,
+          "initial_margin": 235.81843431299998,
+          "entry_fee": 0.5895460857825,
+          "total_fees": 1.1757730497254695,
+          "partial_exits": [
+            {
+              "ts": 1789649340000,
+              "qty": 0.477,
+              "price": 2457.974691584777,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5895460857825,
+              "exit_fee": 0.5862269639429694,
+              "net_pnl": -7.814016728786939
+            }
+          ],
+          "mfe_price_before_exit_bar": 7.548655000000053,
+          "mae_price_before_exit_bar": 12.601345000000038,
+          "mfe_first_ts": 1789648200000,
+          "mae_first_ts": 1789649280000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.009131796388325468,
+            "compression_threshold": 0.009286222047616593,
+            "breakout_true_range_atr": 2.561170831412098,
+            "relative_volume": 3.720365384923766,
+            "channel_high": 2453.33,
+            "channel_low": 2426.52,
+            "retest_boundary": 2453.33,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1789649340000,
+            "low": 2458.7,
+            "high": 2459.94
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "LONG",
+        "entry_ts": 1789817400000,
+        "exit_ts": 1789824000000,
+        "entry": 0.08812643,
+        "exit": 0.08941317,
+        "net_pnl": 0.30857084,
+        "r_multiple": 1.549181,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.08754059701672584,
+          "initial_target": 0.08988392894982243,
+          "atr_at_signal": 0.00039055532218276425,
+          "score": 7,
+          "initial_qty": 340.0,
+          "initial_margin": 5.992597239999999,
+          "entry_fee": 0.014981493099999998,
+          "total_fees": 0.030132337787081537,
+          "partial_exits": [
+            {
+              "ts": 1789822680000,
+              "qty": 85.0,
+              "price": 0.08868564930437917,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.0037453732749999995,
+              "exit_fee": 0.003769140095436115,
+              "net_pnl": 0.040019127501793705
+            },
+            {
+              "ts": 1789822740000,
+              "qty": 85.0,
+              "price": 0.08897847792106874,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.003745373274999999,
+              "exit_fee": 0.0037815853116454213,
+              "net_pnl": 0.06489711470419779
+            },
+            {
+              "ts": 1789824000000,
+              "qty": 170.0,
+              "price": 0.08941316800000002,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.007490746549999999,
+              "exit_fee": 0.007600119280000001,
+              "net_pnl": 0.20365459417000395
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0017535700000000098,
+          "mae_price_before_exit_bar": 0.00013642999999999295,
+          "mfe_first_ts": 1789823940000,
+          "mae_first_ts": 1789817460000,
+          "exit_bar_ambiguous": true,
+          "signal_features": {
+            "setup_bandwidth": 0.011980071917167323,
+            "compression_threshold": 0.012628528695400047,
+            "breakout_true_range_atr": 1.885707980035311,
+            "relative_volume": 1.5074977447588185,
+            "channel_high": 0.08806,
+            "channel_low": 0.08646,
+            "retest_boundary": 0.08806,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1789824000000,
+            "low": 0.08912,
+            "high": 0.08945
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "LONG",
+        "entry_ts": 1789807500000,
+        "exit_ts": 1789832700000,
+        "entry": 81305.68439,
+        "exit": 81772.80779852,
+        "net_pnl": 4.07463205,
+        "r_multiple": 1.34298,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 81088.96839410673,
+          "initial_target": 81955.83237767976,
+          "atr_at_signal": 144.47733059550376,
+          "score": 7,
+          "initial_qty": 0.014,
+          "initial_margin": 227.65591629199997,
+          "entry_fee": 0.56913979073,
+          "total_fees": 1.1408873411572475,
+          "partial_exits": [
+            {
+              "ts": 1789827660000,
+              "qty": 0.003,
+              "price": 81497.9436657775,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.12195852658499999,
+              "exit_fee": 0.12224691549866624,
+              "net_pnl": 0.3325723852488286
+            },
+            {
+              "ts": 1789830180000,
+              "qty": 0.003,
+              "price": 81606.26915632474,
+              "reason": "tp2",
+              "final": false,
+              "entry_fee_allocated": 0.121958526585,
+              "exit_fee": 0.1224094037344871,
+              "net_pnl": 0.6573863686547343
+            },
+            {
+              "ts": 1789832700000,
+              "qty": 0.008,
+              "price": 81772.80779852357,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.32522273756,
+              "exit_fee": 0.3270912311940943,
+              "net_pnl": 3.0846732994345247
+            }
+          ],
+          "mfe_price_before_exit_bar": 628.2156099999993,
+          "mae_price_before_exit_bar": 162.9843899999978,
+          "mfe_first_ts": 1789832520000,
+          "mae_first_ts": 1789823520000,
+          "exit_bar_ambiguous": true,
+          "signal_features": {
+            "setup_bandwidth": 0.003614762105902756,
+            "compression_threshold": 0.006282414892851601,
+            "breakout_true_range_atr": 1.5978023845609557,
+            "relative_volume": 2.650259997813832,
+            "channel_high": 81247.2,
+            "channel_low": 80882.0,
+            "retest_boundary": 81247.2,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1789832700000,
+            "low": 81764.0,
+            "high": 81884.7
+          }
+        }
+      },
+      {
+        "symbol": "SOLUSDT",
+        "side": "LONG",
+        "entry_ts": 1790067600000,
+        "exit_ts": 1790072700000,
+        "entry": 117.485235,
+        "exit": 116.47842403,
+        "net_pnl": -11.23792795,
+        "r_multiple": -1.156336,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 116.51337804810125,
+          "initial_target": 120.40080585569628,
+          "atr_at_signal": 0.6479046345991709,
+          "score": 7,
+          "initial_qty": 10.0,
+          "initial_margin": 234.97047000000003,
+          "entry_fee": 0.587426175,
+          "total_fees": 1.1698182951734342,
+          "partial_exits": [
+            {
+              "ts": 1790072700000,
+              "qty": 10.0,
+              "price": 116.47842403468682,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.587426175,
+              "exit_fee": 0.5823921201734341,
+              "net_pnl": -11.23792794830522
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.05476500000000328,
+          "mae_price_before_exit_bar": 0.8752350000000035,
+          "mfe_first_ts": 1790067720000,
+          "mae_first_ts": 1790067960000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.009760050315418173,
+            "compression_threshold": 0.01355545116322985,
+            "breakout_true_range_atr": 2.7034432094647167,
+            "relative_volume": 2.2544596629219744,
+            "channel_high": 117.13,
+            "channel_low": 115.53,
+            "retest_boundary": 117.13,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790072700000,
+            "low": 116.36,
+            "high": 116.72
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "LONG",
+        "entry_ts": 1790082900000,
+        "exit_ts": 1790087700000,
+        "entry": 0.10026007,
+        "exit": 0.09895927,
+        "net_pnl": -16.22370432,
+        "r_multiple": -1.101728,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.09898896929153532,
+          "initial_target": 0.10407336812539403,
+          "atr_at_signal": 0.0008473998056431184,
+          "score": 7,
+          "initial_qty": 11585.0,
+          "initial_margin": 232.30257987299996,
+          "entry_fee": 0.5807564496825,
+          "total_fees": 1.153978036222332,
+          "partial_exits": [
+            {
+              "ts": 1790087700000,
+              "qty": 11585.0,
+              "price": 0.09895927260074787,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5807564496825,
+              "exit_fee": 0.573221586539832,
+              "net_pnl": -16.22370432155819
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0008599310000000082,
+          "mae_price_before_exit_bar": 0.0012500689999999925,
+          "mfe_first_ts": 1790086380000,
+          "mae_first_ts": 1790087580000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.022001423632835426,
+            "compression_threshold": 0.029817011577304212,
+            "breakout_true_range_atr": 1.5945686287007321,
+            "relative_volume": 1.6375122895079586,
+            "channel_high": 0.09978,
+            "channel_low": 0.0971,
+            "retest_boundary": 0.09978,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790087700000,
+            "low": 0.09847,
+            "high": 0.09923
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "SHORT",
+        "entry_ts": 1790215200000,
+        "exit_ts": 1790216100000,
+        "entry": 84045.57876,
+        "exit": 84070.79243363,
+        "net_pnl": -0.57562703,
+        "r_multiple": -0.157347,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 84326.98930217094,
+          "initial_target": 83201.34713348719,
+          "atr_at_signal": 187.60702811396035,
+          "score": 7,
+          "initial_qty": 0.013,
+          "initial_margin": 218.51850477600001,
+          "entry_fee": 0.54629626194,
+          "total_fees": 1.0923341703105816,
+          "partial_exits": [
+            {
+              "ts": 1790215680000,
+              "qty": 0.003,
+              "price": 83789.2974682944,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.12606836814000003,
+              "exit_fee": 0.1256839462024416,
+              "net_pnl": 0.517091560774358
+            },
+            {
+              "ts": 1790216100000,
+              "qty": 0.009999999999999998,
+              "price": 84070.792433628,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.42022789380000003,
+              "exit_fee": 0.4203539621681399,
+              "net_pnl": -1.0927185922480755
+            }
+          ],
+          "mfe_price_before_exit_bar": 337.57876000000397,
+          "mae_price_before_exit_bar": 53.32123999999021,
+          "mfe_first_ts": 1790215860000,
+          "mae_first_ts": 1790215320000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.004591734966830845,
+            "compression_threshold": 0.007588876594323878,
+            "breakout_true_range_atr": 2.302062701217652,
+            "relative_volume": 2.357152557284693,
+            "channel_high": 84638.5,
+            "channel_low": 84139.0,
+            "retest_boundary": 84139.0,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790216100000,
+            "low": 83915.7,
+            "high": 84052.2
+          }
+        }
+      },
+      {
+        "symbol": "BTCUSDT",
+        "side": "LONG",
+        "entry_ts": 1790296200000,
+        "exit_ts": 1790299860000,
+        "entry": 84659.3902,
+        "exit": 84332.29249551,
+        "net_pnl": -5.3507161,
+        "r_multiple": -1.363839,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 84357.59977544362,
+          "initial_target": 85564.76147366912,
+          "atr_at_signal": 201.19361637091785,
+          "score": 7,
+          "initial_qty": 0.013,
+          "initial_margin": 220.11441452,
+          "entry_fee": 0.5502860363,
+          "total_fees": 1.0984459375208213,
+          "partial_exits": [
+            {
+              "ts": 1790299860000,
+              "qty": 0.013,
+              "price": 84332.29249551099,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5502860363,
+              "exit_fee": 0.5481599012208215,
+              "net_pnl": -5.350716095877853
+            }
+          ],
+          "mfe_price_before_exit_bar": 104.30980000000272,
+          "mae_price_before_exit_bar": 291.4902000000002,
+          "mfe_first_ts": 1790298660000,
+          "mae_first_ts": 1790299800000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.005834543714226372,
+            "compression_threshold": 0.006040561992118522,
+            "breakout_true_range_atr": 1.6109971052767988,
+            "relative_volume": 2.580546921983414,
+            "channel_high": 84622.3,
+            "channel_low": 83903.1,
+            "retest_boundary": 84622.3,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790299860000,
+            "low": 84333.3,
+            "high": 84393.1
+          }
+        }
+      },
+      {
+        "symbol": "XRPUSDT",
+        "side": "LONG",
+        "entry_ts": 1790296200000,
+        "exit_ts": 1790299800000,
+        "entry": 1.55256563,
+        "exit": 1.53795883,
+        "net_pnl": -0.40380148,
+        "r_multiple": -1.14187,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 1.5384203591532988,
+          "initial_target": 1.5950014425401033,
+          "atr_at_signal": 0.009430180564467433,
+          "score": 7,
+          "initial_qty": 25.0,
+          "initial_margin": 7.76282815,
+          "entry_fee": 0.019407070375000002,
+          "total_fees": 0.03863155578806941,
+          "partial_exits": [
+            {
+              "ts": 1790299800000,
+              "qty": 25.0,
+              "price": 1.537958833045553,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.019407070375000002,
+              "exit_fee": 0.019224485413069415,
+              "net_pnl": -0.4038014796492444
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.004834369999999977,
+          "mae_price_before_exit_bar": 0.013665629999999984,
+          "mfe_first_ts": 1790296320000,
+          "mae_first_ts": 1790299500000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.009406408513912404,
+            "compression_threshold": 0.012770766300149219,
+            "breakout_true_range_atr": 1.9582914298383145,
+            "relative_volume": 2.301903042517413,
+            "channel_high": 1.5469,
+            "channel_low": 1.5217,
+            "retest_boundary": 1.5469,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790299800000,
+            "low": 1.5378,
+            "high": 1.5419
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "SHORT",
+        "entry_ts": 1790306100000,
+        "exit_ts": 1790324520000,
+        "entry": 773.797791,
+        "exit": 777.00928297,
+        "net_pnl": -5.82086743,
+        "r_multiple": -1.338577,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 776.7762500908016,
+          "initial_target": 764.8624137275953,
+          "atr_at_signal": 1.9856393938677062,
+          "score": 7,
+          "initial_qty": 1.46,
+          "initial_margin": 225.948954972,
+          "entry_fee": 0.56487238743,
+          "total_fees": 1.132089163995055,
+          "partial_exits": [
+            {
+              "ts": 1790324520000,
+              "qty": 1.46,
+              "price": 777.0092829658288,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.56487238743,
+              "exit_fee": 0.5672167765650551,
+              "net_pnl": -5.820867434105143
+            }
+          ],
+          "mfe_price_before_exit_bar": 2.797790999999961,
+          "mae_price_before_exit_bar": 2.882208999999989,
+          "mfe_first_ts": 1790306340000,
+          "mae_first_ts": 1790324460000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.005093858491498349,
+            "compression_threshold": 0.007654154346824705,
+            "breakout_true_range_atr": 1.4905819740170045,
+            "relative_volume": 2.174303936167224,
+            "channel_high": 780.87,
+            "channel_low": 775.01,
+            "retest_boundary": 775.01,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790324520000,
+            "low": 776.57,
+            "high": 776.88
+          }
+        }
+      },
+      {
+        "symbol": "ETHUSDT",
+        "side": "SHORT",
+        "entry_ts": 1790415000000,
+        "exit_ts": 1790417340000,
+        "entry": 2679.915784,
+        "exit": 2687.46960008,
+        "net_pnl": -4.29975369,
+        "r_multiple": -1.517159,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 2686.663601001817,
+          "initial_target": 2659.672332994548,
+          "atr_at_signal": 4.498544667878141,
+          "score": 7,
+          "initial_qty": 0.42,
+          "initial_margin": 225.112925856,
+          "entry_fee": 0.56278231464,
+          "total_fees": 1.1271509306572445,
+          "partial_exits": [
+            {
+              "ts": 1790417340000,
+              "qty": 0.42,
+              "price": 2687.4696000821173,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.56278231464,
+              "exit_fee": 0.5643686160172445,
+              "net_pnl": -4.299753685146579
+            }
+          ],
+          "mfe_price_before_exit_bar": 1.4157839999998032,
+          "mae_price_before_exit_bar": 4.924216000000342,
+          "mfe_first_ts": 1790415060000,
+          "mae_first_ts": 1790417160000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.0037158784465346826,
+            "compression_threshold": 0.004175207690563023,
+            "breakout_true_range_atr": 3.0680406196983467,
+            "relative_volume": 3.257070916878492,
+            "channel_high": 2696.77,
+            "channel_low": 2681.98,
+            "retest_boundary": 2681.98,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790417340000,
+            "low": 2683.61,
+            "high": 2687.64
+          }
+        }
+      },
+      {
+        "symbol": "SOLUSDT",
+        "side": "LONG",
+        "entry_ts": 1790438400000,
+        "exit_ts": 1790442360000,
+        "entry": 121.866549,
+        "exit": 121.23033208,
+        "net_pnl": -6.96386362,
+        "r_multiple": -1.263286,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 121.26671209824106,
+          "initial_target": 123.66605970527681,
+          "atr_at_signal": 0.3998912678392927,
+          "score": 7,
+          "initial_qty": 9.19,
+          "initial_margin": 223.990717062,
+          "entry_fee": 0.559976792655,
+          "total_fees": 1.1170301685837902,
+          "partial_exits": [
+            {
+              "ts": 1790442360000,
+              "qty": 9.19,
+              "price": 121.23033208461159,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.559976792655,
+              "exit_fee": 0.5570533759287903,
+              "net_pnl": -6.963863621003209
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0,
+          "mae_price_before_exit_bar": 0.596548999999996,
+          "mfe_first_ts": null,
+          "mae_first_ts": 1790442300000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.00947769383366532,
+            "compression_threshold": 0.01043935560806303,
+            "breakout_true_range_atr": 1.7634685063871078,
+            "relative_volume": 3.1647839535560043,
+            "channel_high": 121.56,
+            "channel_low": 120.2,
+            "retest_boundary": 121.56,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790442360000,
+            "low": 121.25,
+            "high": 121.31
+          }
+        }
+      },
+      {
+        "symbol": "SOLUSDT",
+        "side": "SHORT",
+        "entry_ts": 1790456400000,
+        "exit_ts": 1790457480000,
+        "entry": 120.253913,
+        "exit": 120.96838089,
+        "net_pnl": -7.7161303,
+        "r_multiple": -1.231338,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 120.93210125923426,
+          "initial_target": 118.21934822229726,
+          "atr_at_signal": 0.45212550615616787,
+          "score": 7,
+          "initial_qty": 9.24,
+          "initial_margin": 222.22923122400002,
+          "entry_fee": 0.5555730780600001,
+          "total_fees": 1.1144469977700076,
+          "partial_exits": [
+            {
+              "ts": 1790457480000,
+              "qty": 9.24,
+              "price": 120.96838088961202,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5555730780600001,
+              "exit_fee": 0.5588739197100075,
+              "net_pnl": -7.716130297784979
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.04391300000001763,
+          "mae_price_before_exit_bar": 0.6560869999999852,
+          "mfe_first_ts": 1790456400000,
+          "mae_first_ts": 1790457420000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.008477710062074774,
+            "compression_threshold": 0.008952914539569501,
+            "breakout_true_range_atr": 3.4216744206560734,
+            "relative_volume": 2.875946551570648,
+            "channel_high": 122.09,
+            "channel_low": 120.63,
+            "retest_boundary": 120.63,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790457480000,
+            "low": 120.87,
+            "high": 120.94
+          }
+        }
+      },
+      {
+        "symbol": "BNBUSDT",
+        "side": "SHORT",
+        "entry_ts": 1790645400000,
+        "exit_ts": 1790652300000,
+        "entry": 756.033122,
+        "exit": 759.69403817,
+        "net_pnl": -6.40723064,
+        "r_multiple": -1.28712,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 759.4661983120552,
+          "initial_target": 745.7338930638346,
+          "atr_at_signal": 2.288717541370098,
+          "score": 7,
+          "initial_qty": 1.45,
+          "initial_margin": 219.24960538,
+          "entry_fee": 0.5481240134500001,
+          "total_fees": 1.098902191124373,
+          "partial_exits": [
+            {
+              "ts": 1790652300000,
+              "qty": 1.45,
+              "price": 759.6940381715488,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5481240134500001,
+              "exit_fee": 0.5507781776743729,
+              "net_pnl": -6.407230639869997
+            }
+          ],
+          "mfe_price_before_exit_bar": 2.313122000000021,
+          "mae_price_before_exit_bar": 3.276877999999897,
+          "mfe_first_ts": 1790649240000,
+          "mae_first_ts": 1790652240000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.009285384841941044,
+            "compression_threshold": 0.010792762879828124,
+            "breakout_true_range_atr": 1.307358122552696,
+            "relative_volume": 2.555035065275624,
+            "channel_high": 766.57,
+            "channel_low": 759.72,
+            "retest_boundary": 759.72,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790652300000,
+            "low": 758.96,
+            "high": 759.56
+          }
+        }
+      },
+      {
+        "symbol": "SOLUSDT",
+        "side": "LONG",
+        "entry_ts": 1790686800000,
+        "exit_ts": 1790690220000,
+        "entry": 120.83624,
+        "exit": 120.79998913,
+        "net_pnl": 0.33724452,
+        "r_multiple": 0.047848,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 120.0574228844682,
+          "initial_target": 123.17269134659537,
+          "atr_at_signal": 0.5192114103545283,
+          "score": 7,
+          "initial_qty": 9.05,
+          "initial_margin": 218.7135944,
+          "entry_fee": 0.546783986,
+          "total_fees": 1.0942837361257487,
+          "partial_exits": [
+            {
+              "ts": 1790690040000,
+              "qty": 2.26,
+              "price": 121.57857259839713,
+              "reason": "tp1",
+              "final": false,
+              "entry_fee_allocated": 0.1365449512,
+              "exit_fee": 0.13738378703618875,
+              "net_pnl": 1.4037429341413499
+            },
+            {
+              "ts": 1790690220000,
+              "qty": 6.790000000000001,
+              "price": 120.79998912799999,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.4102390348,
+              "exit_fee": 0.41011596308956,
+              "net_pnl": -1.0664984187695365
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.7837600000000151,
+          "mae_price_before_exit_bar": 0.26623999999999626,
+          "mfe_first_ts": 1790690040000,
+          "mae_first_ts": 1790688900000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.011471272433827158,
+            "compression_threshold": 0.01644281442856146,
+            "breakout_true_range_atr": 2.0156894090391866,
+            "relative_volume": 2.5879817258468534,
+            "channel_high": 120.55,
+            "channel_low": 118.79,
+            "retest_boundary": 120.55,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790690220000,
+            "low": 120.66,
+            "high": 121.41
+          }
+        }
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "side": "SHORT",
+        "entry_ts": 1790695800000,
+        "exit_ts": 1790719980000,
+        "entry": 0.09345196,
+        "exit": 0.09446803,
+        "net_pnl": -13.00400148,
+        "r_multiple": -1.12381,
+        "votes": [
+          "compression_retest"
+        ],
+        "reason": "stop",
+        "diagnostics": {
+          "initial_stop": 0.09443969410331712,
+          "initial_target": 0.09048874169004864,
+          "atr_at_signal": 0.0006584920688780819,
+          "score": 7,
+          "initial_qty": 11715.0,
+          "initial_margin": 218.95793290800003,
+          "entry_fee": 0.5473948322700001,
+          "total_fees": 1.1007412946326434,
+          "partial_exits": [
+            {
+              "ts": 1790719980000,
+              "qty": 11715.0,
+              "price": 0.09446802601154812,
+              "reason": "stop",
+              "final": true,
+              "entry_fee_allocated": 0.5473948322700001,
+              "exit_fee": 0.5533464623626432,
+              "net_pnl": -13.00400147991884
+            }
+          ],
+          "mfe_price_before_exit_bar": 0.0007719560000000042,
+          "mae_price_before_exit_bar": 0.0009280440000000029,
+          "mfe_first_ts": 1790704260000,
+          "mae_first_ts": 1790719440000,
+          "exit_bar_ambiguous": false,
+          "signal_features": {
+            "setup_bandwidth": 0.015741646764655514,
+            "compression_threshold": 0.018451931085084965,
+            "breakout_true_range_atr": 1.9033519808482113,
+            "relative_volume": 2.8604148188635983,
+            "channel_high": 0.09635,
+            "channel_low": 0.09481,
+            "retest_boundary": 0.09481,
+            "retest_delay_bars": 1.0
+          },
+          "terminal_bar": {
+            "ts": 1790719980000,
+            "low": 0.09432,
+            "high": 0.09445
+          }
+        }
+      }
+    ]
+  }
+}

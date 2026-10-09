@@ -9,7 +9,7 @@ from bisect import bisect_right
 from math import isclose
 from datetime import datetime, timezone
 from .models import Candle, Signal, Position
-from .exits import levels_for_bar
+from .exits import ExitStep, levels_for_bar
 from .indicators import atr
 from .reports import summary
 from .config import Settings
@@ -32,7 +32,7 @@ def run_portfolio(
         raise ValueError("Execution interval must be 5m or 1m")
     if execution_interval == "1m" and minute is None:
         raise ValueError("1m execution requires actual minute candles")
-    if exit_policy not in {"baseline", "fixed-1r", "fixed-3r"}:
+    if exit_policy not in {"baseline", "fixed-1r", "fixed-3r", "breakout-invalidation"}:
         raise ValueError("Unknown exit policy")
     if not candles or set(candles) != set(higher) or set(candles) != set(filters) or (macro is not None and set(candles) != set(macro)):
         raise ValueError("Each portfolio symbol requires bars, HTF and exchange filters")
@@ -123,11 +123,15 @@ def run_portfolio(
             committed = sum(p.margin for p in active.values())
             sized = size_trade(new, mark, config, filters[sym], committed) if allowed else None
             if sized:
+                if (exit_policy == "breakout-invalidation" and
+                        not {"channel_high", "channel_low"} <= sig.features.keys()):
+                    raise ValueError("Breakout invalidation requires frozen channel features")
                 qty, margin = sized
                 fee = qty * px * config.fee_rate
                 fees_total += fee
                 wallet -= fee
                 active[sym] = Position(sym, sig.side, ts, px, new.stop, new.target, qty, fee, margin,
+                                       features=dict(sig.features),
                                        initial_qty=qty, initial_risk=gap, peak=px,
                                        step=filters[sym].step, votes=list(sig.votes),
                                        atr_value=sig.atr_value or gap / 1.5,
@@ -150,20 +154,33 @@ def run_portfolio(
             prev_atr = atr(last_bars) if len(last_bars) >= 16 else None
             execution_bars = ([execution[sym][t] for t in range(ts, ts + expected, 60_000)]
                               if execution_interval == "1m" else [b])
-            for eb in execution_bars:
+            invalidate = False
+            if exit_policy == "breakout-invalidation" and ts > p.opened_ts and not p.tp1_done:
+                previous = by_symbol[sym][stamps[i-1]]
+                boundary = p.features["channel_high" if p.side == "LONG" else "channel_low"]
+                invalidate = (previous.close <= boundary if p.side == "LONG"
+                              else previous.close >= boundary)
+            for execution_index, eb in enumerate(execution_bars):
                 existing_stop = p.stop
                 sign = 1 if p.side == "LONG" else -1
                 fixed_target_r = {"fixed-1r": 1.0, "fixed-3r": 3.0}.get(exit_policy)
-                actions = (fixed_r_levels(p, eb.low, eb.high, eb.open, fixed_target_r)
-                           if fixed_target_r is not None else
-                           levels_for_bar(p, eb.low, eb.high, eb.open,
-                                          atr_value=prev_atr,
-                                          trailing_atr_mult=config.trailing_atr_mult))
+                if invalidate and execution_index == 0:
+                    actions = [ExitStep(p.qty, eb.open, "breakout_invalidation", True)]
+                else:
+                    actions = (fixed_r_levels(p, eb.low, eb.high, eb.open, fixed_target_r)
+                               if fixed_target_r is not None else
+                               levels_for_bar(p, eb.low, eb.high, eb.open,
+                                              atr_value=prev_atr,
+                                              trailing_atr_mult=config.trailing_atr_mult))
                 if diagnostics:
                     trace = traces[sym]
                     terminal = any(a.final for a in actions)
-                    stop_touch = eb.low <= existing_stop if sign == 1 else eb.high >= existing_stop
-                    one_r_touch = (eb.high - p.entry if sign == 1 else p.entry - eb.low) >= p.initial_risk
+                    open_invalidation = invalidate and execution_index == 0
+                    stop_touch = (False if open_invalidation else
+                                  eb.low <= existing_stop if sign == 1 else eb.high >= existing_stop)
+                    one_r_touch = (False if open_invalidation else
+                                   (eb.high - p.entry if sign == 1 else p.entry - eb.low)
+                                   >= p.initial_risk)
                     trace["exit_bar_ambiguous"] = terminal and stop_touch and one_r_touch
                     # Terminal-bar extremes may happen AFTER exit; never credit them as actual MFE/MAE.
                     # These fields are lower bounds from completed pre-terminal bars, not tick paths.
@@ -176,7 +193,10 @@ def run_portfolio(
                                 trace[field] = value
                                 trace[name + "_first_ts"] = eb.ts
                     else:
-                        trace["terminal_bar"] = {"ts": eb.ts, "low": eb.low, "high": eb.high}
+                        trace["terminal_bar"] = ({"ts": eb.ts, "low": eb.open,
+                                                  "high": eb.open, "open_exit": True}
+                                                 if open_invalidation else
+                                                 {"ts": eb.ts, "low": eb.low, "high": eb.high})
                 for action in actions:
                     px = action.price * (1 - slip if p.side == "LONG" else 1 + slip)
                     proportion = action.qty / p.qty

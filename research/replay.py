@@ -22,7 +22,7 @@ from vortex.portfolio import run_portfolio
 import vortex.portfolio as portfolio
 from vortex.research_policy import (filter_signal, confirmed_breakout,
                                     trend_pullback, range_reversion,
-                                    compression_expansion)
+                                    compression_expansion, compression_retest)
 from vortex.risk import Filters
 
 
@@ -73,8 +73,8 @@ def main():
     parser.add_argument('--month', required=True)
     parser.add_argument('--decision-interval', choices=['5m','15m'], default='5m')
     parser.add_argument('--execution', choices=['5m','1m'], default='5m')
-    parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor','invert-direction','trend-pullback','range-reversion','range-reversion-ablation','compression-expansion','compression-expansion-cost'], default='baseline')
-    parser.add_argument('--exit-policy', choices=['baseline','fixed-1r','fixed-3r'], default='baseline')
+    parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor','invert-direction','trend-pullback','range-reversion','range-reversion-ablation','compression-expansion','compression-expansion-cost','compression-retest'], default='baseline')
+    parser.add_argument('--exit-policy', choices=['baseline','fixed-1r','fixed-3r','breakout-invalidation'], default='baseline')
     parser.add_argument('--cost-multiplier', type=float, default=1)
     parser.add_argument('--cache', type=Path, default=Path('data/research-cache'))
     parser.add_argument('--output', type=Path, required=True)
@@ -115,6 +115,8 @@ def main():
                        ([args.month] if interval == '5m' else [previous,args.month])), []) for sym in cfg.symbols}
     original_analyze = portfolio.analyze
     def research_analyze(*pos, **kw):
+        if args.entry_policy == 'compression-retest':
+            return compression_retest(*pos, **kw)
         if args.entry_policy == 'compression-expansion-cost':
             return filter_signal(compression_expansion(*pos, **kw), 'cost-floor')
         if args.entry_policy == 'compression-expansion':

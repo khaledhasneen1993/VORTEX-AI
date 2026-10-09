@@ -26,6 +26,22 @@ from vortex.research_policy import (filter_signal, confirmed_breakout,
 from vortex.risk import Filters
 
 
+def parse_months(value: str) -> list[str]:
+    """Parse a chronological, gap-free calendar range for one continuous replay."""
+    months = value.split(',')
+    if not months or any(len(month) != 7 or month[4] != '-' for month in months):
+        raise ValueError('Months must be comma-separated YYYY-MM values')
+    indices = []
+    for month in months:
+        year, number = map(int, month.split('-'))
+        if number not in range(1, 13):
+            raise ValueError('Month number must be 01..12')
+        indices.append(year * 12 + number - 1)
+    if len(set(months)) != len(months) or any(b != a + 1 for a, b in zip(indices, indices[1:])):
+        raise ValueError('Replay months must be unique, chronological and consecutive')
+    return months
+
+
 def public_bytes(url):
     for attempt in range(3):
         try:
@@ -70,7 +86,8 @@ def monthly(cache, symbol, interval, month):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--month', required=True)
+    parser.add_argument('--month', required=True,
+                        help='One YYYY-MM month or a consecutive comma-separated range')
     parser.add_argument('--decision-interval', choices=['5m','15m'], default='5m')
     parser.add_argument('--execution', choices=['5m','1m'], default='5m')
     parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor','invert-direction','trend-pullback','range-reversion','range-reversion-ablation','compression-expansion','compression-expansion-cost','compression-retest'], default='baseline')
@@ -90,10 +107,11 @@ def main():
     cfg = replace(cfg, fee_rate=cfg.fee_rate * args.cost_multiplier,
                   slippage_bps=cfg.slippage_bps * args.cost_multiplier)
     args.cache.mkdir(parents=True, exist_ok=True)
-    year,m = map(int,args.month.split('-'))
+    months = parse_months(args.month)
+    year,m = map(int,months[0].split('-'))
     previous = f'{year-1}-12' if m == 1 else f'{year}-{m-1:02}'
     specs = [(sym, interval, mon) for sym in cfg.symbols for interval in ['5m','15m','1h','1m']
-             for mon in ([args.month] if interval == '5m' else [previous,args.month])]
+             for mon in (months if interval == '5m' else [previous,*months])]
     def read(spec):
         return spec, monthly(args.cache,*spec)
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -113,7 +131,7 @@ def main():
     filters = {sym:Filters.from_exchange(info[sym]) for sym in cfg.symbols}
     def history(interval):
         return {sym:sum((loaded[(sym,interval,mon)][0] for mon in
-                       ([args.month] if interval == '5m' else [previous,args.month])), []) for sym in cfg.symbols}
+                       (months if interval == '5m' else [previous,*months])), []) for sym in cfg.symbols}
     original_analyze = portfolio.analyze
     def research_analyze(*pos, **kw):
         if args.entry_policy == 'compression-retest':
@@ -133,7 +151,8 @@ def main():
         return filter_signal(original_analyze(*pos, **kw), args.entry_policy)
     portfolio.analyze = research_analyze
     print('Data validated; replay starts', flush=True)
-    decision = {sym:loaded[(sym,args.decision_interval,args.month)][0] for sym in cfg.symbols}
+    decision = {sym:sum((loaded[(sym,args.decision_interval,month)][0]
+                         for month in months), []) for sym in cfg.symbols}
     higher_interval = '15m' if args.decision_interval == '5m' else '1h'
     report = run_portfolio(decision,history(higher_interval),filters,cfg,macro=history('1h'),
                            minute=history('1m'),execution_interval=args.execution,diagnostics=True,
@@ -141,7 +160,9 @@ def main():
     commit = subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
     dirty = subprocess.check_output(['git','status','--porcelain'],text=True).strip()
     config = asdict(cfg); config['data_dir'] = str(config['data_dir'])
-    output = {'month':args.month,'base_commit':commit,'working_tree_dirty':bool(dirty),
+    output = {'month':months[0] if len(months) == 1 else None, 'months':months,
+              'continuous_across_months':len(months) > 1,
+              'base_commit':commit,'working_tree_dirty':bool(dirty),
               'source_hashes':source_hashes,
               'decision_interval':args.decision_interval,
               'execution_interval':args.execution, 'entry_policy':args.entry_policy,

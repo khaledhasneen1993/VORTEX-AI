@@ -579,3 +579,29 @@ development periods only; any viewed period is permanently marked exposed.
 Validation still requires >=3 months, aggregate PF >=1.2, >=100 trades, DD
 <=20%, positive normal and doubled costs, followed by >=7 days forward PAPER.
 Main remains unchanged and PR #11 stays draft.
+
+## W000 — chronological walk-forward registry
+
+Registered before downloading or reading any strategy returns for the new
+calendar periods. Development is 2026-01 through 2026-03. Locked validation is
+2026-04 through 2026-06. July is a secondary locked period. August is explicitly
+ineligible as a pristine holdout because its archives were already accessed as
+September warmup. September remains exposed development and cannot select
+another strategy. There is currently no candidate, so the harness refuses to
+construct a validation command or read validation returns.
+
+The replay now accepts a chronological comma-separated month range and runs it
+as one continuous portfolio: wallet, open positions, daily breaker and equity
+drawdown carry across month boundaries. Gaps, duplicates and reordered months
+are rejected. This avoids understating drawdown by resetting equity monthly.
+
+The registry freezes the existing acceptance gate unchanged: positive normal-
+cost net over at least three validation months, aggregate PF >=1.2, at least 100
+closed validation trades, maxDD <=20%, and positive net with fees/slippage at
+2x. A candidate must be preregistered for development, then frozen with the
+development-result SHA256 and exact research source hashes before validation
+or cost stress can be constructed. Any source change after freeze relocks the
+gate. Historical passage would still require at least seven forward PAPER days.
+
+Registration command (no market download):
+`python -m research.walk_forward --phase register --output research/results/W000-walk-forward-registry.json`

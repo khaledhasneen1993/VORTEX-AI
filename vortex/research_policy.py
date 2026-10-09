@@ -1,10 +1,11 @@
 """Opt-in entry hypothesis for historical research; production defaults unchanged."""
 from dataclasses import replace
-from math import isfinite
+from math import isfinite, sqrt
 from .models import Signal
 from .exits import ExitStep
 from .models import Position
 from .indicators import adx, atr, ema, rsi
+from .reversal import confirm as confirm_1m
 
 
 def filter_signal(signal: Signal | None, policy: str) -> Signal | None:
@@ -150,4 +151,61 @@ def trend_pullback(symbol, bars, higher, min_score, *, macro=None, **_options) -
                   'ema9_distance_atr': abs(current.close-current_ema9)/volatility,
                   'macro_direction': float(macro_direction)},
         votes=('trend_pullback',), atr_value=volatility,
+    )
+
+
+def range_reversion(symbol, bars, higher, min_score, *, minute=None,
+                    require_minute_confirmation=True, **_options) -> Signal | None:
+    """E011: frozen-band reclaim in a low-ADX range, confirmed on completed 1m."""
+    if len(bars) < 70 or len(higher) < 30 or minute is None or len(minute) < 85:
+        return None
+    current, setup = bars[-1], bars[-2]
+    if higher[-1].close_ts > current.close_ts or minute[-1].close_ts > current.close_ts:
+        return None
+    reference = [bar.close for bar in bars[-22:-2]]
+    if len(reference) != 20:
+        return None
+    mean = sum(reference) / len(reference)
+    deviation = sqrt(sum((price - mean) ** 2 for price in reference) / len(reference))
+    if deviation <= 0:
+        return None
+    lower, upper = mean - 2 * deviation, mean + 2 * deviation
+    volatility = atr(bars)
+    if volatility <= 0 or not 0.0008 <= volatility / current.close <= 0.045:
+        return None
+    adx_small, adx_higher = adx(bars), adx(higher)
+    if adx_small >= 20 or adx_higher >= 20:
+        return None
+    average_volume = sum(bar.volume for bar in bars[-21:-1]) / 20
+    if average_volume <= 0:
+        return None
+    relative_volume = current.volume / average_volume
+    if not 0.8 <= relative_volume <= 1.5:
+        return None
+    momentum = rsi([bar.close for bar in bars], 7)
+    if setup.close < lower and current.close >= lower and current.close > current.open:
+        direction = 1
+        accepted = momentum <= 40
+    elif setup.close > upper and current.close <= upper and current.close < current.open:
+        direction = -1
+        accepted = momentum >= 60
+    else:
+        return None
+    if not accepted or (require_minute_confirmation and
+                        not confirm_1m(minute, direction, current.close_ts)):
+        return None
+    stop = current.close - direction * 1.5 * volatility
+    target = current.close + direction * 3.0 * volatility
+    return Signal(
+        symbol, 'LONG' if direction == 1 else 'SHORT', current.ts,
+        current.close, stop, target, max(min_score, 7),
+        ('RANGE_REVERSION frozen 20x2SD band reclaim; low ADX; '
+         + ('completed 1m confirmation' if require_minute_confirmation
+            else 'E012 minute-confirmation ablation')),
+        features={'band_mean': mean, 'band_lower': lower, 'band_upper': upper,
+                  'band_setup_close': setup.close, 'relative_volume': relative_volume,
+                  'adx_5m': adx_small, 'adx_15m': adx_higher,
+                  'rsi7_decision': momentum,
+                  'minute_confirmation_required': float(require_minute_confirmation)},
+        votes=('range_reversion',), atr_value=volatility,
     )

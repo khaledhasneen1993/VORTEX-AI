@@ -176,3 +176,72 @@ def test_trend_pullback_requires_completed_aligned_histories():
     assert trend_pullback('BTCUSDT',small[:60],small,5,macro=small*3) is None
     higher=[replace(c,close_ts=small[-1].close_ts+1) for c in small]
     assert trend_pullback('BTCUSDT',small,higher,5,macro=small*3) is None
+
+
+def test_range_reversion_freezes_band_and_thresholds(monkeypatch):
+    from dataclasses import replace
+    import vortex.research_policy as policy
+    small,_=fixture_history()
+    small=[replace(c,open=100,high=101,low=99,close=100,volume=10) for c in small]
+    # Reference is bars [-22:-2]. The setup is outside its frozen lower band;
+    # current closes back inside with a bullish body and allowed relative volume.
+    small[-22]=replace(small[-22],close=99)
+    small[-2]=replace(small[-2],open=98,high=99,low=96,close=97,volume=10)
+    small[-1]=replace(small[-1],open=98,high=100,low=97,close=99.8,volume=10)
+    minute=[Candle(START+i*60000,99,100,98,99,2,START+(i+1)*60000-1)
+            for i in range(85)]
+    monkeypatch.setattr(policy,'adx',lambda _bars: 19.99)
+    monkeypatch.setattr(policy,'atr',lambda _bars: 1.0)
+    monkeypatch.setattr(policy,'rsi',lambda _prices,_period: 40.0)
+    monkeypatch.setattr(policy,'confirm_1m',lambda bars,direction,close: direction==1)
+    signal=policy.range_reversion('BTCUSDT',small,small,5,minute=minute)
+    assert signal is not None and signal.side=='LONG'
+    assert signal.stop==98.3 and signal.target==102.8
+    assert signal.votes==('range_reversion',)
+    assert signal.features['rsi7_decision']==40
+    too_loud=list(small); too_loud[-1]=replace(too_loud[-1],volume=15.01)
+    assert policy.range_reversion('BTCUSDT',too_loud,small,5,minute=minute) is None
+    monkeypatch.setattr(policy,'adx',lambda _bars: 20.0)
+    assert policy.range_reversion('BTCUSDT',small,small,5,minute=minute) is None
+
+
+def test_range_reversion_requires_completed_minute_confirmation(monkeypatch):
+    from dataclasses import replace
+    import vortex.research_policy as policy
+    small,_=fixture_history()
+    small=[replace(c,open=100,high=101,low=99,close=100,volume=10) for c in small]
+    small[-22]=replace(small[-22],close=99)
+    small[-2]=replace(small[-2],open=98,high=99,low=96,close=97)
+    small[-1]=replace(small[-1],open=98,high=100,low=97,close=99.8)
+    minute=[Candle(START+i*60000,99,100,98,99,2,START+(i+1)*60000-1)
+            for i in range(85)]
+    monkeypatch.setattr(policy,'adx',lambda _bars: 10)
+    monkeypatch.setattr(policy,'atr',lambda _bars: 1)
+    monkeypatch.setattr(policy,'rsi',lambda _prices,_period: 35)
+    monkeypatch.setattr(policy,'confirm_1m',lambda *_args: False)
+    assert policy.range_reversion('BTCUSDT',small,small,5,minute=minute) is None
+    future=list(minute); future[-1]=replace(future[-1],close_ts=small[-1].close_ts+1)
+    monkeypatch.setattr(policy,'confirm_1m',lambda *_args: True)
+    assert policy.range_reversion('BTCUSDT',small,small,5,minute=future) is None
+
+
+def test_range_reversion_ablation_changes_only_minute_gate(monkeypatch):
+    from dataclasses import replace
+    import vortex.research_policy as policy
+    small,_=fixture_history()
+    small=[replace(c,open=100,high=101,low=99,close=100,volume=10) for c in small]
+    small[-22]=replace(small[-22],close=99)
+    small[-2]=replace(small[-2],open=98,high=99,low=96,close=97)
+    small[-1]=replace(small[-1],open=98,high=100,low=97,close=99.8)
+    minute=[Candle(START+i*60000,99,100,98,99,2,START+(i+1)*60000-1)
+            for i in range(85)]
+    monkeypatch.setattr(policy,'adx',lambda _bars: 10)
+    monkeypatch.setattr(policy,'atr',lambda _bars: 1)
+    monkeypatch.setattr(policy,'rsi',lambda _prices,_period: 35)
+    monkeypatch.setattr(policy,'confirm_1m',lambda *_args: False)
+    strict=policy.range_reversion('BTCUSDT',small,small,5,minute=minute)
+    ablated=policy.range_reversion('BTCUSDT',small,small,5,minute=minute,
+                                   require_minute_confirmation=False)
+    assert strict is None and ablated is not None
+    assert ablated.features['minute_confirmation_required']==0
+    assert ablated.stop==98.3 and ablated.target==102.8

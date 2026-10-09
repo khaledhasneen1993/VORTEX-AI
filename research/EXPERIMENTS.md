@@ -284,3 +284,71 @@ and preregister three other calendar months before downloading their returns.
 
 Current conclusion: neither the original nor any tested modification has a
 demonstrated profitable edge. Main must remain unchanged and PR #11 stays draft.
+
+## E011 — standalone low-ADX range mean reversion (pre-registered)
+
+Registered before implementation or replay; September remains exposed
+DEVELOPMENT data. Use completed 5m candles only for the setup. Define the band
+from the 20 completed candles immediately BEFORE the setup candle: arithmetic
+mean plus/minus 2 population standard deviations. The setup candle must close
+strictly outside that frozen band. The next completed 5m decision candle must
+close back inside the same band with a body in the reversal direction. Require
+ADX14 <20 on both completed 5m and completed 15m histories, ATR14/close in the
+existing sanity range 0.0008..0.045, RSI7 at the decision close <=40 LONG or
+>=60 SHORT, and decision-candle volume divided by the preceding 20-candle mean
+in the inclusive range 0.8..1.5. Require the existing completed-1m divergence
+and StochRSI reversal confirmation at or before the decision close. No macro
+trend vote is required; this is deliberately orthogonal to trend/breakout.
+
+Enter at the next 5m open under the unchanged gap/slippage checks. Initial stop
+is 1.5 ATR and target is 3 ATR from the decision close (2R); retain baseline
+staged exits, sizing, 10% modeled risk budget, 5x leverage, 3-position/25%
+margin caps and 50% daily breaker. No threshold search or symbol/side selection.
+If net or PF is non-positive, reject without tuning this family on September.
+If promising, freeze it before registering and downloading three other months.
+
+Command: `python -m research.replay --month 2026-09 --execution 1m --entry-policy range-reversion --output research/results/E011-range-reversion-1m.json`
+
+## E011 result and E012 registration
+
+E011 is REJECTED for zero sample: 0 closed trades, no open positions, zero
+fees/PnL and PF undefined. This is not evidence of profitability. Gate tracing
+across all six symbols found 2,386 frozen-band reclaims, 466 also below both
+ADX limits, 415 also inside the ATR sanity range, 169 also inside the frozen
+volume range, and 59 also passing RSI7. The existing 1m divergence + StochRSI
+confirmation accepted 0/59. Counts are descriptive diagnostics computed from
+the same exposed month and cannot be used as validation evidence.
+
+E012 is a single gate ablation to measure the range entry family rather than an
+unobservably rare conjunction. Preserve E011's band, ADX, ATR, RSI7, volume,
+stop/target, baseline exits, costs and all account-risk settings exactly. Remove
+only the 1m divergence/StochRSI requirement; the completed 5m directional body
+and frozen-band re-entry remain the reversal confirmation. Do not substitute or
+tune another minute threshold after viewing September. This ablation was
+registered before its replay. A positive September result would still require
+the entire rule to be frozen and evaluated on independently registered months;
+a non-positive result rejects the family without threshold tuning.
+
+Command: `python -m research.replay --month 2026-09 --execution 1m --entry-policy range-reversion-ablation --output research/results/E012-range-reversion-ablation-1m.json`
+
+## E012 result and next-run boundary
+
+E012 FAILS: 48 closed trades, 17 winners (35.42%), realized net -105.493683,
+PF .3509032175, maxDD 10.774%, fees 56.803722, cash 893.962735. One BTC
+position remains open at the calendar boundary; marked equity is 892.756735
+(open unrealized net -1.206001), so the open position does not rescue the
+result. All six symbols are net negative. The closed stream is approximately
+-48.69 even after adding fees back, while modeled slippage remains embedded;
+cost alone therefore does not explain failure. Only 3 of 25 active trade days
+are net positive. Reject the family; do not tune its band/ADX/RSI/volume limits
+or select symbols/sides on this exposed month.
+
+The next hypothesis must not retune trend pullback, original breakout, or range
+reversion. Register before execution a volatility-compression expansion family
+on 15m decisions, motivated by E010/E009's lower noise but avoiding their late
+trend/pullback entries. Specify the compression window, expansion trigger and
+volume rule exactly before replay. Keep actual 1m execution, baseline exits and
+all financial risk settings frozen. September remains development-only.
+
+Current conclusion remains: no tested version demonstrates a profitable edge;
+main stays unchanged and PR #11 remains draft.

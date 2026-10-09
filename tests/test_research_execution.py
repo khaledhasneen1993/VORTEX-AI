@@ -1,6 +1,6 @@
 """Execution-order tests, not claims about market performance."""
 import pytest
-from vortex.models import Candle, Signal
+from vortex.models import Candle, FundingEvent, Signal
 from vortex.config import Settings
 from vortex.risk import Filters
 from vortex.portfolio import run_portfolio
@@ -37,6 +37,16 @@ def replay(monkeypatch,interval='5m',diagnostics=True,minute_override=None,exit_
                          exit_policy=exit_policy)
 
 
+def funding_replay(monkeypatch, rate):
+    small, minute = fixture_history()
+    monkeypatch.setattr(module, 'analyze', candidate)
+    event = FundingEvent(small[75].ts, rate, 100.)
+    return run_portfolio({'BTCUSDT':small},{'BTCUSDT':[]},
+                         {'BTCUSDT':Filters(.001,.001,5,.01)},Settings(),
+                         minute={'BTCUSDT':minute}, execution_interval='1m',
+                         diagnostics=True, funding={'BTCUSDT':[event]})
+
+
 def test_diagnostics_preserve_coarse_pnl(monkeypatch):
     traced=replay(monkeypatch)
     plain=replay(monkeypatch,diagnostics=False)
@@ -61,6 +71,27 @@ def test_minutes_resolve_sequence_without_future_candle(monkeypatch):
     assert t['exit_ts']==t['entry_ts']+60000
     assert sum(p['qty'] for p in t['diagnostics']['partial_exits'])==pytest.approx(t['diagnostics']['initial_qty'])
     assert t['diagnostics']['terminal_bar']['low']==99
+
+
+def test_adverse_funding_is_charged_before_ambiguous_minute_exit(monkeypatch):
+    plain = replay(monkeypatch, '1m')
+    funded = funding_replay(monkeypatch, .001)
+    d = funded['trades'][0]['diagnostics']
+    assert funded['total_funding_net'] < 0
+    assert funded['realized_net_pnl'] == pytest.approx(
+        plain['realized_net_pnl'] + funded['total_funding_net'], abs=1e-6)
+    assert d['funding_events'][0]['timing'] == 'before_exit_adverse'
+    assert d['funding_events'][0]['qty'] == pytest.approx(d['initial_qty'])
+
+
+def test_favorable_funding_credits_only_quantity_surviving_minute(monkeypatch):
+    funded = funding_replay(monkeypatch, -.001)
+    d = funded['trades'][0]['diagnostics']
+    first_exit_qty = d['partial_exits'][0]['qty']
+    event = d['funding_events'][0]
+    assert event['timing'] == 'after_minute_favorable'
+    assert event['qty'] == pytest.approx(d['initial_qty'] - first_exit_qty)
+    assert funded['total_funding_net'] > 0
 
 
 def test_missing_minute_refuses_replay(monkeypatch):

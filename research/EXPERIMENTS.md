@@ -888,3 +888,49 @@ minimum. Do not select SHORT, BNB/XRP, tune the UTC anchor or widen the range
 bounds. January-March have now informed nine candidate trials (W001-W009).
 No candidate advances, so April-June validation and doubled-cost stress remain
 locked. Main and all aggressive financial caps are unchanged.
+
+## F001 — historical funding accounting audit (not a strategy trial)
+
+Before proposing W010, add the missing historical funding cash flows to the
+replay. This is an accounting audit of the already rejected W009 stream, not a
+new hypothesis and does not increment the nine development trials. For every
+symbol and January-March month, use Binance Vision's official USD-M
+`fundingRate` archive and the corresponding official 1m `markPriceKlines`
+archive. Preserve all 36 ZIP hashes in each result. Validate exactly three
+8-hour observations per day, normalize the exchange calculation timestamp
+(observed 0-9 ms after the boundary) to its containing minute, and value the
+cash flow with that minute's mark-price open without future data.
+
+The calculation is `-side_sign * quantity * mark_price * funding_rate` (LONG
+sign +1, SHORT sign -1). Because OHLC cannot establish whether an exit within
+the funding minute occurred before the exchange snapshot, use asymmetric
+conservative ordering: adverse cash flow is charged before exits; favorable
+cash flow is credited only to quantity still open after the full minute. New
+entries fill at the minute open and are subject to the same rule. Funding goes
+directly to wallet, closed-trade net PnL, risk-gate accounting, diagnostics and
+mark-to-market equity. Fees/slippage and every financial cap remain unchanged.
+
+Run an exact zero-rate counterfactual under the new engine before reading the
+actual funding result. The zero counterfactual exactly reproduces W009: 89
+closed trades, net -115.882963, PF .8046477327, maxDD 23.565%, fees 75.565790,
+ending equity 884.117037, result SHA256
+`026e58f5317d0bd0932320b070f576e5632b538e91222ebf15ccfb7fb100f196`.
+This confirms that the new engine itself does not alter the old path when
+funding is zero.
+
+With actual rates, 107 position/funding intersections produce total funding
+net +0.144663 (adverse -0.887161, favorable +1.031825). The small wallet changes
+cross two quantity/margin rounding boundaries, so the fully path-dependent run
+closes 91 trades rather than 89. It ends net -115.894706, PF .8047531817,
+maxDD 23.561%, fees 75.591995 and equity 884.105294. January is -127.061386,
+February -10.132565 and March +21.299245. Actual result SHA256 is
+`2af09734c73cd2ae3783329714d3644113808dc5f3e0d02ebfa11d426be713cd`.
+The earlier `W009-funding-audit.json` is preserved as the identical preliminary
+actual-rate run before the explicit funding-mode label was added; it is not an
+extra experiment.
+
+F001 shows that omitted funding was not the cause of W009's failure: the
+actual-rate result remains negative, below 100 trades, below PF 1.2 and above
+20% drawdown. W009 remains rejected, April-June validation remains unopened,
+and the next candidate must use a new preregistered source of edge rather than
+more threshold tuning on the now heavily exposed January-March sample.

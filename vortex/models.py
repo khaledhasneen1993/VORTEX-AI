@@ -22,6 +22,14 @@ class Candle:
 
 
 @dataclass(frozen=True)
+class FundingEvent:
+    """Exchange-published funding rate paired with the contemporaneous mark."""
+    ts: int
+    rate: float
+    mark_price: float
+
+
+@dataclass(frozen=True)
 class Signal:
     symbol: str
     side: str
@@ -60,3 +68,4 @@ class Position:
     initial_stop: float = 0.0
     initial_target: float = 0.0
     atr_value: float = 0.0
+    accumulated_funding: float = 0.0

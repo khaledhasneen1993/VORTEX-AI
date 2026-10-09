@@ -17,7 +17,7 @@ from urllib.request import urlopen
 from zipfile import ZipFile
 
 from vortex.config import Settings
-from vortex.models import Candle
+from vortex.models import Candle, FundingEvent
 from vortex.portfolio import run_portfolio
 import vortex.portfolio as portfolio
 from vortex.research_policy import (filter_signal, confirmed_breakout,
@@ -86,6 +86,65 @@ def monthly(cache, symbol, interval, month):
     return bars, {'url':url, 'sha256_zip':sha256(data).hexdigest(), 'rows':len(bars)}
 
 
+def funding_monthly(cache, symbol, month):
+    """Load official rates and pair them with non-forward 1m mark opens."""
+    funding_name = f"{symbol}-fundingRate-{month}.zip"
+    funding_url = ("https://data.binance.vision/data/futures/um/monthly/"
+                   f"fundingRate/{symbol}/{funding_name}")
+    funding_path = cache / "funding" / funding_name
+    mark_name = f"{symbol}-1m-{month}.zip"
+    mark_url = ("https://data.binance.vision/data/futures/um/monthly/"
+                f"markPriceKlines/{symbol}/1m/{mark_name}")
+    mark_path = cache / "mark-price" / mark_name
+    for path, url in ((funding_path, funding_url), (mark_path, mark_url)):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            data = public_bytes(url)
+            tmp = path.with_suffix('.part')
+            tmp.write_bytes(data)
+            tmp.replace(path)
+    funding_raw, mark_raw = funding_path.read_bytes(), mark_path.read_bytes()
+    with ZipFile(BytesIO(funding_raw)) as archive:
+        names = archive.namelist()
+        if len(names) != 1 or not names[0].endswith('.csv'):
+            raise ValueError(f"Unexpected archive: {funding_name}")
+        rows = list(csv.DictReader(StringIO(archive.read(names[0]).decode())))
+    with ZipFile(BytesIO(mark_raw)) as archive:
+        names = archive.namelist()
+        if len(names) != 1 or not names[0].endswith('.csv'):
+            raise ValueError(f"Unexpected archive: {mark_name}")
+        mark_rows = list(csv.reader(StringIO(archive.read(names[0]).decode())))
+    if mark_rows and mark_rows[0][0] == 'open_time':
+        mark_rows = mark_rows[1:]
+    marks = [Candle.from_binance(row) for row in mark_rows]
+    year, number = map(int, month.split('-'))
+    start = int(datetime(year, number, 1, tzinfo=timezone.utc).timestamp() * 1000)
+    minutes = calendar.monthrange(year, number)[1] * 1440
+    if len(marks) != minutes or any(c.ts != start + i * 60_000 for i, c in enumerate(marks)):
+        raise ValueError(f"Incomplete or malformed calendar data: {mark_name}")
+    mark_by_ts = {c.ts: c.open for c in marks}
+    events = []
+    for i, row in enumerate(rows):
+        raw_ts = int(row['calc_time'])
+        ts = raw_ts // 60_000 * 60_000
+        if int(row['funding_interval_hours']) != 8 or raw_ts - ts > 1_000:
+            raise ValueError(f"Unexpected funding interval: {funding_name}")
+        expected = start + i * 8 * 3_600_000
+        if ts != expected or ts not in mark_by_ts:
+            raise ValueError(f"Incomplete or malformed funding data: {funding_name}")
+        events.append(FundingEvent(ts, float(row['last_funding_rate']), mark_by_ts[ts]))
+    expected_rows = calendar.monthrange(year, number)[1] * 3
+    if len(events) != expected_rows:
+        raise ValueError(f"Incomplete funding calendar: {funding_name}")
+    sources = [
+        {'kind':'funding_rate','url':funding_url,'sha256_zip':sha256(funding_raw).hexdigest(),
+         'rows':len(events)},
+        {'kind':'mark_price_1m','url':mark_url,'sha256_zip':sha256(mark_raw).hexdigest(),
+         'rows':len(marks)},
+    ]
+    return events, sources
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--month', required=True,
@@ -96,6 +155,8 @@ def main():
     parser.add_argument('--exit-policy', choices=['baseline','fixed-1r','fixed-2r','fixed-3r','breakout-invalidation','pair-horizon'], default='baseline')
     parser.add_argument('--portfolio-policy', choices=['baseline','relative-strength-pair','relative-strength-reversal'], default='baseline')
     parser.add_argument('--cost-multiplier', type=float, default=1)
+    parser.add_argument('--funding-mode', choices=['actual','zero-counterfactual'],
+                        default='actual')
     parser.add_argument('--cache', type=Path, default=Path('data/research-cache'))
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
@@ -118,6 +179,9 @@ def main():
         return spec, monthly(args.cache,*spec)
     with ThreadPoolExecutor(max_workers=4) as pool:
         loaded = dict(pool.map(read,specs))
+        funding_loaded = dict(pool.map(
+            lambda spec: (spec, funding_monthly(args.cache, *spec)),
+            [(sym, month) for sym in cfg.symbols for month in months]))
     filter_source = 'https://www.binance.com/fapi/v1/exchangeInfo'
     snapshot = args.cache / 'exchangeInfo.json'
     if not snapshot.exists():
@@ -167,9 +231,15 @@ def main():
     decision = {sym:sum((loaded[(sym,args.decision_interval,month)][0]
                          for month in months), []) for sym in cfg.symbols}
     higher_interval = '15m' if args.decision_interval == '5m' else '1h'
+    funding = {sym:sum((funding_loaded[(sym, month)][0]
+                        for month in months), []) for sym in cfg.symbols}
+    if args.funding_mode == 'zero-counterfactual':
+        funding = {sym:[FundingEvent(event.ts, 0., event.mark_price) for event in events]
+                   for sym, events in funding.items()}
     report = run_portfolio(decision,history(higher_interval),filters,cfg,macro=history('1h'),
                            minute=history('1m'),execution_interval=args.execution,diagnostics=True,
-                           exit_policy=args.exit_policy,portfolio_policy=args.portfolio_policy)
+                           exit_policy=args.exit_policy,portfolio_policy=args.portfolio_policy,
+                           funding=funding)
     commit = subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
     dirty = subprocess.check_output(['git','status','--porcelain'],text=True).strip()
     config = asdict(cfg); config['data_dir'] = str(config['data_dir'])
@@ -180,14 +250,18 @@ def main():
               'decision_interval':args.decision_interval,
               'execution_interval':args.execution, 'entry_policy':args.entry_policy,
               'exit_policy':args.exit_policy, 'portfolio_policy':args.portfolio_policy,
+              'funding_mode':args.funding_mode,
               'cost_multiplier':args.cost_multiplier,
               'filter_source':filter_source,'filter_sha256':sha256(exchange_raw).hexdigest(),
               'filter_server_time':exchange['serverTime'],
               'config':config,'filters':{s:asdict(f) for s,f in filters.items()},
               'sources':[{'symbol':s,'interval':i,'month':m,**v[1]} for (s,i,m),v in loaded.items()],
+              'funding_sources':[{'symbol':s,'month':m,**source}
+                                 for (s,m),v in funding_loaded.items() for source in v[1]],
               'limitations':['Current exchange filters, not historical filters',
               'OHLC intrabar ties remain stop-first, including 1m',
-              'No historical funding, liquidation or order-book replay',
+              'Funding timestamp is normalized to its 1m mark-price bar; adverse funding precedes an ambiguous exit and favorable funding requires surviving the minute',
+              'No liquidation or order-book replay',
               'MFE/MAE excludes terminal bar and is a pre-exit lower bound; within-minute sequence unknown',
               'Risk gate and equity drawdown sampled at 5m boundaries; 1m changes exit execution only'],
               'report':report}
@@ -195,7 +269,8 @@ def main():
     with args.output.open('x') as target:
         json.dump(output,target,indent=2)
     print(json.dumps({k:report[k] for k in ['closed_trades','realized_net_pnl','profit_factor',
-          'max_drawdown_pct','total_fees','equity_with_unrealized','open_positions']}),flush=True)
+          'max_drawdown_pct','total_fees','total_funding_net','equity_with_unrealized',
+          'open_positions']}),flush=True)
 
 if __name__ == '__main__':
     main()

@@ -2,13 +2,13 @@
 
 Signals calculated at the close of bar N, filled at open of bar N+1.
 Tie between stop and target resolves at stop. No imagined fills on missing bars.
-No funding/orderbook history/liquidations; these require separate historical data.
+Optional funding events use exchange rates and contemporaneous mark-price bars.
 """
 from __future__ import annotations
 from bisect import bisect_right
-from math import isclose
+from math import isclose, isfinite
 from datetime import datetime, timezone
-from .models import Candle, Signal, Position
+from .models import Candle, FundingEvent, Signal, Position
 from .exits import ExitStep, levels_for_bar
 from .indicators import atr
 from .reports import summary
@@ -27,6 +27,7 @@ def run_portfolio(
     minute: dict[str, list[Candle]] | None = None,
     *, execution_interval: str = "5m", diagnostics: bool = False,
     exit_policy: str = "baseline", portfolio_policy: str = "baseline",
+    funding: dict[str, list[FundingEvent]] | None = None,
 ) -> dict:
     if execution_interval not in {"5m", "1m"}:
         raise ValueError("Execution interval must be 5m or 1m")
@@ -44,6 +45,8 @@ def run_portfolio(
         raise ValueError("Each portfolio symbol requires bars, HTF and exchange filters")
     if minute is not None and set(candles) != set(minute):
         raise ValueError("1m history missing for portfolio symbols")
+    if funding is not None and set(candles) != set(funding):
+        raise ValueError("Funding history missing for portfolio symbols")
     minute_closes = {s: [b.close_ts for b in bars] for s, bars in minute.items()} if minute is not None else {}
     upper_times = {s: [x.close_ts for x in higher[s]] for s in candles}
     macro_times = ({s: [x.close_ts for x in macro[s]] for s in candles}
@@ -80,6 +83,18 @@ def run_portfolio(
                            zip(actual,(parent.open,parent.high,parent.low,parent.close))):
                     raise ValueError(f"1m OHLC does not reconcile with parent bar: {sym}")
             execution[sym] = observed
+    funding_at: dict[str, dict[int, FundingEvent]] = {}
+    if funding is not None:
+        for sym in symbols:
+            events = funding[sym]
+            if any(b.ts <= a.ts for a, b in zip(events, events[1:])):
+                raise ValueError(f"Unordered or duplicated funding data: {sym}")
+            if any(event.ts % 60_000 or not isfinite(event.rate)
+                   or not -.01 <= event.rate <= .01
+                   or not isfinite(event.mark_price) or event.mark_price <= 0
+                   for event in events):
+                raise ValueError(f"Malformed funding data: {sym}")
+            funding_at[sym] = {event.ts: event for event in events}
     traces: dict[str, dict] = {}
     wallet = config.starting_equity
     active: dict[str, Position] = {}
@@ -90,6 +105,7 @@ def run_portfolio(
     highwater = wallet
     maxdd = 0.0
     fees_total = 0.0
+    funding_total = 0.0
     ending_equity = wallet
     curve: list[dict] = [{"ts": stamps[0], "equity": wallet}]
     for i, ts in enumerate(stamps):
@@ -187,6 +203,7 @@ def run_portfolio(
                         "atr_at_signal": sig.atr_value, "score": sig.score,
                         "initial_qty": qty, "initial_margin": margin,
                         "entry_fee": fee, "total_fees": fee, "partial_exits": [],
+                        "funding_net": 0.0, "funding_events": [],
                         "mfe_price_before_exit_bar": 0.0, "mae_price_before_exit_bar": 0.0,
                         "mfe_first_ts": None, "mae_first_ts": None,
                         "exit_bar_ambiguous": False, "signal_features": dict(sig.features),
@@ -208,6 +225,29 @@ def run_portfolio(
             horizon_exit = (exit_policy == "pair-horizon" and
                             ts >= p.features.get("pair_exit_ts", float("inf")))
             for execution_index, eb in enumerate(execution_bars):
+                event = funding_at.get(sym, {}).get(eb.ts)
+                deferred_funding = None
+                if event is not None:
+                    # LONG pays a positive rate; SHORT receives it. Funding is
+                    # published a few milliseconds into the minute, so OHLC
+                    # cannot prove whether an intraminute exit preceded it.
+                    # Charge adverse cash flow before exits, but defer favorable
+                    # credit until the position survives the full minute.
+                    sign = 1 if p.side == "LONG" else -1
+                    cash_flow = -sign * p.qty * event.mark_price * event.rate
+                    if cash_flow <= 0:
+                        wallet += cash_flow
+                        funding_total += cash_flow
+                        p.accumulated_net += cash_flow
+                        p.accumulated_funding += cash_flow
+                        if diagnostics:
+                            traces[sym]["funding_net"] += cash_flow
+                            traces[sym]["funding_events"].append({
+                                "ts": event.ts, "rate": event.rate,
+                                "mark_price": event.mark_price, "qty": p.qty,
+                                "net": cash_flow, "timing": "before_exit_adverse"})
+                    else:
+                        deferred_funding = event
                 existing_stop = p.stop
                 sign = 1 if p.side == "LONG" else -1
                 fixed_target_r = {"fixed-1r": 1.0, "fixed-2r": 2.0,
@@ -284,6 +324,20 @@ def run_portfolio(
                         break
                 if sym not in active:
                     break
+                if deferred_funding is not None:
+                    p = active[sym]
+                    sign = 1 if p.side == "LONG" else -1
+                    cash_flow = -sign * p.qty * deferred_funding.mark_price * deferred_funding.rate
+                    wallet += cash_flow
+                    funding_total += cash_flow
+                    p.accumulated_net += cash_flow
+                    p.accumulated_funding += cash_flow
+                    if diagnostics:
+                        traces[sym]["funding_net"] += cash_flow
+                        traces[sym]["funding_events"].append({
+                            "ts": deferred_funding.ts, "rate": deferred_funding.rate,
+                            "mark_price": deferred_funding.mark_price, "qty": p.qty,
+                            "net": cash_flow, "timing": "after_minute_favorable"})
         # Use marks for continuous drawdown & daily loss without crediting fantasy fills.
         equity = wallet + sum(
             (bar[s].close - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
@@ -359,8 +413,11 @@ def run_portfolio(
         "profit_factor": (gross_win / gross_loss if gross_loss else None),
         "max_mark_to_market_drawdown_pct": round(maxdd * 100, 3),
         "total_fees": round(fees_total, 6),
+        "total_funding_net": round(funding_total, 6),
         "halted": risk.blocked,
-        "warnings": ["OHLC approximations; funding, liquidation, historic spread and queue not replayed",
+        "warnings": ["OHLC approximations; liquidation, historic spread and queue not replayed"
+                     if funding is not None else
+                     "OHLC approximations; funding, liquidation, historic spread and queue not replayed",
                      "Historical results are NOT a forward-profit forecast"],
         "trades": trades,
     }

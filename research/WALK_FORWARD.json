@@ -17,6 +17,16 @@
     "status": "rejected",
     "sha256": "46ccc5cb7f1c84ecb24b80d6aec27517ea562f9d3a6e6540d6f47dc4b930d1b1"
   },
+  "accounting_audits": {
+    "historical_funding": {
+      "id": "F001",
+      "strategy_trial": false,
+      "periods": ["2026-01", "2026-02", "2026-03"],
+      "actual_result_sha256": "2af09734c73cd2ae3783329714d3644113808dc5f3e0d02ebfa11d426be713cd",
+      "zero_counterfactual_sha256": "026e58f5317d0bd0932320b070f576e5632b538e91222ebf15ccfb7fb100f196",
+      "status": "completed_no_change_to_rejection"
+    }
+  },
   "validation_access": "locked_until_candidate_frozen_after_development",
   "acceptance": {
     "minimum_validation_months": 3,

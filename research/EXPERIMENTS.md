@@ -870,3 +870,21 @@ validation can be unlocked.
 
 Development command:
 `python -m research.walk_forward --phase development --output research/results/W009-development-normal.json`
+
+## W009 result — reject the UTC opening-range family
+
+W009 FAILS: 89 closed trades, 33 winners, net -115.882963,
+PF .8046477327, maxDD 23.565%, fees 75.565790 and ending equity 884.117037.
+It loses -40.317173 before closed-trade fees and has fewer than 100 trades.
+January loses -127.521632, February -9.780178, and only March gains
++21.418847. LONG loses -251.016358 while SHORT gains +135.133395, but side
+selection is forbidden. Fifty-six stops lose -593.199988 and 33 full 2R targets
+gain +477.317026. Result SHA256 is
+`46ccc5cb7f1c84ecb24b80d6aec27517ea562f9d3a6e6540d6f47dc4b930d1b1`.
+
+Reject W009 and the tested opening-range family: continuation, reversion and
+full-target reversion all fail post-cost; W007 and W009 also fail the sample
+minimum. Do not select SHORT, BNB/XRP, tune the UTC anchor or widen the range
+bounds. January-March have now informed nine candidate trials (W001-W009).
+No candidate advances, so April-June validation and doubled-cost stress remain
+locked. Main and all aggressive financial caps are unchanged.

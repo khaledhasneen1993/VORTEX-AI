@@ -74,6 +74,9 @@ class LocalMarket:
         path = self.root / "exchange_info.json"
         if not path.exists():
             raise MarketError("Missing local exchange_info.json: real exchange filters required")
+        manifest = path.with_suffix(".manifest.json")
+        if manifest.exists() and json.loads(manifest.read_text())["sha256"] != digest(path):
+            raise MarketError("Local exchange filters hash mismatch")
         data = json.loads(path.read_text())
         self.sources[str(path)] = {
             "sha256": digest(path),

@@ -27,13 +27,14 @@ def candidate(sym,bars,higher,threshold,**kwargs):
                       features={'relative_volume':2},votes=('trend','breakout'),atr_value=10/1.5)
 
 
-def replay(monkeypatch,interval='5m',diagnostics=True,minute_override=None):
+def replay(monkeypatch,interval='5m',diagnostics=True,minute_override=None,exit_policy='baseline'):
     small,minute=fixture_history()
     monkeypatch.setattr(module,'analyze',candidate)
     return run_portfolio({'BTCUSDT':small},{'BTCUSDT':[]},
                          {'BTCUSDT':Filters(.001,.001,5,.01)},Settings(),
                          minute={'BTCUSDT':minute if minute_override is None else minute_override},
-                         execution_interval=interval,diagnostics=diagnostics)
+                         execution_interval=interval,diagnostics=diagnostics,
+                         exit_policy=exit_policy)
 
 
 def test_diagnostics_preserve_coarse_pnl(monkeypatch):
@@ -118,3 +119,60 @@ def test_cost_floor_rejects_small_move_and_preserves_baseline():
     large=replace(s,stop=99.51)
     assert filter_signal(large,'cost-floor') is large
     assert filter_signal(replace(s,stop=float('nan')),'cost-floor') is None
+
+
+def test_direction_inversion_is_symmetric_and_explicit():
+    from dataclasses import replace
+    from vortex.research_policy import filter_signal
+    s=Signal('BTCUSDT','LONG',START,100,90,130,7,'fixture',
+             features={'relative_volume':2},votes=('trend','breakout'))
+    inverted=filter_signal(s,'invert-direction')
+    assert inverted.side=='SHORT'
+    assert inverted.stop==110 and inverted.target==70
+    assert inverted.features['source_direction']==1
+    assert inverted.votes==('contrarian:trend','contrarian:breakout')
+    assert 'CONTRARIAN_RESEARCH_DIRECTION_INVERTED' in inverted.reason
+    assert s.side=='LONG' and s.stop==90 and s.target==130
+    short=replace(s,side='SHORT',stop=112,target=64)
+    reverse=filter_signal(short,'invert-direction')
+    assert reverse.side=='LONG' and reverse.stop==88 and reverse.target==136
+    assert reverse.features['source_direction']==-1
+
+
+def test_fixed_3r_uses_full_size_and_stop_first(monkeypatch):
+    fixed=replay(monkeypatch,'1m',exit_policy='fixed-3r')
+    trade=fixed['trades'][0]
+    parts=trade['diagnostics']['partial_exits']
+    assert len(parts)==1 and parts[0]['final']
+    assert parts[0]['qty']==trade['diagnostics']['initial_qty']
+    assert parts[0]['reason']=='stop'  # first minute has stop and target-side excursion
+    assert trade['net_pnl']<0
+
+
+def test_fixed_1r_closes_all_at_one_r(monkeypatch):
+    small,minute=fixture_history()
+    minute[375]=Candle(minute[375].ts,100,111,99,105,2,minute[375].close_ts)
+    # Parent bar must reconcile with the edited minute close sequence.
+    small[75]=Candle(small[75].ts,100,111,89,100,10,small[75].close_ts)
+    monkeypatch.setattr(module,'analyze',candidate)
+    report=run_portfolio({'BTCUSDT':small},{'BTCUSDT':[]},
+                         {'BTCUSDT':Filters(.001,.001,5,.01)},Settings(),
+                         minute={'BTCUSDT':minute},execution_interval='1m',
+                         diagnostics=True,exit_policy='fixed-1r')
+    trade=report['trades'][0]
+    assert trade['diagnostics']['partial_exits'][0]['reason']=='target_1r'
+    assert len(trade['diagnostics']['partial_exits'])==1
+
+
+def test_unknown_exit_policy_rejected(monkeypatch):
+    with pytest.raises(ValueError,match='Unknown exit policy'):
+        replay(monkeypatch,exit_policy='invented')
+
+
+def test_trend_pullback_requires_completed_aligned_histories():
+    from dataclasses import replace
+    from vortex.research_policy import trend_pullback
+    small,_=fixture_history()
+    assert trend_pullback('BTCUSDT',small[:60],small,5,macro=small*3) is None
+    higher=[replace(c,close_ts=small[-1].close_ts+1) for c in small]
+    assert trend_pullback('BTCUSDT',small,higher,5,macro=small*3) is None

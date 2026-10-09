@@ -20,7 +20,7 @@ from vortex.config import Settings
 from vortex.models import Candle
 from vortex.portfolio import run_portfolio
 import vortex.portfolio as portfolio
-from vortex.research_policy import filter_signal, confirmed_breakout
+from vortex.research_policy import filter_signal, confirmed_breakout, trend_pullback
 from vortex.risk import Filters
 
 
@@ -69,8 +69,10 @@ def monthly(cache, symbol, interval, month):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--month', required=True)
+    parser.add_argument('--decision-interval', choices=['5m','15m'], default='5m')
     parser.add_argument('--execution', choices=['5m','1m'], default='5m')
-    parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor'], default='baseline')
+    parser.add_argument('--entry-policy', choices=['baseline','extension-cap','confirmed-breakout','cost-floor','invert-direction','trend-pullback'], default='baseline')
+    parser.add_argument('--exit-policy', choices=['baseline','fixed-1r','fixed-3r'], default='baseline')
     parser.add_argument('--cost-multiplier', type=float, default=1)
     parser.add_argument('--cache', type=Path, default=Path('data/research-cache'))
     parser.add_argument('--output', type=Path, required=True)
@@ -81,7 +83,7 @@ def main():
         raise ValueError('Cost multiplier must be in (0,5]')
     source_hashes = {str(p):sha256(p.read_bytes()).hexdigest()
                      for p in sorted([*Path('vortex').glob('*.py'), Path(__file__).relative_to(Path.cwd())])}
-    cfg = Settings()
+    cfg = replace(Settings(), timeframe=args.decision_interval)
     cfg = replace(cfg, fee_rate=cfg.fee_rate * args.cost_multiplier,
                   slippage_bps=cfg.slippage_bps * args.cost_multiplier)
     args.cache.mkdir(parents=True, exist_ok=True)
@@ -111,19 +113,26 @@ def main():
                        ([args.month] if interval == '5m' else [previous,args.month])), []) for sym in cfg.symbols}
     original_analyze = portfolio.analyze
     def research_analyze(*pos, **kw):
+        if args.entry_policy == 'trend-pullback':
+            return trend_pullback(*pos, **kw)
         if args.entry_policy == 'confirmed-breakout':
             return confirmed_breakout(original_analyze, *pos, **kw)
         return filter_signal(original_analyze(*pos, **kw), args.entry_policy)
     portfolio.analyze = research_analyze
     print('Data validated; replay starts', flush=True)
-    report = run_portfolio(history('5m'),history('15m'),filters,cfg,macro=history('1h'),
-                           minute=history('1m'),execution_interval=args.execution,diagnostics=True)
+    decision = {sym:loaded[(sym,args.decision_interval,args.month)][0] for sym in cfg.symbols}
+    higher_interval = '15m' if args.decision_interval == '5m' else '1h'
+    report = run_portfolio(decision,history(higher_interval),filters,cfg,macro=history('1h'),
+                           minute=history('1m'),execution_interval=args.execution,diagnostics=True,
+                           exit_policy=args.exit_policy)
     commit = subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
     dirty = subprocess.check_output(['git','status','--porcelain'],text=True).strip()
     config = asdict(cfg); config['data_dir'] = str(config['data_dir'])
     output = {'month':args.month,'base_commit':commit,'working_tree_dirty':bool(dirty),
               'source_hashes':source_hashes,
-              'execution_interval':args.execution, 'entry_policy':args.entry_policy, 'cost_multiplier':args.cost_multiplier,
+              'decision_interval':args.decision_interval,
+              'execution_interval':args.execution, 'entry_policy':args.entry_policy,
+              'exit_policy':args.exit_policy, 'cost_multiplier':args.cost_multiplier,
               'filter_source':filter_source,'filter_sha256':sha256(exchange_raw).hexdigest(),
               'filter_server_time':exchange['serverTime'],
               'config':config,'filters':{s:asdict(f) for s,f in filters.items()},

@@ -15,6 +15,7 @@ from .reports import summary
 from .config import Settings
 from .risk import Filters, RiskGate, size_trade
 from .strategy import analyze
+from .research_policy import fixed_r_levels
 
 
 def run_portfolio(
@@ -25,11 +26,14 @@ def run_portfolio(
     macro: dict[str, list[Candle]] | None = None,
     minute: dict[str, list[Candle]] | None = None,
     *, execution_interval: str = "5m", diagnostics: bool = False,
+    exit_policy: str = "baseline",
 ) -> dict:
     if execution_interval not in {"5m", "1m"}:
         raise ValueError("Execution interval must be 5m or 1m")
     if execution_interval == "1m" and minute is None:
         raise ValueError("1m execution requires actual minute candles")
+    if exit_policy not in {"baseline", "fixed-1r", "fixed-3r"}:
+        raise ValueError("Unknown exit policy")
     if not candles or set(candles) != set(higher) or set(candles) != set(filters) or (macro is not None and set(candles) != set(macro)):
         raise ValueError("Each portfolio symbol requires bars, HTF and exchange filters")
     if minute is not None and set(candles) != set(minute):
@@ -149,9 +153,12 @@ def run_portfolio(
             for eb in execution_bars:
                 existing_stop = p.stop
                 sign = 1 if p.side == "LONG" else -1
-                actions = levels_for_bar(p, eb.low, eb.high, eb.open,
-                                         atr_value=prev_atr,
-                                         trailing_atr_mult=config.trailing_atr_mult)
+                fixed_target_r = {"fixed-1r": 1.0, "fixed-3r": 3.0}.get(exit_policy)
+                actions = (fixed_r_levels(p, eb.low, eb.high, eb.open, fixed_target_r)
+                           if fixed_target_r is not None else
+                           levels_for_bar(p, eb.low, eb.high, eb.open,
+                                          atr_value=prev_atr,
+                                          trailing_atr_mult=config.trailing_atr_mult))
                 if diagnostics:
                     trace = traces[sym]
                     terminal = any(a.final for a in actions)
@@ -260,7 +267,8 @@ def run_portfolio(
         "open_positions_unrealized_net": round(ending_equity-wallet, 6),
         "open_positions": sorted(active),
         "realized_net_pnl": round(sum(pnl), 6),
-        "execution_interval": execution_interval, "diagnostics_enabled": diagnostics,
+        "execution_interval": execution_interval, "exit_policy": exit_policy,
+        "diagnostics_enabled": diagnostics,
         "closed_trades": len(pnl),
         "win_rate": (wins / len(pnl) if pnl else None),
         "profit_factor": (gross_win / gross_loss if gross_loss else None),

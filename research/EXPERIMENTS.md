@@ -163,3 +163,124 @@ independent periods, cost stress and forward PAPER before acceptance.
 PR #11 is the ongoing research PR. First research CI run 37859064802 passed.
 All 121 local tests passed after E004 registration. Latest result/code commits
 may have their own CI pending; check Actions by exact remote HEAD.
+
+## E005 — invert the original accepted direction
+
+Status: preregistered above and now implemented exactly as specified. Use the
+original accepted signal timestamp and next-open fill. LONG becomes SHORT and
+SHORT becomes LONG. Preserve the original absolute ATR stop and target
+distances, but mirror them around entry. Prefix recorded votes with
+`contrarian:` and record source direction in features so results cannot be
+mistaken for the original strategy. No E002/E003/E004 filters, no risk change.
+Use the same 1m execution and cost model as E001. September remains exposed
+development data; even a win here is only a hypothesis for independent tests.
+
+Command: `python -m research.replay --month 2026-09 --execution 1m --entry-policy invert-direction --output research/results/E005-invert-direction-1m.json`
+
+## E005 result and E006 registration
+
+E005 FAILS: 106 closes, net -192.768772, end 807.231228, PF .4046116085,
+maxDD 20.496%, fees 112.910445. Direction inversion is worse than E001 and
+breaches the proposed 20% drawdown criterion. Reject; do not combine it with
+other filters. This is evidence against a simple contrarian interpretation.
+
+E006 exit ablation: restore original signals and next-open entries. Hold the
+ENTIRE position until its unchanged 3R target (4.5 ATR target / 1.5 ATR stop)
+or initial stop. Disable TP1, TP2, breakeven and ATR trailing only for this
+explicit research exit policy. Use actual 1m execution; stop wins an ambiguous
+minute. Risk sizing, leverage, margin, fee and slippage remain unchanged.
+This tests whether staged exits monetize winners too early; it is not a new
+entry hypothesis and September remains exposed development data.
+
+Command: `python -m research.replay --month 2026-09 --execution 1m --exit-policy fixed-3r --output research/results/E006-fixed-3r-1m.json`
+
+## E006 result and E007 registration
+
+E006 FAILS: 94 closes, net -147.876015, end 852.123985, PF .6178096183,
+maxDD 15.147%, fees 93.156863. PF improves over E001 but remains far below 1;
+the entry stream is still negative after costs. Reject fixed-3R for promotion.
+
+E007 changes the entry family instead of adding another breakout filter. Enter
+with the aligned 1h EMA50/200 and 15m EMA9/21 trend only after a completed 5m
+pullback and EMA9 reclaim: previous close on the pullback side of EMA9, current
+close crosses back through EMA9 with directional body, EMA9 remains beyond
+EMA21, 15m ADX >=25, relative volume >=0.8, RSI14 50..70 LONG or 30..50 SHORT.
+Use completed candles only, enter next open, keep original 1.5 ATR stop, 4.5
+ATR target, baseline staged exits and every account-risk parameter unchanged.
+These common fixed thresholds are preregistered once; do not search alternatives
+on September. September is exposed development data. If promising, freeze and
+test other predeclared calendar months plus doubled costs before any promotion.
+
+Command: `python -m research.replay --month 2026-09 --execution 1m --entry-policy trend-pullback --output research/results/E007-trend-pullback-1m.json`
+
+## E007 result and E008 registration
+
+E007 FAILS: 149 closed trades, realized net -243.245253, marked ending equity
+754.634264 with XRP still open, PF .3979681511, maxDD 25.373%, fees 145.160869.
+It is substantially worse and breaches the drawdown criterion. Reject this
+entry family; do not tune its RSI/ADX/volume thresholds on September.
+
+E008 return to ORIGINAL entry signals and test a full-size fixed +1R target
+against the unchanged initial stop. Evidence motivating this one exit ablation:
+in E001, the 45 positions that reached staged exits netted +142.7232, while 59
+that never reached a partial exit lost -308.366. Close 100% at first +1R;
+disable TP2, breakeven and trailing. Use real 1m ordering, stop-first ambiguity,
+normal costs and unchanged risk/account settings. This deliberately changes
+reward/risk and may fail after costs; threshold is frozen before the replay.
+
+Command: `python -m research.replay --month 2026-09 --execution 1m --exit-policy fixed-1r --output research/results/E008-fixed-1r-1m.json`
+
+## E008 result and E009 registration
+
+E008 FAILS: 107 closes, net -195.069969, end 804.930031, PF .4114887621,
+maxDD 20.199%, fees 114.779865. It is worse than staged baseline and breaches
+the drawdown criterion. Reject; retain the baseline exit for subsequent work.
+
+E009 tests whether the trend-pullback family failed because 5m decisions are
+too noisy. Use completed 15m candles for pullback/reclaim decisions, completed
+1h candles for both EMA9/21 higher trend and EMA50/200 macro regime, and actual
+1m bars for exit execution. Preserve E007 thresholds exactly—no tuning after
+its result—and restore baseline staged exits. Entry is next 15m open subject to
+the same gap check. Risk/leverage/margin/cost settings stay frozen. September
+remains exposed development data; a positive result must be frozen before any
+other month is retrieved or inspected for this candidate.
+
+Command: `python -m research.replay --month 2026-09 --decision-interval 15m --execution 1m --entry-policy trend-pullback --output research/results/E009-trend-pullback-15m.json`
+
+## E009 result and E010 registration
+
+E009 FAILS but is materially less negative: 69 closes, net -50.861325, end
+949.138675, PF .8065317730, maxDD 8.075%, fees 65.318839. It still has no
+positive expectancy and cannot advance. Do not tune its thresholds on September.
+
+E010 is a timeframe control: run the ORIGINAL vote engine and staged exits on
+15m decision candles, completed 1h history as higher and macro inputs, and 1m
+exit execution. No entry filter, inversion or exit ablation. The original
+strategy was designed around 5m/15m/1h semantics, so this is explicitly a
+research comparison rather than a production-compatible claim; the ledger and
+result identify the changed decision interval. Risk and costs remain frozen.
+If negative, do not keep searching September thresholds or combinations.
+
+Command: `python -m research.replay --month 2026-09 --decision-interval 15m --execution 1m --output research/results/E010-original-votes-15m.json`
+
+## E010 result and next-run boundary
+
+E010 FAILS: 40 closes, net -32.520502, end 967.479498, PF .8515335286,
+maxDD 10.360%, fees 41.900710. It is the closest result so far but remains
+negative after normal costs, has only 40 trades and does not qualify for cost
+stress or independent validation. Do not combine failed September filters or
+select symbols/sides based on these post-hoc splits.
+
+Eight strategy/exit experiments have now been observed on September (E002-E010
+excluding E001 measurement). Stop tuning trend/breakout parameters on this
+month. Next hypothesis must be an orthogonal entry family registered before
+execution: standalone range mean reversion in low-ADX conditions, rather than
+requiring the contradictory trend vote. Use completed 5m reversal back inside
+a 20-bar 2-standard-deviation band, 5m and 15m ADX below 20, RSI7 exhaustion,
+actual completed 1m reversal confirmation, 1.5 ATR stop and 3 ATR target with
+baseline staged exits. Specify exact RSI and volume gates before running.
+September can only be development evidence. If promising, freeze all choices
+and preregister three other calendar months before downloading their returns.
+
+Current conclusion: neither the original nor any tested modification has a
+demonstrated profitable edge. Main must remain unchanged and PR #11 stays draft.

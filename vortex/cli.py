@@ -71,6 +71,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--days", type=int, default=None, help=f"Paginated backtest span 1-{max_history_days} days"
     )
+    parser.add_argument(
+        "--ohlcv-dir",
+        default=os.getenv("VORTEX_LOCAL_OHLCV_DIR", ""),
+        help="Opt-in verified local USD-M daily CSV archives",
+    )
+    parser.add_argument(
+        "--end-utc",
+        default=os.getenv("VORTEX_LOCAL_END_UTC", ""),
+        help="Local backtest end-exclusive UTC date YYYY-MM-DD",
+    )
     parser.add_argument("--once", action="store_true", help="Run one polling cycle")
     parser.add_argument("--port", type=int, default=8765, help="Dashboard loopback port")
     parser.add_argument("--ack-risk", action="store_true", help="Acknowledge a manual paper risk reset")
@@ -151,9 +161,32 @@ def main(argv: list[str] | None = None) -> int:
                 )
             print(json.dumps(observed, indent=2))
             time.sleep(10)
-    market = Market()
+    if args.ohlcv_dir:
+        from datetime import datetime, timezone
+        from .local_data import LocalMarket
+
+        if args.command not in {"backtest", "portfolio-backtest"} or args.days is None:
+            parser.error("Local archives require a backtest command and --days")
+        try:
+            end_ms = int(
+                datetime.strptime(args.end_utc, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000
+            )
+        except ValueError:
+            parser.error("Local archives require --end-utc YYYY-MM-DD")
+        market = LocalMarket(args.ohlcv_dir, end_ms)
+    else:
+        market = Market()
 
     def output_report(report: dict, kind: str, label: str) -> None:
+        if args.ohlcv_dir:
+            report["local_input"] = {
+                "end_exclusive_ms": market.end_ms,
+                "sources": market.sources,
+                "limitations": [
+                    "OHLCV archives do not supply historical depth, funding/OI observations",
+                    "Exchange filters snapshot is not proven historically as-of",
+                ],
+            }
         path = save_report(cfg.data_dir, kind, report, symbol=label)
         metrics = report["metrics"]
         print(

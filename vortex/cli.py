@@ -228,10 +228,13 @@ def main(argv: list[str] | None = None) -> int:
                     except (MarketError, KeyError, ValueError) as exc:
                         log.warning("Unavailable derivative snapshot for %s: %s", symbol, exc)
                         deriv = None  # funding strategy abstains; other votes remain valid
+                    decision_ms = derivative_tracker.checked_ms
+                    if decision_ms is None:
+                        decision_ms = market.server_ms()
                     log.info("ANALYZE %s decision_ms=%d bars=%d,%d,%d,%d",
-                             symbol, now, len(data), len(upper), len(macro), len(minute))
+                             symbol, decision_ms, len(data), len(upper), len(macro), len(minute))
                     signal = analyze(symbol, data, upper, cfg.min_score,
-                                     macro=macro, derivatives=deriv, decision_ms=now,
+                                     macro=macro, derivatives=deriv, decision_ms=decision_ms,
                                      minute=minute,
                                      strict_votes=cfg.strict_votes,
                                      min_strong_score=cfg.min_strong_score)
@@ -246,9 +249,9 @@ def main(argv: list[str] | None = None) -> int:
                                 log.info("ML REJECT %s probability=%s", symbol, probability)
                                 continue
                         # Never enter on an old signal (e.g. after a stalled connection).
-                        if now - data[-1].close_ts > 90_000:
+                        if decision_ms - data[-1].close_ts > 90_000:
                             log.info("ENTRY_SKIP %s reason=stale_signal age_ms=%d",
-                                     symbol, now - data[-1].close_ts)
+                                     symbol, decision_ms - data[-1].close_ts)
                             continue
                         if use_claude:
                             from .claude_review import confirm, ReviewUnavailable

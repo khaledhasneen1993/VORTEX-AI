@@ -88,6 +88,9 @@ def test_radar_only_liquid_exchanged_contracts():
 
 
 class PublicMarket:
+    def server_ms(self):
+        return self.now
+
     def __init__(self):
         self.oi = 1000
         self.now = 1_000_000

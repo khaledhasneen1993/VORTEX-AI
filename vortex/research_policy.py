@@ -346,7 +346,8 @@ def relative_strength_pair(histories: dict[str, list], min_score: int, *,
     return signals
 
 
-def time_series_momentum(symbol, bars, higher, min_score, **_options) -> Signal | None:
+def time_series_momentum(symbol, bars, higher, min_score, *, contrarian=False,
+                         **_options) -> Signal | None:
     """W001: frozen 24h directional momentum sampled only at 4h UTC anchors."""
     if len(bars) < 97:
         return None
@@ -360,13 +361,17 @@ def time_series_momentum(symbol, bars, higher, min_score, **_options) -> Signal 
     volatility = atr(bars)
     if volatility <= 0 or not .0008 <= volatility / current.close <= .045:
         return None
-    direction = 1 if return_24h > 0 else -1
+    source_direction = 1 if return_24h > 0 else -1
+    direction = -source_direction if contrarian else source_direction
+    family = 'REVERSAL' if contrarian else 'MOMENTUM'
     return Signal(
         symbol, 'LONG' if direction == 1 else 'SHORT', current.ts,
         current.close, current.close - direction * 1.5 * volatility,
         current.close + direction * 4.5 * volatility, max(min_score, 7),
-        'TIME_SERIES_MOMENTUM frozen 24h direction at 4h UTC anchor',
+        f'TIME_SERIES_{family} frozen 24h direction at 4h UTC anchor',
         features={'return_24h': return_24h, 'momentum_threshold': .02,
+                  'source_direction': source_direction,
                   'pair_exit_ts': next_open + 14_400_000},
-        votes=('time_series_momentum',), atr_value=volatility,
+        votes=(('time_series_reversal' if contrarian else 'time_series_momentum'),),
+        atr_value=volatility,
     )

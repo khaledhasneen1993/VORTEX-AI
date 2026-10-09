@@ -503,6 +503,10 @@ def test_time_series_momentum_is_anchor_only_and_directional():
     assert signal.features['return_24h'] > .02
     assert signal.features['momentum_threshold'] == .02
     assert signal.features['pair_exit_ts'] == signal.ts + 900000 + 14_400_000
+    reversal = policy.time_series_momentum('BTCUSDT', bars, [], 5, contrarian=True)
+    assert reversal is not None and reversal.side == 'SHORT'
+    assert reversal.features['source_direction'] == 1
+    assert reversal.votes == ('time_series_reversal',)
     assert policy.time_series_momentum('BTCUSDT', bars[:-1], [], 5) is None
     off_anchor = [replace(bar, ts=bar.ts+900000, close_ts=bar.close_ts+900000)
                   for bar in bars]

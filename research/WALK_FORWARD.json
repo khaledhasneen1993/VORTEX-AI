@@ -11,13 +11,13 @@
     "exposed_development": ["2026-09"]
   },
   "candidate": {
-    "id": "W001",
+    "id": "W002",
     "status": "preregistered",
-    "hypothesis": "Independent 24h time-series momentum sampled at fixed 4h UTC anchors may retain broad directional moves that cross-sectional pairs neutralize.",
+    "hypothesis": "W001 lost before fees with 340 stop exits; reversing only its frozen 24h direction tests whether the anchor measures short-horizon overextension rather than continuation.",
     "replay_args": [
       "--decision-interval", "15m",
       "--execution", "1m",
-      "--entry-policy", "time-series-momentum",
+      "--entry-policy", "time-series-reversal",
       "--exit-policy", "pair-horizon"
     ],
     "frozen_parameters": {
@@ -29,6 +29,11 @@
       "maximum_holding_hours": 4,
       "atr_price_min": 0.0008,
       "atr_price_max": 0.045
+    },
+    "prior_development_result": {
+      "id": "W001",
+      "status": "rejected",
+      "sha256": "0b6bed390aa91b7efe394e05526a66d4b92aeb022fc23b35e7cc029a50bbf7d1"
     }
   },
   "validation_access": "locked_until_candidate_frozen_after_development",

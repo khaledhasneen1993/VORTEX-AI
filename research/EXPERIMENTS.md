@@ -632,3 +632,31 @@ and is frozen with its result and source hashes.
 
 Development command:
 `python -m research.walk_forward --phase development --output research/results/W001-development-normal.json`
+
+## W001 result and W002 preregistration
+
+W001 FAILS on its continuous January-March development set: 449 closed trades,
+186 winners and 263 losses, net -479.895277, PF .6811707833, maxDD 52.661%,
+closed-trade fees 336.369879, ending marked equity 521.989801 with ETH open.
+All three months are negative: January -64.593397 (141 closes), February
+-268.975254 (158), March -146.326626 (150). LONG nets -251.052453 and SHORT
+-228.842824. Five of six symbols are negative; DOGE's observed +43.124111 must
+not be selected after the fact. Only 32 of 87 active days are positive.
+
+The failure exists before fees: adding closed-trade fees back leaves
+-143.525398. Three hundred forty stop exits lose -833.831517, 23 targets gain
++293.801864 and 86 scheduled horizon exits gain +60.134376. The result SHA256
+is `0b6bed390aa91b7efe394e05526a66d4b92aeb022fc23b35e7cc029a50bbf7d1`.
+Reject W001; it is nowhere near the development gate and validation remains
+locked. Do not select DOGE, widen the stop or tune the 2% threshold.
+
+W002 changes one thing only: reverse W001's direction. At the identical anchor,
+lookback and absolute 2% return threshold, LONG after a <=-2% return and SHORT
+after a >=+2% return. Preserve every timing, ATR, stop, target, horizon, cost and
+account parameter. Hypothesis: W001's 340 stops may mean the 24h move marks
+short-horizon overextension rather than continuation. This exact ablation is
+registered before running or reading W002 returns; it is not combined with
+symbol selection or a looser protective stop.
+
+Development command:
+`python -m research.walk_forward --phase development --output research/results/W002-development-normal.json`

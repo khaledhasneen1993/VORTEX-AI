@@ -47,3 +47,11 @@ scripts and their tests were removed. Historical measurements and exposure regis
 are inert under `archive/`; they cannot be selected by the runtime. Old explanatory
 material was replaced by current documentation. Git history remains intact; no
 reset/force-push. Policy changes require a new state directory, not balance reset.
+
+### Offline archive input follow-up
+
+Optional local OHLCV reader/downloader verified against 4,320 real BTCUSDT 1m
+candles (Oct 6–8, 2026), with official ZIP checksum and local CSV hashes. Local
+software suite: 204 passing. This is input-integrity evidence only, not a completed
+30/90-day baseline or economic acceptance. Missing historical execution/derivative
+observations remain blocking; strategy and risk defaults are unchanged.

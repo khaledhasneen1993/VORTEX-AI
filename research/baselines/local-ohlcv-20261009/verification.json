@@ -1,0 +1,43 @@
+{
+  "measured_utc": "2026-10-09T22:18:51.935802+00:00",
+  "command": "LocalMarket.history(BTCUSDT,1m,1,end=2026-10-09)",
+  "loaded_rows": 4320,
+  "first_ms": 1791244800000,
+  "last_close_ms": 1791503999999,
+  "source_manifests": {
+    "data/ohlcv/BTCUSDT/1m/BTCUSDT-1m-2026-10-06.csv": {
+      "url": "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1m/BTCUSDT-1m-2026-10-06.zip",
+      "downloaded_utc": "2026-10-09T22:18:25.422534+00:00",
+      "archive_sha256": "05cd282da17466b5e032c5a3bef179d1816ff2e13fa1ebd98c75e0188a141360",
+      "csv_sha256": "9234005de4443555759e42c31795fef8b5756f76981dcb89871325a2fccaade3",
+      "symbol": "BTCUSDT",
+      "interval": "1m",
+      "rows": 1440,
+      "first_ms": 1791244800000,
+      "last_ms": 1791331199999
+    },
+    "data/ohlcv/BTCUSDT/1m/BTCUSDT-1m-2026-10-07.csv": {
+      "url": "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1m/BTCUSDT-1m-2026-10-07.zip",
+      "downloaded_utc": "2026-10-09T22:18:26.100102+00:00",
+      "archive_sha256": "00baed8ea40d8ce1845049e69e1a3cf205de1c29ad1b508bb09b1210efcacbf5",
+      "csv_sha256": "534cb57fd4289363d691769a7e0d9fd271382ad0066acb7996450966ef1b13ed",
+      "symbol": "BTCUSDT",
+      "interval": "1m",
+      "rows": 1440,
+      "first_ms": 1791331200000,
+      "last_ms": 1791417599999
+    },
+    "data/ohlcv/BTCUSDT/1m/BTCUSDT-1m-2026-10-08.csv": {
+      "url": "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1m/BTCUSDT-1m-2026-10-08.zip",
+      "downloaded_utc": "2026-10-09T22:17:22.879823+00:00",
+      "archive_sha256": "a06c5e6043fc6fec0bfac62e15953c4f615b2508a83eaf30b11c008034ea4644",
+      "csv_sha256": "0b3c820f95733fb9ee74f0bd96de099ce2572f5b4f5a87bcdc06cd49fd451153",
+      "symbol": "BTCUSDT",
+      "interval": "1m",
+      "rows": 1440,
+      "first_ms": 1791417600000,
+      "last_ms": 1791503999999
+    }
+  },
+  "profitability_measured": false
+}

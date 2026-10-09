@@ -117,3 +117,43 @@ python -m research.phase0_attempts --reference-commit "$(git rev-parse HEAD)" \
 Output folders are exclusive and never overwritten. Records include command exit
 codes, failure logs and source hashes. Cohort attribution is descriptive; marginal
 voter contribution needs a separate paired ablation. See the log for missing work.
+
+### Offline USD-M OHLCV archives (opt-in)
+
+Official source/schema/checksum documentation:
+https://github.com/binance/binance-public-data . No new dependencies.
+
+Download a small verified example (UTC end date is exclusive):
+
+```sh
+python -m research.download_ohlcv --symbols BTCUSDT --intervals 1m --start 2026-10-06 --end 2026-10-09 --output data/ohlcv
+```
+
+For the frozen 90-day baseline, include warmup and all four intervals:
+
+```sh
+python -m research.download_ohlcv --symbols BTCUSDT ETHUSDT SOLUSDT BNBUSDT XRPUSDT DOGEUSDT --start 2026-07-01 --end 2026-10-09 --output data/ohlcv
+VORTEX_EXTENDED_HISTORY=true vortex backtest --days 90 --symbol BTCUSDT --ohlcv-dir data/ohlcv --end-utc 2026-10-09
+VORTEX_EXTENDED_HISTORY=true vortex portfolio-backtest --days 90 --ohlcv-dir data/ohlcv --end-utc 2026-10-09
+```
+
+These last two commands also require a genuine `data/ohlcv/exchange_info.json`
+exchangeInfo snapshot containing the original `symbols`/`filters` structure. The
+loader never guesses tick/lot/minimum-notional filters and never falls back to REST.
+A current snapshot is not proof of historically applicable contract filters.
+Local input requires `--days` and a fixed UTC end, and is refused for paper/testnet
+workers. Alternatively set `VORTEX_LOCAL_OHLCV_DIR` and `VORTEX_LOCAL_END_UTC` in env;
+both are empty/off by default. Existing 45-day default remains (90 is opt-in).
+
+Daily CSVs and per-file manifests live under `data/ohlcv/SYMBOL/INTERVAL/`.
+Downloads verify the publisher's `.CHECKSUM` before publishing; cached CSVs are
+hash checked and never silently overwritten. Partial/corrupt caches fail for
+inspection. Reads require complete UTC days, strict contiguous timestamps, finite
+OHLCV and genuine taker-buy volumes. Download and CSV parsing stream one day at a
+time; current backtest engines still materialize the requested bars in RAM.
+
+**Scope:** this fixes archive candle access, not full Phase 0. OHLCV does not supply
+historical depth/spread, as-of funding/OI or funding settlement marks. Existing
+execution guards still reject absent observations; no filters are disabled to
+manufacture results. Real smoke verification loaded 4,320 BTC 1m bars for Oct 6–8,
+2026 (one measurement day plus two warmup days). No PnL was measured.

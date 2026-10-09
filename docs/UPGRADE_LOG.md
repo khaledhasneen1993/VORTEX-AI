@@ -107,3 +107,27 @@ main suite also ran: `190 passed in 0.82s`.
    all-candidate shadow labels and paired voter ablations without changing strategy.
 3. Run the four measurements and doubled-cost tests, report sample limitations,
    then review whether Phase 1 is justified. Until then Phase 0 remains blocked.
+
+## Local archive follow-up — candle access verified, Phase 0 still incomplete
+
+- Added `vortex/local_data.py`: verified CSV history, frozen end-exclusive UTC date,
+  no REST fallback, real exchangeInfo filters required, source manifests on reports.
+- Added `research/download_ohlcv.py`: official daily USD-M ZIPs + publisher SHA256,
+  bounded streamed downloads, safe member reads, atomic file publication and flock,
+  cache integrity checks/no overwrite. No strategy/risk/execution guard changed.
+- Routed only historical CLI commands via opt-in `--ohlcv-dir`/`--end-utc`, with
+  empty-default env equivalents. Updated README and `.env.example`.
+- Nine software tests cover archive corruption, paths, gaps, malformed prices/
+  volumes, cache tampering, range completeness and rejection of live-worker use.
+- Actually downloaded BTCUSDT 1m archives for 2026-10-06, 07 and 08; the existing
+  Oct 8 verified cache was reused. Actual offline load returned **4,320 rows**,
+  first open `1791244800000`, last close `1791503999999`. Source URLs and ZIP/CSV
+  hashes: `research/baselines/local-ohlcv-20261009/verification.json`.
+- Actual local validation: `204 passed in 0.88s`; fatal lint `All checks passed!`.
+  An initial new test exposed dotenv pollution between tests; isolated its env
+  loading and reran the full suite successfully. Production defaults unchanged.
+- Supersedes the original candle-access/frozen-cutoff blocker, but not remaining
+  Phase 0 gaps. No 30/90-day economic baseline ran against the local archives yet.
+  Historical exchange filters, depth/spread, derivative observations/settlements,
+  full shadow labels and paired voter ablations remain outstanding. No economic
+  comparison, profitability claim or Phase 1 promotion.

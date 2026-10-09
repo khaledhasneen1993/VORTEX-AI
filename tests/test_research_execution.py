@@ -511,3 +511,18 @@ def test_time_series_momentum_is_anchor_only_and_directional():
     off_anchor = [replace(bar, ts=bar.ts+900000, close_ts=bar.close_ts+900000)
                   for bar in bars]
     assert policy.time_series_momentum('BTCUSDT', off_anchor, [], 5) is None
+
+
+def test_momentum_pullback_requires_completed_reclaim():
+    from dataclasses import replace
+    from vortex import research_policy as policy
+    bars = [Candle(START+i*900000, 100+i*.03, 101+i*.03, 99+i*.03,
+                   100+i*.03, 10, START+(i+1)*900000-1) for i in range(97)]
+    bars[-2] = replace(bars[-2], open=102.6, high=103, low=101, close=102)
+    bars[-1] = replace(bars[-1], open=102, high=104, low=101.5, close=103.5)
+    signal = policy.momentum_pullback('BTCUSDT', bars, [], 5)
+    assert signal is not None and signal.side == 'LONG'
+    assert signal.votes == ('momentum_pullback',)
+    no_reclaim = list(bars)
+    no_reclaim[-1] = replace(no_reclaim[-1], open=103.5, close=102)
+    assert policy.momentum_pullback('BTCUSDT', no_reclaim, [], 5) is None

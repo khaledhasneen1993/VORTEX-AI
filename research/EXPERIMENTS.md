@@ -660,3 +660,29 @@ symbol selection or a looser protective stop.
 
 Development command:
 `python -m research.walk_forward --phase development --output research/results/W002-development-normal.json`
+
+## W002 result and W003 preregistration
+
+W002 FAILS on the same January-March development set: 452 closed trades,
+191 winners, net -481.315027, PF .6191329097, maxDD 51.044%, total fees
+300.102324 and marked equity 515.119584 with ETH open. It loses before closed-
+trade fees (-181.536389). January, February and March are each negative
+(-240.699657, -138.809026, -101.806344). Both sides and all six symbols are
+negative. Three hundred twenty-three stops lose -892.865381; 116 horizon exits
+gain +273.321583 and 13 targets gain +138.228771. Result SHA256:
+`eead66f88a09c4529563f5ce597d0431fcc3356970fb7533d81135eb4eaf89f1`.
+Direction reversal therefore does not repair this family. Validation remains
+locked; do not tune direction, select a symbol or widen the stop.
+
+W003 keeps W001's 24h direction and frozen 2% threshold but changes entry
+timing based on the development evidence. On any completed 15m candle while
+the 24h return remains >=+2%, LONG only when the preceding close was at/below
+its completed EMA9 and the current bullish candle closes above its completed
+EMA9. Mirror for SHORT at <=-2%. Enter next open. Keep 1.5/4.5 ATR levels,
+baseline staged management, four-hour maximum horizon, actual 1m execution,
+normal costs and every account constraint. No ADX, RSI, volume, symbol filter
+or threshold search. This tests whether waiting for a pullback/reclaim avoids
+the immediate stops seen in both fixed-anchor directions.
+
+Development command:
+`python -m research.walk_forward --phase development --output research/results/W003-development-normal.json`

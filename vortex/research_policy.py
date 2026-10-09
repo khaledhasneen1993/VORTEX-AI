@@ -375,3 +375,36 @@ def time_series_momentum(symbol, bars, higher, min_score, *, contrarian=False,
         votes=(('time_series_reversal' if contrarian else 'time_series_momentum'),),
         atr_value=volatility,
     )
+
+
+def momentum_pullback(symbol, bars, higher, min_score, **_options) -> Signal | None:
+    """W003: 24h direction, but enter only on a completed 15m EMA9 reclaim."""
+    if len(bars) < 97:
+        return None
+    current, previous = bars[-1], bars[-2]
+    return_24h = current.close / bars[-97].close - 1
+    if abs(return_24h) < .02:
+        return None
+    closes = [bar.close for bar in bars]
+    previous_ema9 = ema(closes[:-1], 9)
+    current_ema9 = ema(closes, 9)
+    direction = 1 if return_24h > 0 else -1
+    reclaimed = (previous.close <= previous_ema9 and current.close > current_ema9
+                 and current.close > current.open) if direction == 1 else (
+                 previous.close >= previous_ema9 and current.close < current_ema9
+                 and current.close < current.open)
+    if not reclaimed:
+        return None
+    volatility = atr(bars)
+    if volatility <= 0 or not .0008 <= volatility / current.close <= .045:
+        return None
+    next_open = current.close_ts + 1
+    return Signal(
+        symbol, 'LONG' if direction == 1 else 'SHORT', current.ts,
+        current.close, current.close - direction * 1.5 * volatility,
+        current.close + direction * 4.5 * volatility, max(min_score, 7),
+        'MOMENTUM_PULLBACK frozen 24h direction with completed EMA9 reclaim',
+        features={'return_24h': return_24h, 'momentum_threshold': .02,
+                  'ema9': current_ema9, 'pair_exit_ts': next_open + 14_400_000},
+        votes=('momentum_pullback',), atr_value=volatility,
+    )

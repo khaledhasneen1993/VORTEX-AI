@@ -11,19 +11,19 @@
     "exposed_development": ["2026-09"]
   },
   "candidate": {
-    "id": "W002",
+    "id": "W003",
     "status": "preregistered",
-    "hypothesis": "W001 lost before fees with 340 stop exits; reversing only its frozen 24h direction tests whether the anchor measures short-horizon overextension rather than continuation.",
+    "hypothesis": "W001 and W002 both lost before fees in opposite directions, while their surviving 4h exits were positive; retain W001 direction but delay entry until a completed 15m EMA9 pullback reclaim.",
     "replay_args": [
       "--decision-interval", "15m",
       "--execution", "1m",
-      "--entry-policy", "time-series-reversal",
+      "--entry-policy", "momentum-pullback",
       "--exit-policy", "pair-horizon"
     ],
     "frozen_parameters": {
       "lookback_hours": 24,
       "absolute_return_threshold": 0.02,
-      "entry_anchors_utc_hours": [0, 4, 8, 12, 16, 20],
+      "entry_trigger": "completed_15m_ema9_reclaim_in_24h_direction",
       "initial_stop_atr": 1.5,
       "target_atr": 4.5,
       "maximum_holding_hours": 4,
@@ -31,9 +31,9 @@
       "atr_price_max": 0.045
     },
     "prior_development_result": {
-      "id": "W001",
+      "id": "W002",
       "status": "rejected",
-      "sha256": "0b6bed390aa91b7efe394e05526a66d4b92aeb022fc23b35e7cc029a50bbf7d1"
+      "sha256": "eead66f88a09c4529563f5ce597d0431fcc3356970fb7533d81135eb4eaf89f1"
     }
   },
   "validation_access": "locked_until_candidate_frozen_after_development",

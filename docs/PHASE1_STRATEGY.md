@@ -3,7 +3,7 @@
 Status: implemented, unit/integration tested; economic edge UNVALIDATED.
 Parent: 7744b016393785f7866c8a6cd87fa37b6bb92ea2, research/hourly-development.
 Main is preserved. No production signed endpoint or real-money route added.
-Phases 2–4 await separate operator approval.
+Phase2 subsequently authorized/implemented; see PHASE2_RISK.md. Phases3/4 await approval.
 
 ## Enable / reproduce
 
@@ -122,7 +122,7 @@ trailing policy remain unchanged. Profitability is not guaranteed.
 | Stage | Files (created or modified) | Status |
 |---|---|---|
 | 1 | new vortex/phase1_config.py, vortex/phase1_strategy.py, tests/test_phase1.py, docs/PHASE1_STRATEGY.md; modified vortex/config.py, models.py, strategies.py, strategy.py, derivatives.py, cli.py, manual_signals.py, testnet_runner.py, backtest.py, portfolio.py, .env.example, README.md, docs/ACCEPTANCE_STATUS.md, research/EXPERIMENTS.md | Implemented on research branch |
-| 2 | planned config.py, risk.py, paper.py, portfolio.py, exits.py; new risk policy/correlation module and corresponding tests; env/README/acceptance | Not started; approval required |
+| 2 | implemented vortex/phase2.py and tests/test_phase2.py; config/risk/paper/portfolio/backtest/exits/CLI/state and documentation integration | Implemented; see PHASE2_RISK.md |
 | 3 | planned backtest.py, portfolio.py, stream.py, radar.py, journal/state modules; research walk-forward/Monte-Carlo/OOS tools and tests; env/README/acceptance | Not started; approval required |
 | 4 | planned derivatives.py, microstructure.py, risk policy and veto adapters/tests; optional external heatmap only with verifiable data; env/README/acceptance | Not started; approval required |
 

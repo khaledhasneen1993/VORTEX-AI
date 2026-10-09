@@ -6,6 +6,8 @@ from dataclasses import asdict
 from .config import Settings
 from .models import Position, Signal
 from .risk import Filters, RiskGate, size_trade
+from .phase2 import (ProfitReserve, correlation_gate, stop_exposure,
+                     initialize_position, pyramid_plan, apply_pyramid, risk_fraction)
 
 
 class PaperBroker:
@@ -17,6 +19,8 @@ class PaperBroker:
         self.trades_file = self.folder / "closed_trades.jsonl"
         self.events_file = self.folder / "partial_exits.jsonl"
         self.wallet = cfg.starting_equity
+        self.reserve = ProfitReserve(cfg)
+        self.pyramids_file = self.folder / "pyramids.jsonl"
         self.positions: dict[str, Position] = {}
         self.last_trade_ts: dict[str, int] = {}
         self.last_signal: dict[str, int] = {}
@@ -30,6 +34,12 @@ class PaperBroker:
         raw = json.loads(self.state_file.read_text(encoding="utf-8"))
         if raw.get("version") != 1 or raw.get("mode") != "paper":
             raise ValueError("Unsupported saved state; refuse to reset balance")
+        saved_policy = raw.get("phase2_policy")
+        if saved_policy is not None and saved_policy != self._phase2_policy():
+            raise ValueError("Phase2 policy changed: use a new isolated session")
+        if saved_policy is None and self.cfg.phase2.enabled and raw["positions"]:
+            raise ValueError("Cannot migrate active legacy exposure into phase2")
+        self.reserve = ProfitReserve(self.cfg,float(raw.get("reserved_profit",0)))
         self.wallet = float(raw["wallet"])
         self.positions = {k: Position(**v) for k, v in raw["positions"].items()}
         self.last_trade_ts = {k: int(v) for k, v in raw.get("last_trade_ts", {}).items()}
@@ -48,7 +58,8 @@ class PaperBroker:
             self.save()
 
     def _write_journal(self, event: dict) -> None:
-        target = self.trades_file if event.get("final", True) else self.events_file
+        target = (self.pyramids_file if event.get("kind") == "pyramid" else
+                  self.trades_file if event.get("final", True) else self.events_file)
         existing = set()
         if target.exists():
             with target.open("r", encoding="utf-8") as fp:
@@ -63,8 +74,21 @@ class PaperBroker:
                 fp.flush()
                 os.fsync(fp.fileno())
 
+    def _finish_pending(self):
+        # Do not overwrite a saved exit/add event after an append failure.
+        if self.pending_journal is not None:
+            self._write_journal(self.pending_journal)
+            self.pending_journal = None
+            self.save()
+
+    def _phase2_policy(self):
+        return {"policy": asdict(self.cfg.phase2), "risk_per_trade": self.cfg.risk_per_trade,
+                "daily_loss": self.cfg.max_daily_loss,"positions": self.cfg.max_positions,
+                "trailing": self.cfg.trailing_atr_mult} if self.cfg.phase2.enabled else None
+
     def save(self) -> None:
         obj = {"version": 1, "mode": "paper", "wallet": self.wallet,
+               "reserved_profit": self.reserve.reserved, "phase2_policy": self._phase2_policy(),
                "positions": {k: asdict(v) for k, v in self.positions.items()},
                "last_trade_ts": self.last_trade_ts, "last_signal": self.last_signal,
                "closed_count": self.closed_count, "pending_journal": self.pending_journal,
@@ -89,7 +113,9 @@ class PaperBroker:
         return self.wallet + unrealized
 
     def open(self, signal: Signal, bid: float, ask: float, filters: Filters,
-             quotes: dict[str, tuple[float, float]], now_ms: int) -> tuple[bool, str]:
+             quotes: dict[str, tuple[float, float]], now_ms: int,
+             histories=None) -> tuple[bool, str]:
+        self._finish_pending()
         if signal.symbol in self.positions:
             return False, "position exists"
         if signal.ts == self.last_signal.get(signal.symbol):
@@ -116,8 +142,14 @@ class PaperBroker:
         adjusted = replace(signal, entry=entry,
                            stop=entry - sign * stop_gap,
                            target=entry + sign * target_gap)
+        corr_ok,corr_reason = correlation_gate(signal,self.positions,histories or {},now_ms,self.cfg.phase2)
+        if not corr_ok:
+            return False,corr_reason
+        capital = self.reserve.capital(self.wallet,equity)
         margin_in_use = sum(p.margin for p in self.positions.values())
-        sized = size_trade(adjusted, equity, self.cfg, filters, margin_in_use)
+        committed_risk = sum(stop_exposure(p,self.cfg) for p in self.positions.values())
+        sized = size_trade(adjusted, capital, self.cfg, filters, margin_in_use,
+                           committed_risk=committed_risk)
         if sized is None:
             return False, "min notional / risk cap prevents entry"
         qty, margin = sized
@@ -131,6 +163,9 @@ class PaperBroker:
                                                  step=filters.step, votes=list(signal.votes),
                                                  initial_stop=adjusted.stop, initial_target=adjusted.target,
                                                  atr_value=signal.atr_value or stop_gap / 1.5)
+        initialize_position(self.positions[signal.symbol],signal,capital,self.cfg)
+        if self.cfg.phase2.enabled:
+            self.positions[signal.symbol].features['selected_risk_fraction'] = risk_fraction(signal,self.cfg)
         self.last_trade_ts[signal.symbol] = now_ms
         self.last_signal[signal.symbol] = signal.ts
         self.save()
@@ -139,6 +174,7 @@ class PaperBroker:
     def mark(self, quotes: dict[str, tuple[float, float]], now_ms: int,
              atr_by_symbol: dict[str, float] | None = None) -> list[dict]:
         """Paper close and partial stages; each journal event survives a crash."""
+        self._finish_pending()
         from .exits import decide_tick
         events: list[dict] = []
         for symbol, p in list(self.positions.items()):
@@ -165,6 +201,7 @@ class PaperBroker:
             gross = sign * (px - p.entry) * qty
             stage_net = gross - entry_cost - exit_cost
             self.wallet += gross - exit_cost
+            self.reserve.record(stage_net)
             p.entry_fee -= entry_cost
             p.margin *= max(0, 1 - ratio)
             p.qty = max(0., p.qty - qty)
@@ -187,7 +224,10 @@ class PaperBroker:
                 "initial_target": p.initial_target or p.target,
                 "r_multiple": round(all_net / ((p.initial_qty or qty) * p.initial_risk), 6)
                               if p.initial_risk > 0 else None,
-                "source": "paper",
+                "source": "paper", "pyramid_count": p.pyramid_count,
+                "total_entry_qty": p.total_entry_qty or p.initial_qty,
+                "risk_fraction": p.risk_fraction,
+                "reserved_profit": self.reserve.reserved,
                 "reason": action.reason, "wallet": round(self.wallet, 8),
             }
             if final:
@@ -202,6 +242,50 @@ class PaperBroker:
             self.save()
             events.append(event)
         return events
+
+    def pyramid(self, symbol, bid, ask, filters, quotes, now_ms, histories=None):
+        """Call only AFTER normal exit management with fresh completed histories."""
+        self._finish_pending()
+        if symbol not in self.positions or not self.cfg.phase2.enabled:
+            return None
+        equity = self.equity(quotes)
+        # Position count doesn't prohibit bounded additions, daily loss does.
+        self.gate.can_open(equity,0)
+        if self.gate.blocked or not (0 < bid <= ask):
+            return None
+        if (ask-bid)/((ask+bid)/2)*10000 > self.cfg.max_spread_bps:
+            return None
+        p = self.positions[symbol]
+        bars = (histories or {}).get(symbol,[])
+        if not bars or not 0 <= now_ms-bars[-1].close_ts <= 390000:
+            return None
+        observed = bars[-1].close
+        slip = self.cfg.slippage_bps/10000
+        price = ask*(1+slip) if p.side == 'LONG' else bid*(1-slip)
+        candidate = Signal(symbol,p.side,now_ms,price,p.stop,p.target,10,'pyramid')
+        allowed,_ = correlation_gate(candidate,self.positions,histories or {},now_ms,self.cfg.phase2)
+        if not allowed:
+            return None
+        plan = pyramid_plan(p,price,now_ms,self.cfg,filters,
+                            self.reserve.capital(self.wallet,equity),
+                            sum(x.margin for x in self.positions.values()),
+                            sum(stop_exposure(x,self.cfg) for x in self.positions.values()),observed)
+        if plan is None:
+            return None
+        qty,margin,fee = plan
+        old_stop = p.stop
+        apply_pyramid(p,price,qty,margin,fee,now_ms)
+        self.wallet -= fee
+        event = dict(kind='pyramid',event_id=f'{symbol}:{p.opened_ts}:add:{p.pyramid_count}',
+                     symbol=symbol,side=p.side,ts=now_ms,qty=qty,price=price,fee=fee,
+                     margin=margin,stop=old_stop,target=p.target,anchor_entry=p.anchor_entry,
+                     weighted_entry=p.entry,pyramid_count=p.pyramid_count,source='paper')
+        self.pending_journal = event
+        self.save()
+        self._write_journal(event)
+        self.pending_journal = None
+        self.save()
+        return event
 
     def reset_halt(self, acknowledge: bool) -> None:
         """Explicit local operator action; does NOT reset wallet or daily loss floor."""

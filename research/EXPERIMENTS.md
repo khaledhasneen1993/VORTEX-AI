@@ -951,3 +951,25 @@ Acceptance unchanged; no source market data downloaded or performance result
 invented for this implementation. Record actual commit/config/source hashes,
 periods, and trial count for each subsequent measurement. Do not describe
 197 passing code tests as a validated edge. Phases 2–4 have not started.
+
+## P2 — operator-authorized aggressive risk policy, registered 2026-10-09
+
+Implementation parent77fa463c02435de90b95bd5960bffce21cc46fcc. One initial
+configuration, zero market-performance trials. Phase1 signal rules unchanged.
+Hypothesis: strength-dependent budgets plus protected winner additions and
+partial compounding may improve portfolio outcomes; exposure correlation and
+aggregate margin/stop-risk ceilings bound added risk. This is an operator
+multi-feature specification, not a causal single-feature experiment.
+Defaults/parameter units/protocol: .env.example and docs/PHASE2_RISK.md.
+Dynamic normal8–10%, strong12–15% from default12% base, capped at15%; positions4;
+daily55%; trailing.8; leverage5x; aggregate margin25%; entry share6.25%;
+portfolio modeled stop-risk30%; default one add at2R <=25% original quantity
+and2% capital risk; positive realized net stages50% compounded.
+All prior trials/results retained. January–March, September and supplied
+October observations stay exposed; April–June proposed locked validation and
+July secondary require exposure audit before use. No new market returns seen,
+no sources downloaded or profit numbers invented during this code stage.
+227 synthetic/regression pytest cases are functional evidence only. Independent
+months/cost stress/100 trades/20% maxDD/7-day forward gate remain unchanged.
+PAPER/BACKTEST execution only for P2; one-entry TESTNET commissioning explicitly
+rejects P2 before credentials/network. Phases3/4 not started.

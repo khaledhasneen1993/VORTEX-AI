@@ -58,6 +58,8 @@ def make_card(signal: Signal, bid: float, ask: float, now_ms: int,
             'sizing_status': 'amount_not_set',
             'instruction': 'Review current price, account positions and margin, then enter manually in Binance. This card sends no orders.'}
     if equity is not None:
+        if cfg.phase2.enabled and (positions or committed_margin):
+            raise ValueError('Phase2 manual sizing lacks correlation/reserve state; use PAPER portfolio')
         if equity <= 0 or day_start_equity is None or day_start_equity <= 0:
             raise ValueError('Sizing requires positive equity and day-start equity')
         if positions >= cfg.max_positions or equity <= day_start_equity * (1 - cfg.max_daily_loss):

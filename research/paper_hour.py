@@ -48,6 +48,7 @@ def diagnostic_counts(text):
         'strategy_rejections': text.count(' DEBUG REJECT '),
         'entry_skips': text.count(' INFO ENTRY_SKIP '),
         'vote_records': text.count(' DEBUG VOTE '),
+        'pyramid_adds': text.count(' INFO PYRAMID: '),
     }
 
 

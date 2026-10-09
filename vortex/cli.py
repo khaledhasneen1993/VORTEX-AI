@@ -157,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
         raise ValueError("paper command requires RUN_MODE=paper")
     paper_lock = ProcessLock(cfg.data_dir / "paper.lock").acquire()
     broker = PaperBroker(cfg)
+    histories = {}
     latest_atr: dict[str, float] = {}
     atr_refresh_bucket: dict[str, int] = {}
     use_ai = os.getenv("USE_AI_MODEL", "false").lower() == "true"
@@ -203,6 +204,18 @@ def main(argv: list[str] | None = None) -> int:
             if broker.gate.blocked and not was_halted:
                 notify(f"RISK HALT: paper equity={equity:.2f}, consecutive_losses={broker.gate.consecutive_losses}")
                 log.error("Risk circuit breaker active: no new entries")
+            if cfg.phase2.enabled:
+                # Open positions may have left the Radar; retain their own history.
+                for sym in broker.positions:
+                    old = histories.get(sym, [])
+                    if not old or old[-1].close_ts//300000 != now//300000-1:
+                        histories[sym] = market.candles(sym,"5m",max(70,cfg.phase2.correlation_lookback+1),now)
+                for sym in list(broker.positions):
+                    if sym in quotes:
+                        bid,ask = quotes[sym]
+                        event = broker.pyramid(sym,bid,ask,market.symbol_filters(sym),quotes,now,histories)
+                        if event:
+                            log.info("PYRAMID: %s",json.dumps(event))
             bucket = now // step
             # 5s into the new period; market data must have CLOSE time < server now.
             if bucket != last_bucket and now % step >= 5000:
@@ -213,6 +226,7 @@ def main(argv: list[str] | None = None) -> int:
                     log.info("RADAR ranked liquid movers: %s", symbols)
                 for symbol in symbols:
                     data = market.candles(symbol, cfg.timeframe, 220, now)
+                    histories[symbol] = data
                     upper = market.candles(symbol, "15m", 120, now)
                     macro = market.candles(symbol, "1h", 260, now)
                     minute = market.candles(symbol, "1m", 120, now)
@@ -270,9 +284,16 @@ def main(argv: list[str] | None = None) -> int:
                             if not micro.accepted:
                                 log.info("MICRO FILTER %s: %s", symbol, micro.reason)
                                 continue
+                        if cfg.phase2.enabled:
+                            # Re-fetch executable book after sequential signal/flow scans.
+                            now = market.server_ms()
+                            quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+                            if symbol not in quotes or now-data[-1].close_ts > 90000:
+                                log.info("ENTRY_SKIP %s reason=stale_book_or_signal_after_scan",symbol)
+                                continue
                         bid, ask = quotes[symbol]
                         ok, reason = broker.open(signal, bid, ask,
-                                                  market.symbol_filters(symbol), quotes, now)
+                                                  market.symbol_filters(symbol), quotes, now, histories=histories)
                         log.info("SIGNAL %s score=%s accepted=%s: %s (%s)",
                                  symbol, signal.score, ok, reason, signal.reason)
                         if ok:

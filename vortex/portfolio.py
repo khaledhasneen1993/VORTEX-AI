@@ -6,6 +6,7 @@ Optional funding events use exchange rates and contemporaneous mark-price bars.
 """
 from __future__ import annotations
 from bisect import bisect_right
+from dataclasses import replace
 from math import isclose, isfinite
 from datetime import datetime, timezone
 from .models import Candle, FundingEvent, Signal, Position
@@ -15,6 +16,8 @@ from .reports import summary
 from .config import Settings
 from .risk import Filters, RiskGate, size_trade
 from .strategy import analyze
+from .phase2 import (ProfitReserve, initialize_position, correlation_gate,
+                     pyramid_plan, apply_pyramid, stop_exposure)
 from .research_policy import fixed_r_levels, relative_strength_pair
 
 
@@ -29,6 +32,8 @@ def run_portfolio(
     exit_policy: str = "baseline", portfolio_policy: str = "baseline",
     funding: dict[str, list[FundingEvent]] | None = None,
 ) -> dict:
+    if config.phase2.enabled and (exit_policy != "baseline" or portfolio_policy != "baseline"):
+        raise ValueError("Phase2 must use canonical exits/portfolio, not frozen ablations")
     if execution_interval not in {"5m", "1m"}:
         raise ValueError("Execution interval must be 5m or 1m")
     if execution_interval == "1m" and minute is None:
@@ -96,6 +101,9 @@ def run_portfolio(
                 raise ValueError(f"Malformed funding data: {sym}")
             funding_at[sym] = {event.ts: event for event in events}
     traces: dict[str, dict] = {}
+    reserve = ProfitReserve(config)
+    pyramid_events = []
+    correlation_rejections = []
     wallet = config.starting_equity
     active: dict[str, Position] = {}
     pending: dict[str, Signal] = {}
@@ -121,6 +129,27 @@ def run_portfolio(
         risk.can_open(opening_equity, len(active))
         if risk.blocked:
             pending.clear()  # keep managing open stops, but prohibit new entries
+        past_histories = {s:[by_symbol[s][stamp] for stamp in stamps[max(0,i-config.phase2.correlation_lookback-1):i]] for s in symbols} if config.phase2.enabled else {}
+        if config.phase2.enabled and not risk.blocked:
+            for sym,p in active.items():
+                sign = 1 if p.side == "LONG" else -1
+                price = bar[sym].open*(1+sign*slip)
+                candidate = Signal(sym,p.side,ts,price,p.stop,p.target,10,"pyramid")
+                corr_ok,_ = correlation_gate(candidate,active,past_histories,ts,config.phase2)
+                plan = pyramid_plan(p,price,ts,config,filters[sym],
+                                    reserve.capital(wallet,opening_equity),
+                                    sum(x.margin for x in active.values()),
+                                    sum(stop_exposure(x,config) for x in active.values()),
+                                    past_histories[sym][-1].close) if corr_ok and past_histories[sym] else None
+                if plan:
+                    q,m,f = plan
+                    apply_pyramid(p,price,q,m,f,ts)
+                    wallet -= f
+                    fees_total += f
+                    pyramid_events.append(dict(symbol=sym,ts=ts,qty=q,price=price,fee=f))
+                    if diagnostics:
+                        traces[sym]["total_fees"] += f
+                        traces[sym].setdefault("pyramid_events",[]).append(pyramid_events[-1])
         paired_sizing = {}
         if portfolio_policy != "baseline" and pending:
             pair_ok = len(pending) == 2 and not active and not risk.blocked
@@ -172,15 +201,17 @@ def run_portfolio(
                 if abs(px - sig.entry) > gap * .35 or gap <= 0:
                     del pending[sym]
                     continue
-                new = Signal(sym, sig.side, sig.ts, px,
-                             px - sign * gap, px + sign * abs(sig.target - sig.entry),
-                             sig.score, sig.reason)
+                new = replace(sig,entry=px,stop=px-sign*gap,target=px+sign*abs(sig.target-sig.entry))
                 mark = wallet + sum(
                     (bar[s].open - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
                     for s, p in active.items())
                 allowed, _ = risk.can_open(mark, len(active))
                 committed = sum(p.margin for p in active.values())
-                sized = size_trade(new, mark, config, filters[sym], committed) if allowed else None
+                corr_ok,corr_reason = correlation_gate(new,active,past_histories,ts,config.phase2)
+                if not corr_ok:
+                    correlation_rejections.append(dict(symbol=sym,ts=ts,reason=corr_reason))
+                sized = size_trade(new,reserve.capital(wallet,mark),config,filters[sym],committed,
+                                   committed_risk=sum(stop_exposure(p,config) for p in active.values())) if allowed and corr_ok else None
             if sized:
                 if (exit_policy == "breakout-invalidation" and
                         not {"channel_high", "channel_low"} <= sig.features.keys()):
@@ -197,6 +228,7 @@ def run_portfolio(
                                        step=filters[sym].step, votes=list(sig.votes),
                                        atr_value=sig.atr_value or gap / 1.5,
                                        initial_stop=new.stop, initial_target=new.target)
+                initialize_position(active[sym],sig,reserve.capital(wallet+fee,mark),config)
                 if diagnostics:
                     traces[sym] = {
                         "initial_stop": new.stop, "initial_target": new.target,
@@ -302,6 +334,7 @@ def run_portfolio(
                     realized = (px - p.entry) * action.qty * (1 if p.side == "LONG" else -1)
                     net = realized - exit_fee - entry_fee
                     wallet += realized - exit_fee
+                    reserve.record(net)
                     p.entry_fee -= entry_fee
                     p.qty = max(0., p.qty - action.qty)
                     p.margin *= max(0., 1. - proportion)
@@ -315,7 +348,9 @@ def run_portfolio(
                                        "net_pnl": round(final_net, 8),
                                        "r_multiple": round(final_net / (p.initial_qty * p.initial_risk), 6)
                                                      if p.initial_qty * p.initial_risk > 0 else None,
-                                       "votes": list(p.votes),
+                                       "votes": list(p.votes),"pyramid_count": p.pyramid_count,
+                                       "risk_fraction": p.risk_fraction,
+                                       "total_entry_qty": p.total_entry_qty or p.initial_qty,
                                        "reason": action.reason})
                         if diagnostics:
                             trades[-1]["diagnostics"] = traces.pop(sym)
@@ -329,6 +364,7 @@ def run_portfolio(
                     sign = 1 if p.side == "LONG" else -1
                     cash_flow = -sign * p.qty * deferred_funding.mark_price * deferred_funding.rate
                     wallet += cash_flow
+                    reserve.record(cash_flow)
                     funding_total += cash_flow
                     p.accumulated_net += cash_flow
                     p.accumulated_funding += cash_flow
@@ -399,6 +435,8 @@ def run_portfolio(
     gross_win = sum(x for x in pnl if x > 0)
     gross_loss = -sum(x for x in pnl if x < 0)
     return {
+        "reserved_profit": reserve.reserved,"pyramid_events": pyramid_events,
+        "correlation_rejections": correlation_rejections,"phase2_enabled": config.phase2.enabled,
         "metrics": stats, "equity_curve": stats["equity_curve"],
         "average_r": stats["average_r"],
         "max_drawdown_pct": max(round(maxdd * 100, 3), stats["max_drawdown_pct"]),

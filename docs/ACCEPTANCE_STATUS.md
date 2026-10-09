@@ -153,3 +153,21 @@ was performed. Economic acceptance remains PENDING, with unchanged research
 gates. This is research implementation acceptance only, not profitability,
 production readiness or authority to place real-money orders. No phase 2
 risk increase, pyramiding, new state backend or phase 4 leverage/veto change.
+
+## Phase2 — 2026-10-09 (supersedes Phase1-only financial caps when enabled)
+
+Implementation acceptance: PASS for PAPER/BACKTEST code behavior; economic
+acceptance remains PENDING. Dynamic risk, bounded winning-position additions,
+partial realized-profit reserve and exposure-adjusted correlation are wired
+into PAPER and historical single/multi-symbol engines. Supplied .env.example
+uses .12 risk base (strong up to .15), four positions,55% daily breaker,.8 trailing. Effective
+5x leverage and25% aggregate margin remain. All policy fields configurable.
+
+227 local pytest cases, compile and fatal-code lint pass, including30 Phase2
+cases and previous197 regressions. No new real-market performance study or
+exchange orders performed. TESTNET commissioning is blocked while Phase2 is
+enabled because its one-entry runtime does not support this portfolio policy;
+no claim of Testnet feature completion. This boundary is explicitly documented,
+not a production fallback. Main and failed research evidence retained.
+Full scope, file map, setup and high-risk limitations: [PHASE2_RISK.md](PHASE2_RISK.md).
+Phases3/4 have not started. Economic gates unchanged.

@@ -18,8 +18,8 @@ Default: `STRICT_VOTES=true` requires two agreeing votes. Optional `STRICT_VOTES
 
 ## Risk and exits
 
-- Default 10% **maximum modeled stop-risk budget** per trade, max three concurrent PAPER positions, 5x modeled leverage, total margin cap 25%. No martingale.
-- Halt new PAPER entries at daily portfolio drawdown >=50%; a losing streak alone does not stop the bot.
+- Phase2 profile: normal 8–10% / strong 12–15% modeled stop-risk budgets with a 12% strong-signal base and 15% absolute strong ceiling; max four PAPER positions, 5x effective leverage, total margin 25%. No martingale.
+- Phase2 halts new PAPER entries/additions at daily portfolio drawdown >=55%; losing streak alone does not stop the bot. Legacy profile retains 50%.
 - PAPER and OHLC replay: 25% TP1 at +1R, 25% TP2 at +1.5R, then after +2R guarantee +1R plus a small buffer and trail by latest completed ATR x `TRAILING_ATR_MULT` (default 1.0). The remaining position exits at stop or main target.
 - TESTNET commissioning: manually armed, single-entry position with exchange-side STOP_MARKET and TAKE_PROFIT_MARKET via Algo Orders. The armed guardian supports exchange-confirmed reduce-only quarter exits and create-verify-before-cancel stop replacement. Uncertain writes persist and require manual reconciliation. It has NOT been verified using a real Testnet API account.
 
@@ -59,8 +59,8 @@ enabled; enabling both is rejected at startup. Each completed-candle cycle
 selects up to 24 active USDT-M perpetual candidates using observed 24h turnover
 and absolute price change, then applies the existing Trend / Reversion /
 Breakout / Funding vote engine and all risk gates. Ranking does not itself
-authorize an entry. The 10% maximum modeled stop-risk budget, 5x effective
-leverage, three-position limit and 25% total margin cap still apply.
+authorize an entry. The configured phase-specific risk/position/daily limits apply; effective
+leverage stays5x and aggregate margin25%.
 
 - USE_WEBSOCKET=true — fixed-symbol public book quotes, reject out-of-order and stale exchange event time.
 - USE_RADAR=true — liquid/fast-mover discovery (mutually exclusive with fixed-symbol WebSocket in current code).
@@ -91,14 +91,14 @@ Only `main` is maintained. The CI publishes no binary artifacts or releases. It 
 
 ## Current seven-point controls and reporting
 
-- `STRICT_VOTES=true`, `MIN_STRONG_SCORE=7`, `TRAILING_ATR_MULT=1.0` are validated in `.env.example`. New 10% requested trade-risk budget, 3 positions, 5x maximum leverage and 50% daily breaker are validated.
+- `STRICT_VOTES=true`, `MIN_STRONG_SCORE=7`, `TRAILING_ATR_MULT=1.0` are frozen legacy defaults when PHASE2_ENABLED=false. The new Phase2 .env.example uses .12/4/.55/.8; see the Phase2 specification.
 - `vortex backtest --symbol BTCUSDT --days 30` and `vortex portfolio-backtest --days 30` save full reports at `data/backtests/` with Win Rate, Profit Factor, Max Drawdown, Average R, and a compact Equity Curve. The CLI prints the path and summary.
 - `data/closed_trades.jsonl` stores entry-time votes and indicators, initial stop/target, entry/exit timestamps, PnL and R. Partial fills are journaled separately to keep one label per round-trip.
 - Manual TESTNET single-entry commissioning: `vortex testnet-once --symbol BTCUSDT --ack-testnet` with `VORTEX_TESTNET_ARM=TESTNET_ONLY` plus verified TESTNET-only credentials. Any ambiguous write halts for manual reconciliation; real TESTNET integration remains UNTESTED.
 - No Live mode, production order path, mainnet wallet or real-money keys are supported.
 
 
-## Config update: 10% risk, 5x leverage and hard margin cap
+## Frozen legacy policy (PHASE2_ENABLED=false): 10% risk / 5x
 
 ```dotenv
 RISK_PER_TRADE=0.10
@@ -164,7 +164,7 @@ vortex portfolio-backtest --days 30
 breaker cannot guarantee that an individual 10%-risk position loses
 no more than 50%. PAPER and historical simulation are not proof of profit.
 
-### Daily portfolio circuit breaker: 50%
+### Legacy daily portfolio circuit breaker: 50%
 
 **Daily portfolio circuit breaker = 50%. Single-trade risk budget = 10%.** One position can lose approximately **10% of equity** at its planned stop **before the 50% daily breaker activates**; gaps, slippage or other costs could make the actual loss larger. The breaker blocks new entries, not existing positions, and is not a guaranteed loss limit.
 
@@ -184,4 +184,24 @@ need two. All thresholds and switches are PHASE1_* environment settings.
 See [full rules, file map, test evidence and limitations](docs/PHASE1_STRATEGY.md).
 197 local tests pass. Economic edge remains unvalidated; profitability is not
 guaranteed. Financial risk caps, staged exits and effective leverage are
-unchanged. PAPER/Testnet only; no real-money route. Phases 2–4 await approval.
+unchanged. PAPER/Testnet only; no real-money route. Phase2 has subsequently been implemented; phases3/4 await approval. See below.
+
+## Phase2 — aggressive PAPER risk policy (2026-10-09)
+
+The supplied .env.example enables PHASE2_ENABLED=true with RISK_PER_TRADE=.12 base,
+MAX_POSITIONS=4, MAX_DAILY_LOSS=.55 and TRAILING_ATR_MULT=.8. Existing .env files
+are preserved and need explicit changes. Frozen legacy Settings() and disabled
+Phase2 keep .10/3/.50/1.0. Phase2 is an experimental profile, not a main promotion.
+
+Adds score-dependent risk, winner-only bounded pyramiding after2R, 50% partial
+compounding of positive realized net stages and direction-aware correlation
+veto. Per-entry margin6.25%, aggregate25%, effective leverage5x and aggregate
+modeled stop-risk30% bound exposure. Weak signals reject; exchange minimums
+never round upward. Strong score7–10 scales the default12% base up to15%, never above the configured strong maximum.
+
+[Full rules, env/file list, activation, tests and limitations](docs/PHASE2_RISK.md).
+227 local tests pass. The current single-entry TESTNET commissioning runner
+rejects Phase2; these portfolio features execute only PAPER/BACKTEST. No live
+route, actual Testnet validation or performance result is claimed. High risk,
+additions and tighter trailing can increase losses/costs; profitability is not
+guaranteed. Phases3/4 not started.

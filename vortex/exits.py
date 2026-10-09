@@ -22,6 +22,10 @@ def _risk(p: Position) -> float:
     return p.initial_risk or abs(p.entry - p.stop)
 
 
+def _entry(p: Position) -> float:
+    return p.anchor_entry or p.entry
+
+
 def _sign(p: Position) -> int:
     return 1 if p.side == "LONG" else -1
 
@@ -40,11 +44,11 @@ def _move_stop(p: Position, current_atr: float | None = None, multiplier: float 
         return
     sign = _sign(p)
     atr_value = _atr(p, current_atr)
-    peak = p.peak or p.entry
+    peak = p.peak or _entry(p)
     risk = _risk(p)
-    protected = p.entry  # breakeven after TP1
-    if p.tp2_done and (peak - p.entry) * sign >= 2 * risk:
-        protected = trailing_stop(p.entry, peak, risk, atr_value, multiplier, p.side)
+    protected = _entry(p)  # breakeven after TP1
+    if p.tp2_done and (peak - _entry(p)) * sign >= 2 * risk:
+        protected = trailing_stop(_entry(p), peak, risk, atr_value, multiplier, p.side)
     p.stop = max(p.stop, protected) if sign == 1 else min(p.stop, protected)
 
 
@@ -61,7 +65,7 @@ def decide_tick(p: Position, price: float, *, atr_value: float | None = None,
         raise ValueError("Bad position or executable quote")
     sign = _sign(p)
     if p.peak <= 0:
-        p.peak = p.entry
+        p.peak = _entry(p)
     p.peak = max(p.peak, price) if sign == 1 else min(p.peak, price)
     # Existing stop executes BEFORE any new stop adjustment.
     if (price - p.stop) * sign <= 0:
@@ -70,7 +74,7 @@ def decide_tick(p: Position, price: float, *, atr_value: float | None = None,
     # not just a 25% stage and risk losing the target in the next quote.
     if (price - p.target) * sign >= 0:
         return ExitStep(p.qty, price, "target", True)
-    favorable = (price - p.entry) * sign
+    favorable = (price - _entry(p)) * sign
     risk = _risk(p)
     if risk <= 0:
         raise ValueError("Missing original risk distance")
@@ -104,24 +108,24 @@ def levels_for_bar(p: Position, low: float, high: float, opening: float,
     if risk <= 0:
         raise ValueError("Missing original risk")
     best = high if sign == 1 else low
-    reach = (best - p.entry) * sign
+    reach = (best - _entry(p)) * sign
     steps: list[ExitStep] = []
     remaining = p.qty
     if not p.tp1_done and reach >= risk:
         q = _fraction(p)
         if q:
-            steps.append(ExitStep(q, p.entry + sign * risk, "tp1", False))
+            steps.append(ExitStep(q, _entry(p) + sign * risk, "tp1", False))
             remaining -= q
         p.tp1_done = True
     if not p.tp2_done and reach >= 1.5 * risk and p.tp1_done:
         q = floor_step((p.initial_qty or p.qty) * .25, p.step) if p.step > 0 else 0
         if 0 < q < remaining:
-            steps.append(ExitStep(q, p.entry + sign * 1.5 * risk, "tp2", False))
+            steps.append(ExitStep(q, _entry(p) + sign * 1.5 * risk, "tp2", False))
             remaining -= q
         p.tp2_done = True
     if (best - p.target) * sign >= 0:
         steps.append(ExitStep(remaining, p.target, "target", True))
     # Current bar's favorable extreme cannot retroactively trigger its new stop.
-    p.peak = max(p.peak or p.entry, best) if sign == 1 else min(p.peak or p.entry, best)
+    p.peak = max(p.peak or _entry(p), best) if sign == 1 else min(p.peak or _entry(p), best)
     _move_stop(p, atr_value, trailing_atr_mult)
     return steps

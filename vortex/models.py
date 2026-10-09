@@ -71,3 +71,11 @@ class Position:
     initial_target: float = 0.0
     atr_value: float = 0.0
     accumulated_funding: float = 0.0
+
+    # Original strategy R anchor is immutable after weighted-cost pyramiding.
+    anchor_entry: float = 0.0
+    risk_fraction: float = 0.0
+    trade_risk_cap: float = 0.0
+    total_entry_qty: float = 0.0
+    pyramid_count: int = 0
+    last_pyramid_ms: int = 0

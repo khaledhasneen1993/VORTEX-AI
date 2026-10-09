@@ -6,6 +6,7 @@ No funding, bid/ask history, liquidation or order queue; results NOT forecasts.
 """
 from __future__ import annotations
 from bisect import bisect_right
+from dataclasses import replace
 from datetime import datetime, timezone
 from .config import Settings
 from .models import Candle, Signal, Position
@@ -14,11 +15,14 @@ from .indicators import atr
 from .reports import summary
 from .risk import Filters, RiskGate, size_trade
 from .strategy import analyze
+from .phase2 import ProfitReserve, initialize_position, pyramid_plan, apply_pyramid, stop_exposure
 
 
 def run(symbol: str, small: list[Candle], higher: list[Candle],
         filt: Filters, cfg: Settings, macro: list[Candle] | None = None,
         minute: list[Candle] | None = None) -> dict:
+    reserve = ProfitReserve(cfg)
+    pyramid_events = []
     wallet = cfg.starting_equity
     peak, max_dd = wallet, 0.0
     wins = losses = 0
@@ -47,6 +51,18 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
             p = position
             recent = small[max(0, i-50):i]  # completed BEFORE current bar
             observed_atr = atr(recent) if len(recent) >= 16 else None
+            if cfg.phase2.enabled and not gate.blocked:
+                gate.can_open(beginning_equity,0)
+                if not gate.blocked:
+                    add_price = candle.open*(1+cfg.slippage_bps/10000 if p.side == "LONG" else 1-cfg.slippage_bps/10000)
+                    plan = pyramid_plan(p,add_price,candle.ts,cfg,filt,
+                                        reserve.capital(wallet,beginning_equity),p.margin,
+                                        stop_exposure(p,cfg),small[i-1].close)
+                    if plan:
+                        q,m,f = plan
+                        apply_pyramid(p,add_price,q,m,f,candle.ts)
+                        wallet -= f
+                        pyramid_events.append(dict(ts=candle.ts,qty=q,price=add_price,fee=f))
             actions = levels_for_bar(p, candle.low, candle.high, candle.open,
                                      atr_value=observed_atr,
                                      trailing_atr_mult=cfg.trailing_atr_mult)
@@ -58,6 +74,8 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
                 exit_fee = px * action.qty * cfg.fee_rate
                 net = sign * (px - p.entry) * action.qty - entry_fee_portion - exit_fee
                 wallet += sign * (px - p.entry) * action.qty - exit_fee
+                reserve.record(net)
+                p.margin *= max(0.,1-action.qty/p.qty)
                 p.entry_fee -= entry_fee_portion
                 p.qty = max(0., p.qty - action.qty)
                 p.accumulated_net += net
@@ -69,7 +87,9 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
                     trades.append({"open_ts": p.opened_ts, "close_ts": candle.ts,
                                    "symbol": symbol, "side": p.side,
                                    "entry": p.entry, "exit": px,
-                                   "qty": p.initial_qty, "net_pnl": round(final_net, 6),
+                                   "qty": p.total_entry_qty or p.initial_qty,
+                                   "pyramid_count": p.pyramid_count, "risk_fraction": p.risk_fraction,
+                                   "net_pnl": round(final_net, 6),
                                    "r_multiple": round(final_net / (p.initial_qty * p.initial_risk), 6)
                                                  if p.initial_qty * p.initial_risk > 0 else None,
                                    "votes": list(p.votes),
@@ -129,12 +149,10 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         if gap <= 0 or abs(entry - signal.entry) > gap * 0.35:
             continue
         sign = 1 if signal.side == "LONG" else -1
-        adjusted = Signal(symbol, signal.side, signal.ts, entry,
-                          entry - sign * gap, entry + sign * target_gap,
-                          signal.score, signal.reason)
+        adjusted = replace(signal,entry=entry,stop=entry-sign*gap,target=entry+sign*target_gap)
         if not allowed:
             continue
-        sized = size_trade(adjusted, equity, cfg, filt)
+        sized = size_trade(adjusted, reserve.capital(wallet,equity), cfg, filt)
         if sized is None:
             continue
         qty, margin = sized
@@ -142,10 +160,12 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         wallet -= fee
         position = Position(symbol, signal.side, future.ts, entry,
                             adjusted.stop, adjusted.target, qty, fee, margin,
+                            features=dict(signal.features),
                             initial_qty=qty, initial_risk=gap, peak=entry, step=filt.step,
                             votes=list(signal.votes),
                             atr_value=signal.atr_value or gap / 1.5,
                             initial_stop=adjusted.stop, initial_target=adjusted.target)
+        initialize_position(position,signal,reserve.capital(wallet+fee,equity),cfg)
     unrealized = 0.0
     if position and small:
         close = small[-1].close
@@ -153,7 +173,8 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         unrealized = sign * (close - position.entry) * position.qty
         unrealized -= close * position.qty * cfg.fee_rate
     stats = summary(trades, curve)
-    return {"metrics": stats, "equity_curve": stats["equity_curve"],
+    return {"reserved_profit": reserve.reserved,"pyramid_events": pyramid_events,
+            "phase2_enabled": cfg.phase2.enabled, "metrics": stats, "equity_curve": stats["equity_curve"],
             "profit_factor": stats["profit_factor"], "average_r": stats["average_r"],
             "max_drawdown_pct": round(max_dd * 100, 3),
             "symbol": symbol, "start_equity": cfg.starting_equity,

@@ -10,38 +10,12 @@
     "previously_accessed_warmup_not_holdout": ["2026-08"],
     "exposed_development": ["2026-09"]
   },
-  "candidate": {
-    "id": "W006",
-    "status": "preregistered",
-    "hypothesis": "W005 continuation materially improved direction but fees were four times its pre-fee loss; hold the entire position to the already frozen 3R target or stop to isolate staged-exit drag.",
-    "replay_args": [
-      "--decision-interval", "15m",
-      "--execution", "1m",
-      "--entry-policy", "liquidity-sweep-continuation",
-      "--exit-policy", "fixed-3r"
-    ],
-    "frozen_parameters": {
-      "range_lookback_bars": 20,
-      "minimum_wick_fraction": 0.5,
-      "minimum_relative_volume": 1.5,
-      "stop_buffer_atr": 0.1,
-      "minimum_structural_risk_atr": 0.5,
-      "maximum_structural_risk_atr": 2.5,
-      "target_r": 3.0,
-      "atr_price_min": 0.0008,
-      "atr_price_max": 0.045
-    },
-    "prior_development_result": {
-      "id": "W005",
-      "status": "rejected",
-      "sha256": "df670d9994eb63c8a70148ff7eef12b781eb3a51bbff0541a01f166890e76262"
-    }
-  },
+  "candidate": null,
   "development_trials_2026_q1": 6,
   "last_development_result": {
-    "id": "W003",
+    "id": "W006",
     "status": "rejected",
-    "sha256": "19e2292e04b9ddfef889847bc9d2084314f1c2eea51ada3d4098a6d3b4f7f3a4"
+    "sha256": "03f0f6c41b45aa4bf4c3d798cfad4df2dfda42d26d0f29f345824926496c29de"
   },
   "validation_access": "locked_until_candidate_frozen_after_development",
   "acceptance": {

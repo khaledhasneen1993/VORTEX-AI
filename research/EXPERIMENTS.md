@@ -774,3 +774,23 @@ if improved, it must pass the full development gate before validation access.
 
 Development command:
 `python -m research.walk_forward --phase development --output research/results/W006-development-normal.json`
+
+## W006 result — reject the liquidity-sweep family
+
+W006 FAILS, though full-size 3R improves W005: 468 closed trades, 119 winners,
+net -374.203059, PF .7827195903, maxDD 38.329%, fees 336.222952 and ending
+equity 625.796941. It remains negative before closed-trade fees (-37.980107).
+January, February and March all lose (-205.453856, -117.088853, -51.660350).
+LONG loses -181.177381 and SHORT loses -193.025678. BTC and DOGE are positive
+observed subsets, but four symbols lose and post-hoc symbol selection is
+forbidden. Three hundred forty-nine stops lose -1722.212599; 119 full 3R
+targets gain +1348.009540. Result SHA256 is
+`03f0f6c41b45aa4bf4c3d798cfad4df2dfda42d26d0f29f345824926496c29de`.
+
+Reject W006 and the tested liquidity-sweep family: reversal, continuation and
+full-target continuation all fail post-cost and before fees overall. Do not
+select BTC/DOGE, tune wick/volume thresholds or alter the financial caps.
+January-March have informed six candidate trials (W001-W006). No candidate
+advances, so April-June validation and doubled-cost stress remain locked. The
+next candidate must use another source of edge and must be preregistered before
+its development returns are read.

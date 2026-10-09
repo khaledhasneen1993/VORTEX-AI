@@ -752,3 +752,25 @@ continuation rather than exhaustion; it does not tune W004 thresholds.
 
 Development command:
 `python -m research.walk_forward --phase development --output research/results/W005-development-normal.json`
+
+## W005 result and W006 preregistration
+
+W005 FAILS, though continuation is less bad than reversal: 584 closed trades,
+229 winners, net -501.603771, PF .6437825054, maxDD 50.202%, fees 402.207329
+and ending equity 498.396229. It loses -99.396442 before closed-trade fees.
+January loses -364.099087, February gains +12.963014, March loses -150.467697.
+Both sides and every symbol are negative overall. Five hundred thirty-one stops
+lose -816.916886 and 53 targets gain +315.313116. Result SHA256 is
+`df670d9994eb63c8a70148ff7eef12b781eb3a51bbff0541a01f166890e76262`.
+It fails every development gate; validation stays locked.
+
+W006 keeps the exact W005 entry stream, continuation direction, structural
+stop distance and already frozen 3R target. Change exit management only: hold
+the entire position to initial stop or full 3R target, disabling partial exits,
+breakeven and trailing. Actual 1m stop-first execution and normal costs remain.
+This isolates whether staged exits and their extra transactions consume a weak
+continuation edge; it does not change entry thresholds or financial caps. Even
+if improved, it must pass the full development gate before validation access.
+
+Development command:
+`python -m research.walk_forward --phase development --output research/results/W006-development-normal.json`

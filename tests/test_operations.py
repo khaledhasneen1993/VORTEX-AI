@@ -367,7 +367,12 @@ def test_funding_timing_refresh_does_not_reset_oi_vote_interval():
     class Market:
         def get(self, path, params):
             assert path == "/fapi/v1/premiumIndex"
-            return {"symbol": "BTCUSDT", "lastFundingRate": ".001", "time": NOW, "nextFundingTime": NOW + 600000}
+            return {
+                "symbol": "BTCUSDT",
+                "lastFundingRate": ".001",
+                "time": NOW,
+                "nextFundingTime": NOW + 600000,
+            }
 
         def server_ms(self):
             return NOW

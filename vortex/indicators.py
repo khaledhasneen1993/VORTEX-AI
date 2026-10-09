@@ -1,6 +1,9 @@
 """Indicators operate on completed candles only; no external TA dependencies."""
+
 from __future__ import annotations
+
 from math import isfinite
+
 from .models import Candle
 
 
@@ -32,9 +35,9 @@ def atr(candles: list[Candle], period: int = 14) -> float:
     if len(candles) <= period:
         raise ValueError("Insufficient ATR history")
     true_ranges = [
-        max(c.high - c.low, abs(c.high - candles[i - 1].close),
-            abs(c.low - candles[i - 1].close))
-        for i, c in enumerate(candles) if i
+        max(c.high - c.low, abs(c.high - candles[i - 1].close), abs(c.low - candles[i - 1].close))
+        for i, c in enumerate(candles)
+        if i
     ]
     result = sum(true_ranges[:period]) / period
     for tr in true_ranges[period:]:

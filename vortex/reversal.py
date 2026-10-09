@@ -3,9 +3,11 @@
 A single observation of RSI under 30 is NOT a divergence. Compare two
 non-overlapping swing extremums and actual RSI at each extremum. No future bars.
 """
+
 from __future__ import annotations
-from .models import Candle
+
 from .indicators import rsi
+from .models import Candle
 
 
 def stoch_rsi(prices: list[float], period: int = 14) -> float:
@@ -40,12 +42,15 @@ def confirm(bars: list[Candle], direction: int, close_ms: int) -> bool:
     prices = [b.close for b in recent]
     idx1 = len(recent) - 34 + i1
     idx2 = len(recent) - 17 + i2
-    r1, r2 = rsi(prices[:idx1 + 1]), rsi(prices[:idx2 + 1])
+    r1, r2 = rsi(prices[: idx1 + 1]), rsi(prices[: idx2 + 1])
     bullish = direction == 1 and r2 > r1 + 1.0
     bearish = direction == -1 and r2 < r1 - 1.0
     if not (bullish or bearish):
         return False
     oscillator = stoch_rsi(prices)
     prev_oscillator = stoch_rsi(prices[:-1])
-    return (oscillator > prev_oscillator and 15 < oscillator < 65) if direction == 1 else (
-        oscillator < prev_oscillator and 35 < oscillator < 85)
+    return (
+        (oscillator > prev_oscillator and 15 < oscillator < 65)
+        if direction == 1
+        else (oscillator < prev_oscillator and 35 < oscillator < 85)
+    )

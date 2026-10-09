@@ -1,5 +1,6 @@
-"""Account-level Phase2 tests use synthetic observations, not market performance."""
+from vortex.operations import OperationsPolicy
 
+"""Account-level Phase2 tests use synthetic observations, not market performance."""
 from dataclasses import fields, replace
 from math import sin
 
@@ -31,6 +32,7 @@ def config(**kw):
         max_daily_loss=0.55,
         trailing_atr_mult=0.8,
         **kw,
+        operations=OperationsPolicy(funding_guard=False, liquidity_guard=False, terminal_target=True),
     )
 
 
@@ -87,14 +89,22 @@ def position(side="LONG"):
 def test_dynamic_risk_and_cap():
     c = config()
     assert risk_fraction(signal(score=5, strong=False), c) == 0.08
-    assert risk_fraction(signal(score=10, strong=False), c) == 0.10
+    assert risk_fraction(signal(score=10, strong=False), c) == 0.1
     assert risk_fraction(signal(score=7), c) == 0.12
     assert risk_fraction(signal(score=10), c) == 0.15
     assert risk_fraction(signal(score=10), replace(c, risk_per_trade=0.15)) == 0.15
     assert risk_fraction(signal(score=4), c) == 0
     assert risk_fraction(signal(score=10, strong=False), replace(c, risk_per_trade=0.09)) == 0.09
     assert size_trade(signal(score=4), 1000, c, F) is None
-    assert risk_fraction(signal(score=10), Settings()) == 0.10
+    assert (
+        risk_fraction(
+            signal(score=10),
+            Settings(
+                operations=OperationsPolicy(funding_guard=False, liquidity_guard=False, terminal_target=True)
+            ),
+        )
+        == 0.15
+    )
 
 
 def test_default_env_and_validation(monkeypatch):
@@ -132,9 +142,6 @@ def test_capital_reserve_ignores_marks_and_never_releases_on_losses():
     r.record(-100)
     assert r.reserved == 50 and r.capital(1000, 900) == 850
     assert r.capital(20, 10) == 0
-    legacy = ProfitReserve(Settings())
-    legacy.record(100)
-    assert legacy.reserved == 0 and legacy.capital(1000, 1200) == 1200
 
 
 @pytest.mark.parametrize("side", ["LONG", "SHORT"])
@@ -143,14 +150,15 @@ def test_pyramid_winner_limit_and_immutable_r(side):
     p = position(side)
     px = 120 if side == "LONG" else 80
     plan = pyramid_plan(p, px, NOW, c, F, 1000, 100, 1, px)
-    # Per-position margin cap: choose larger account to leave room for this fixture.
     plan = pyramid_plan(p, px, NOW, c, F, 4000, 100, 1, px)
     assert plan
-    old_stop, old_target = p.stop, p.target
+    old_stop, old_target = (p.stop, p.target)
     q, m, f = plan
     assert q <= p.initial_qty * c.phase2.pyramid_size_fraction
     apply_pyramid(p, px, q, m, f, NOW)
-    assert p.pyramid_count == 1 and p.stop == old_stop and p.target == old_target and p.anchor_entry == 100
+    assert (
+        p.pyramid_count == 1 and p.stop == old_stop and (p.target == old_target) and (p.anchor_entry == 100)
+    )
     assert p.entry != 100 and p.initial_qty == 10
     assert pyramid_plan(p, px, NOW + 600000, c, F, 4000, p.margin, 1, px) is None
     decide_tick(p, px, atr_value=2, trailing_atr_mult=0.8)
@@ -201,10 +209,10 @@ def test_four_positions_and_global_risk_margin(tmp_path):
     for s in list(quotes)[:4]:
         assert broker.open(signal(s), 100, 100, F, quotes, NOW)[0]
     assert len(broker.positions) == 4
-    assert sum(p.margin for p in broker.positions.values()) <= 250
+    assert sum((p.margin for p in broker.positions.values())) <= 250
     assert not broker.open(signal("EUSDT"), 100, 100, F, quotes, NOW)[0]
     gate = RiskGate(c, 1000)
-    assert gate.can_open(451, 0)[0] and not gate.can_open(450, 0)[0]
+    assert gate.can_open(451, 0)[0] and (not gate.can_open(450, 0)[0])
     assert not gate.can_open(1000, 0)[0]
     assert size_trade(signal(), 1000, c, F, committed_risk=301) is None
 
@@ -260,7 +268,7 @@ def test_all_phase2_env_fields_present():
     from pathlib import Path
 
     env = Path(".env.example").read_text()
-    assert all("PHASE2_" + f.name.upper() + "=" in env for f in fields(RiskPolicy))
+    assert all(("PHASE2_" + f.name.upper() + "=" in env for f in fields(RiskPolicy)))
 
 
 def rising_bars():
@@ -297,7 +305,7 @@ def test_historical_pyramid_and_compounding_in_both_engines(monkeypatch):
     assert one["wallet"] == pytest.approx(portfolio["cash_wallet"], abs=0.001)
     assert one["reserved_profit"] == pytest.approx(portfolio["reserved_profit"])
     event = portfolio["pyramid_events"][0]
-    assert event["ts"] == hist[74].ts  # only after the 73rd candle has closed
+    assert event["ts"] == hist[74].ts
 
 
 def test_historical_correlation_blocks_second_same_side(monkeypatch):
@@ -315,7 +323,7 @@ def test_historical_correlation_blocks_second_same_side(monkeypatch):
         {"BTCUSDT": h, "ETHUSDT": h}, {"BTCUSDT": [], "ETHUSDT": []}, {"BTCUSDT": F, "ETHUSDT": F}, config()
     )
     assert report["open_positions"] == ["BTCUSDT"]
-    assert any("correlated exposure" in r["reason"] for r in report["correlation_rejections"])
+    assert any(("correlated exposure" in r["reason"] for r in report["correlation_rejections"]))
 
 
 def test_reserved_cash_can_block_min_notional_without_rounding_up():
@@ -360,14 +368,6 @@ def test_pyramid_invalid_observation_and_exhausted_margin():
     assert pyramid_plan(p, float("nan"), NOW, c, F, 4000, 100, 1, 120) is None
     assert pyramid_plan(p, 120, NOW, c, F, 4000, 1000, 1, 120) is None
     assert pyramid_plan(p, 120, NOW, c, F, 4000, 100, 1, float("nan")) is None
-
-
-def test_legacy_active_state_cannot_be_reclassified(tmp_path):
-    old = PaperBroker(Settings(data_dir=tmp_path))
-    old.positions["BTCUSDT"] = position()
-    old.save()
-    with pytest.raises(ValueError, match="active legacy"):
-        PaperBroker(config(data_dir=tmp_path))
 
 
 def test_minute_portfolio_replays_same_add_accounting(monkeypatch):

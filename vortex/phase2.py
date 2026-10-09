@@ -11,7 +11,7 @@ from math import isfinite, sqrt
 
 @dataclass(frozen=True)
 class RiskPolicy:
-    enabled: bool = False
+    enabled: bool = True
     normal_min: float = 0.08
     normal_max: float = 0.10
     strong_min: float = 0.12
@@ -165,8 +165,10 @@ def correlation_gate(signal, positions, histories, decision_ms, policy):
 def stop_exposure(position, cfg):
     sign = 1 if position.side == "LONG" else -1
     from .operations import slippage_bps
-    modeled = slippage_bps(cfg.slippage_bps, position.atr_value / position.entry,
-                           cfg.max_spread_bps, cfg.operations)
+
+    modeled = slippage_bps(
+        cfg.slippage_bps, position.atr_value / position.entry, cfg.max_spread_bps, cfg.operations
+    )
     cost = cfg.fee_rate + modeled / 10000
     return (
         max(0.0, (position.entry - position.stop) * sign) * position.qty

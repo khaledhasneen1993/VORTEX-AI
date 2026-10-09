@@ -1,5 +1,7 @@
 """Domain objects; timestamp is Binance candle opening time in milliseconds."""
+
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 
@@ -16,8 +18,12 @@ class Candle:
 
     @classmethod
     def from_binance(cls, values: list) -> "Candle":
-        c = cls(int(values[0]), *map(float, values[1:6]), close_ts=int(values[6]),
-                taker_buy_volume=float(values[9]) if len(values) > 9 else None)
+        c = cls(
+            int(values[0]),
+            *map(float, values[1:6]),
+            close_ts=int(values[6]),
+            taker_buy_volume=float(values[9]) if len(values) > 9 else None,
+        )
         if min(c.open, c.high, c.low, c.close) <= 0 or c.low > c.high:
             raise ValueError("Malformed exchange candle")
         return c
@@ -26,6 +32,7 @@ class Candle:
 @dataclass(frozen=True)
 class FundingEvent:
     """Exchange-published funding rate paired with the contemporaneous mark."""
+
     ts: int
     rate: float
     mark_price: float

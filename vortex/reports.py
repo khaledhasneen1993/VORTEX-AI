@@ -1,7 +1,8 @@
 """Auditable backtest summaries and atomic on-disk JSON reports."""
+
 from __future__ import annotations
+
 import json
-import math
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,14 +15,14 @@ def summary(trades: list[dict], curve: list[dict]) -> dict:
     gains = sum(x for x in pnl if x > 0)
     losses = -sum(x for x in pnl if x < 0)
     ratios = [float(t["r_multiple"]) for t in trades if t.get("r_multiple") is not None]
-    peak, drawdown = (float(curve[0]["equity"]), 0.) if curve else (0., 0.)
+    peak, drawdown = (float(curve[0]["equity"]), 0.0) if curve else (0.0, 0.0)
     for row in curve:
         equity = float(row["equity"])
         peak = max(peak, equity)
         drawdown = max(drawdown, (peak - equity) / peak if peak > 0 else 0)
     return {
         "closed_trades": len(trades),
-        "win_rate_pct": round(wins * 100 / len(trades), 3) if trades else 0.,
+        "win_rate_pct": round(wins * 100 / len(trades), 3) if trades else 0.0,
         "profit_factor": round(gains / losses, 4) if losses else None,
         "max_drawdown_pct": round(drawdown * 100, 3),
         "average_r": round(sum(ratios) / len(ratios), 4) if ratios else None,
@@ -36,8 +37,7 @@ def downsample(curve: list[dict], limit: int = 120) -> list[dict]:
     return [curve[i] for i in indexes]
 
 
-def save_report(data_dir: Path, kind: str, report: dict, *,
-                symbol: str = "portfolio") -> Path:
+def save_report(data_dir: Path, kind: str, report: dict, *, symbol: str = "portfolio") -> Path:
     if kind not in {"backtest", "portfolio"} or not symbol.isalnum():
         raise ValueError("Invalid historical report identity")
     folder = Path(data_dir) / "backtests"

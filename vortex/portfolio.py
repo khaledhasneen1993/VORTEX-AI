@@ -4,22 +4,30 @@ Signals calculated at the close of bar N, filled at open of bar N+1.
 Tie between stop and target resolves at stop. No imagined fills on missing bars.
 Optional funding events use exchange rates and contemporaneous mark-price bars.
 """
+
 from __future__ import annotations
+
 from bisect import bisect_right
 from dataclasses import replace
-from math import isclose, isfinite
 from datetime import datetime, timezone
-from .models import Candle, FundingEvent, Signal, Position
-from .exits import ExitStep, levels_for_bar
-from .operations import Protection, require_history, historical_context, slippage_bps
-from .indicators import atr
-from .reports import summary
+from math import isclose, isfinite
+
 from .config import Settings
+from .exits import levels_for_bar
+from .indicators import atr
+from .models import Candle, FundingEvent, Position, Signal
+from .operations import Protection, historical_context, require_history, slippage_bps
+from .phase2 import (
+    ProfitReserve,
+    apply_pyramid,
+    correlation_gate,
+    initialize_position,
+    pyramid_plan,
+    stop_exposure,
+)
+from .reports import summary
 from .risk import Filters, RiskGate, size_trade
 from .strategy import analyze
-from .phase2 import (ProfitReserve, initialize_position, correlation_gate,
-                     pyramid_plan, apply_pyramid, stop_exposure)
-from .research_policy import fixed_r_levels, relative_strength_pair
 
 
 def run_portfolio(
@@ -29,80 +37,90 @@ def run_portfolio(
     config: Settings,
     macro: dict[str, list[Candle]] | None = None,
     minute: dict[str, list[Candle]] | None = None,
-    *, execution_interval: str = "5m", diagnostics: bool = False,
-    exit_policy: str = "baseline", portfolio_policy: str = "baseline",
+    *,
+    execution_interval: str = "5m",
+    diagnostics: bool = False,
     funding: dict[str, list[FundingEvent]] | None = None,
     execution_observations=None,
 ) -> dict:
     require_history(execution_observations, config.operations)
     protection = Protection(config.operations)
     execution_rejections = []
-    if (config.phase2.enabled or config.operations.enabled) and (exit_policy != "baseline" or portfolio_policy != "baseline"):
-        raise ValueError("Phase2 must use canonical exits/portfolio, not frozen ablations")
     if execution_interval not in {"5m", "1m"}:
         raise ValueError("Execution interval must be 5m or 1m")
     if execution_interval == "1m" and minute is None:
         raise ValueError("1m execution requires actual minute candles")
-    if exit_policy not in {"baseline", "fixed-1r", "fixed-2r", "fixed-3r",
-                           "breakout-invalidation", "pair-horizon"}:
-        raise ValueError("Unknown exit policy")
-    if portfolio_policy not in {"baseline", "relative-strength-pair",
-                                "relative-strength-reversal"}:
-        raise ValueError("Unknown portfolio policy")
-    if portfolio_policy != "baseline" and config.timeframe != "15m":
-        raise ValueError("Relative-strength pair requires 15m decisions")
-    if not candles or set(candles) != set(higher) or set(candles) != set(filters) or (macro is not None and set(candles) != set(macro)):
+    if (
+        not candles
+        or set(candles) != set(higher)
+        or set(candles) != set(filters)
+        or (macro is not None and set(candles) != set(macro))
+    ):
         raise ValueError("Each portfolio symbol requires bars, HTF and exchange filters")
     if minute is not None and set(candles) != set(minute):
         raise ValueError("1m history missing for portfolio symbols")
     if funding is not None and set(candles) != set(funding):
         raise ValueError("Funding history missing for portfolio symbols")
-    minute_closes = {s: [b.close_ts for b in bars] for s, bars in minute.items()} if minute is not None else {}
+    minute_closes = (
+        {s: [b.close_ts for b in bars] for s, bars in minute.items()} if minute is not None else {}
+    )
     upper_times = {s: [x.close_ts for x in higher[s]] for s in candles}
-    macro_times = ({s: [x.close_ts for x in macro[s]] for s in candles}
-                   if macro is not None else {})
+    macro_times = {s: [x.close_ts for x in macro[s]] for s in candles} if macro is not None else {}
     symbols = sorted(candles)
     by_symbol: dict[str, dict[int, Candle]] = {}
     for sym in symbols:
         ordered = candles[sym]
-        if len(ordered) < 75 or any(b.ts <= a.ts for a, b in zip(ordered, ordered[1:])):
+        if len(ordered) < 75 or any((b.ts <= a.ts for a, b in zip(ordered, ordered[1:]))):
             raise ValueError(f"Insufficient or unordered market history: {sym}")
         by_symbol[sym] = {c.ts: c for c in ordered}
-    # Only timestamps common to ALL symbols; reject missing synchronized bars.
     stamps = sorted(set.intersection(*(set(x) for x in by_symbol.values())))
     if len(stamps) < 75:
         raise ValueError("Too few synchronous bars; refuse fabricated PnL")
-    expected = 300_000 if config.timeframe == "5m" else 900_000
-    if any(b - a != expected for a, b in zip(stamps, stamps[1:])):
+    expected = 300000 if config.timeframe == "5m" else 900000
+    if any((b - a != expected for a, b in zip(stamps, stamps[1:]))):
         raise ValueError("Historical gaps detected")
     execution = {}
     if execution_interval == "1m":
         for sym in symbols:
-            if any(b.ts <= a.ts for a,b in zip(minute[sym],minute[sym][1:])):
+            if any((b.ts <= a.ts for a, b in zip(minute[sym], minute[sym][1:]))):
                 raise ValueError(f"Unordered or duplicated 1m execution data: {sym}")
             observed = {c.ts: c for c in minute[sym]}
-            required = range(stamps[0], stamps[-1] + expected, 60_000)
-            if any(t not in observed or observed[t].close_ts != t + 59_999 for t in required):
+            required = range(stamps[0], stamps[-1] + expected, 60000)
+            if any((t not in observed or observed[t].close_ts != t + 59999 for t in required)):
                 raise ValueError(f"Missing or malformed 1m execution data: {sym}")
             for stamp in stamps:
-                children = [observed[t] for t in range(stamp,stamp+expected,60_000)]
+                children = [observed[t] for t in range(stamp, stamp + expected, 60000)]
                 parent = by_symbol[sym][stamp]
-                actual = (children[0].open,max(c.high for c in children),
-                          min(c.low for c in children),children[-1].close)
-                if not all(isclose(a,b,rel_tol=1e-9,abs_tol=1e-9) for a,b in
-                           zip(actual,(parent.open,parent.high,parent.low,parent.close))):
+                actual = (
+                    children[0].open,
+                    max((c.high for c in children)),
+                    min((c.low for c in children)),
+                    children[-1].close,
+                )
+                if not all(
+                    (
+                        isclose(a, b, rel_tol=1e-09, abs_tol=1e-09)
+                        for a, b in zip(actual, (parent.open, parent.high, parent.low, parent.close))
+                    )
+                ):
                     raise ValueError(f"1m OHLC does not reconcile with parent bar: {sym}")
             execution[sym] = observed
     funding_at: dict[str, dict[int, FundingEvent]] = {}
     if funding is not None:
         for sym in symbols:
             events = funding[sym]
-            if any(b.ts <= a.ts for a, b in zip(events, events[1:])):
+            if any((b.ts <= a.ts for a, b in zip(events, events[1:]))):
                 raise ValueError(f"Unordered or duplicated funding data: {sym}")
-            if any(event.ts % 60_000 or not isfinite(event.rate)
-                   or not -.01 <= event.rate <= .01
-                   or not isfinite(event.mark_price) or event.mark_price <= 0
-                   for event in events):
+            if any(
+                (
+                    event.ts % 60000
+                    or not isfinite(event.rate)
+                    or (not -0.01 <= event.rate <= 0.01)
+                    or (not isfinite(event.mark_price))
+                    or (event.mark_price <= 0)
+                    for event in events
+                )
+            ):
                 raise ValueError(f"Malformed funding data: {sym}")
             funding_at[sym] = {event.ts: event for event in events}
     traces: dict[str, dict] = {}
@@ -123,167 +141,179 @@ def run_portfolio(
     curve: list[dict] = [{"ts": stamps[0], "equity": wallet}]
     for i, ts in enumerate(stamps):
         bar = {s: by_symbol[s][ts] for s in symbols}
-        slip = config.slippage_bps / 10_000
-        # UTC risk reset occurs BEFORE next-bar entries. Previous-day losses
-        # cannot be mistaken for current-day drawdowns.
+        slip = config.slippage_bps / 10000
         opening_equity = wallet + sum(
-            (bar[s].open - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
-            - bar[s].open * p.qty * config.fee_rate for s, p in active.items())
-        risk.new_day(datetime.fromtimestamp(ts / 1000, timezone.utc).date().isoformat(),
-                     opening_equity)
+            (
+                (bar[s].open - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
+                - bar[s].open * p.qty * config.fee_rate
+                for s, p in active.items()
+            )
+        )
+        risk.new_day(datetime.fromtimestamp(ts / 1000, timezone.utc).date().isoformat(), opening_equity)
         protection.observe(ts, opening_equity)
         risk.can_open(opening_equity, len(active))
         if risk.blocked or not protection.allow(ts)[0]:
-            pending.clear()  # keep managing open stops, but prohibit new entries
-        past_histories = {s:[by_symbol[s][stamp] for stamp in stamps[max(0,i-config.phase2.correlation_lookback-1):i]] for s in symbols} if config.phase2.enabled else {}
-        if config.phase2.enabled and not risk.blocked and protection.allow(ts)[0]:
-            for sym,p in active.items():
+            pending.clear()
+        past_histories = (
+            {
+                s: [
+                    by_symbol[s][stamp]
+                    for stamp in stamps[max(0, i - config.phase2.correlation_lookback - 1) : i]
+                ]
+                for s in symbols
+            }
+            if config.phase2.enabled
+            else {}
+        )
+        if config.phase2.enabled and (not risk.blocked) and protection.allow(ts)[0]:
+            for sym, p in active.items():
                 sign = 1 if p.side == "LONG" else -1
                 past_atr = atr(past_histories[sym][-50:]) if len(past_histories[sym]) >= 16 else p.atr_value
-                add_slip = slippage_bps(config.slippage_bps, past_atr/p.entry, 0., config.operations)/10000
-                price = bar[sym].open*(1+sign*add_slip)
-                candidate = Signal(sym,p.side,ts,price,p.stop,p.target,10,"pyramid")
-                corr_ok,_ = correlation_gate(candidate,active,past_histories,ts,config.phase2)
-                plan = pyramid_plan(p,price,ts,replace(config, slippage_bps=add_slip*10000),filters[sym],
-                                    reserve.capital(wallet,opening_equity),
-                                    sum(x.margin for x in active.values()),
-                                    sum(stop_exposure(x,config) for x in active.values()),
-                                    past_histories[sym][-1].close) if corr_ok and past_histories[sym] else None
-                context_ok, _, capacity, _ = historical_context(execution_observations, sym, ts, config.operations)
-                if plan and context_ok and plan[0]*price <= capacity:
-                    q,m,f = plan
-                    apply_pyramid(p,price,q,m,f,ts)
+                add_slip = (
+                    slippage_bps(config.slippage_bps, past_atr / p.entry, 0.0, config.operations) / 10000
+                )
+                price = bar[sym].open * (1 + sign * add_slip)
+                candidate = Signal(sym, p.side, ts, price, p.stop, p.target, 10, "pyramid")
+                corr_ok, _ = correlation_gate(candidate, active, past_histories, ts, config.phase2)
+                plan = (
+                    pyramid_plan(
+                        p,
+                        price,
+                        ts,
+                        replace(config, slippage_bps=add_slip * 10000),
+                        filters[sym],
+                        reserve.capital(wallet, opening_equity),
+                        sum((x.margin for x in active.values())),
+                        sum((stop_exposure(x, config) for x in active.values())),
+                        past_histories[sym][-1].close,
+                    )
+                    if corr_ok and past_histories[sym]
+                    else None
+                )
+                context_ok, _, capacity, _ = historical_context(
+                    execution_observations, sym, ts, config.operations
+                )
+                if plan and context_ok and (plan[0] * price <= capacity):
+                    q, m, f = plan
+                    apply_pyramid(p, price, q, m, f, ts)
                     wallet -= f
                     fees_total += f
-                    pyramid_events.append(dict(symbol=sym,ts=ts,qty=q,price=price,fee=f))
+                    pyramid_events.append(dict(symbol=sym, ts=ts, qty=q, price=price, fee=f))
                     if diagnostics:
                         traces[sym]["total_fees"] += f
-                        traces[sym].setdefault("pyramid_events",[]).append(pyramid_events[-1])
-        paired_sizing = {}
-        if portfolio_policy != "baseline" and pending:
-            pair_ok = len(pending) == 2 and not active and not risk.blocked
-            mark = wallet
-            reserved_margin = 0.0
-            if pair_ok:
-                for sym, sig in sorted(pending.items()):
-                    b = bar[sym]
-                    sign = 1 if sig.side == "LONG" else -1
-                    px = b.open * (1 + slip if sign == 1 else 1 - slip)
-                    gap = abs(sig.entry - sig.stop)
-                    if abs(px - sig.entry) > gap * .35 or gap <= 0:
-                        pair_ok = False
-                        break
-                    new = Signal(sym, sig.side, sig.ts, px,
-                                 px - sign * gap,
-                                 px + sign * abs(sig.target - sig.entry),
-                                 sig.score, sig.reason)
-                    allowed, _ = risk.can_open(mark, len(paired_sizing))
-                    sized = (size_trade(new, mark, config, filters[sym], reserved_margin,
-                                        max_new_margin=mark * config.max_margin_fraction / 2)
-                             if allowed else None)
-                    if sized is None:
-                        pair_ok = False
-                        break
-                    qty, margin = sized
-                    paired_sizing[sym] = (px, new, qty, margin)
-                    reserved_margin += margin
-            if not pair_ok:
-                pending.clear()
-                paired_sizing.clear()
-        # The decision to enter is from the *previous completed* candle.
+                        traces[sym].setdefault("pyramid_events", []).append(pyramid_events[-1])
         for sym, sig in sorted(list(pending.items()), key=lambda p: -p[1].score):
             if risk.blocked:
                 break
             if sym in active:
                 del pending[sym]
                 continue
-            context_ok, context_reason, capacity, spread = historical_context(execution_observations, sym, ts, config.operations)
+            context_ok, context_reason, capacity, spread = historical_context(
+                execution_observations, sym, ts, config.operations
+            )
             if not context_ok:
                 execution_rejections.append(dict(symbol=sym, ts=ts, reason=context_reason))
                 del pending[sym]
                 continue
-            slip = slippage_bps(config.slippage_bps, sig.atr_value/sig.entry, spread, config.operations)/10000
-            prepared = paired_sizing.get(sym)
-            if prepared is not None:
-                px, new, qty, margin = prepared
-                gap = abs(sig.entry - sig.stop)
-                sized = (qty, margin)
-            else:
-                b = bar[sym]
-                sign = 1 if sig.side == "LONG" else -1
-                px = b.open * (1 + slip if sign == 1 else 1 - slip)
-                gap = abs(sig.entry - sig.stop)
-                if abs(px - sig.entry) > gap * .35 or gap <= 0:
-                    del pending[sym]
-                    continue
-                new = replace(sig,entry=px,stop=px-sign*gap,target=px+sign*abs(sig.target-sig.entry))
-                mark = wallet + sum(
-                    (bar[s].open - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
-                    for s, p in active.items())
-                allowed, _ = risk.can_open(mark, len(active))
-                committed = sum(p.margin for p in active.values())
-                corr_ok,corr_reason = correlation_gate(new,active,past_histories,ts,config.phase2)
-                if not corr_ok:
-                    correlation_rejections.append(dict(symbol=sym,ts=ts,reason=corr_reason))
-                sized = size_trade(new,reserve.capital(wallet,mark),replace(config, slippage_bps=slip*10000),filters[sym],committed,
-                                   committed_risk=sum(stop_exposure(p,config) for p in active.values())) if allowed and corr_ok else None
-            if sized and sized[0]*px > capacity:
-                execution_rejections.append(dict(symbol=sym, ts=ts, reason='depth participation limit'))
+            slip = (
+                slippage_bps(config.slippage_bps, sig.atr_value / sig.entry, spread, config.operations)
+                / 10000
+            )
+            b = bar[sym]
+            sign = 1 if sig.side == "LONG" else -1
+            px = b.open * (1 + slip if sign == 1 else 1 - slip)
+            gap = abs(sig.entry - sig.stop)
+            if abs(px - sig.entry) > gap * 0.35 or gap <= 0:
+                del pending[sym]
+                continue
+            new = replace(sig, entry=px, stop=px - sign * gap, target=px + sign * abs(sig.target - sig.entry))
+            mark = wallet + sum(
+                ((bar[s].open - p.entry) * p.qty * (1 if p.side == "LONG" else -1) for s, p in active.items())
+            )
+            allowed, _ = risk.can_open(mark, len(active))
+            committed = sum((p.margin for p in active.values()))
+            corr_ok, corr_reason = correlation_gate(new, active, past_histories, ts, config.phase2)
+            if not corr_ok:
+                correlation_rejections.append(dict(symbol=sym, ts=ts, reason=corr_reason))
+            sized = (
+                size_trade(
+                    new,
+                    reserve.capital(wallet, mark),
+                    replace(config, slippage_bps=slip * 10000),
+                    filters[sym],
+                    committed,
+                    committed_risk=sum((stop_exposure(p, config) for p in active.values())),
+                )
+                if allowed and corr_ok
+                else None
+            )
+            if sized and sized[0] * px > capacity:
+                execution_rejections.append(dict(symbol=sym, ts=ts, reason="depth participation limit"))
                 sized = None
             if sized:
-                if (exit_policy == "breakout-invalidation" and
-                        not {"channel_high", "channel_low"} <= sig.features.keys()):
-                    raise ValueError("Breakout invalidation requires frozen channel features")
-                if exit_policy == "pair-horizon" and "pair_exit_ts" not in sig.features:
-                    raise ValueError("Pair horizon requires a frozen exit timestamp")
                 qty, margin = sized
                 fee = qty * px * config.fee_rate
                 fees_total += fee
                 wallet -= fee
-                active[sym] = Position(sym, sig.side, ts, px, new.stop, new.target, qty, fee, margin,
-                                       features=dict(sig.features),
-                                       initial_qty=qty, initial_risk=gap, peak=px,
-                                       step=filters[sym].step, votes=list(sig.votes),
-                                       atr_value=sig.atr_value or gap / 1.5,
-                                       initial_stop=new.stop, initial_target=new.target)
-                initialize_position(active[sym],sig,reserve.capital(wallet+fee,mark),config)
+                active[sym] = Position(
+                    sym,
+                    sig.side,
+                    ts,
+                    px,
+                    new.stop,
+                    new.target,
+                    qty,
+                    fee,
+                    margin,
+                    features=dict(sig.features),
+                    initial_qty=qty,
+                    initial_risk=gap,
+                    peak=px,
+                    step=filters[sym].step,
+                    votes=list(sig.votes),
+                    atr_value=sig.atr_value or gap / 1.5,
+                    initial_stop=new.stop,
+                    initial_target=new.target,
+                )
+                initialize_position(active[sym], sig, reserve.capital(wallet + fee, mark), config)
                 if diagnostics:
                     traces[sym] = {
-                        "initial_stop": new.stop, "initial_target": new.target,
-                        "atr_at_signal": sig.atr_value, "score": sig.score,
-                        "initial_qty": qty, "initial_margin": margin,
-                        "entry_fee": fee, "total_fees": fee, "partial_exits": [],
-                        "funding_net": 0.0, "funding_events": [],
-                        "mfe_price_before_exit_bar": 0.0, "mae_price_before_exit_bar": 0.0,
-                        "mfe_first_ts": None, "mae_first_ts": None,
-                        "exit_bar_ambiguous": False, "signal_features": dict(sig.features),
+                        "initial_stop": new.stop,
+                        "initial_target": new.target,
+                        "atr_at_signal": sig.atr_value,
+                        "score": sig.score,
+                        "initial_qty": qty,
+                        "initial_margin": margin,
+                        "entry_fee": fee,
+                        "total_fees": fee,
+                        "partial_exits": [],
+                        "funding_net": 0.0,
+                        "funding_events": [],
+                        "mfe_price_before_exit_bar": 0.0,
+                        "mae_price_before_exit_bar": 0.0,
+                        "mfe_first_ts": None,
+                        "mae_first_ts": None,
+                        "exit_bar_ambiguous": False,
+                        "signal_features": dict(sig.features),
                     }
             del pending[sym]
-        # Same staged-exit engine as paper; OHLC stop wins intrabar ties.
         for sym, p in list(active.items()):
             b = bar[sym]
-            last_bars = [by_symbol[sym][stamp] for stamp in stamps[max(0, i-50):i]]
+            last_bars = [by_symbol[sym][stamp] for stamp in stamps[max(0, i - 50) : i]]
             prev_atr = atr(last_bars) if len(last_bars) >= 16 else None
-            execution_bars = ([execution[sym][t] for t in range(ts, ts + expected, 60_000)]
-                              if execution_interval == "1m" else [b])
-            invalidate = False
-            if exit_policy == "breakout-invalidation" and ts > p.opened_ts and not p.tp1_done:
-                previous = by_symbol[sym][stamps[i-1]]
-                boundary = p.features["channel_high" if p.side == "LONG" else "channel_low"]
-                invalidate = (previous.close <= boundary if p.side == "LONG"
-                              else previous.close >= boundary)
-            horizon_exit = (exit_policy == "pair-horizon" and
-                            ts >= p.features.get("pair_exit_ts", float("inf")))
-            exit_slip = slippage_bps(config.slippage_bps, (prev_atr or p.atr_value)/p.entry, 0., config.operations)/10000
+            execution_bars = (
+                [execution[sym][t] for t in range(ts, ts + expected, 60000)]
+                if execution_interval == "1m"
+                else [b]
+            )
+            exit_slip = (
+                slippage_bps(config.slippage_bps, (prev_atr or p.atr_value) / p.entry, 0.0, config.operations)
+                / 10000
+            )
             for execution_index, eb in enumerate(execution_bars):
                 event = funding_at.get(sym, {}).get(eb.ts)
                 deferred_funding = None
                 if event is not None:
-                    # LONG pays a positive rate; SHORT receives it. Funding is
-                    # published a few milliseconds into the minute, so OHLC
-                    # cannot prove whether an intraminute exit preceded it.
-                    # Charge adverse cash flow before exits, but defer favorable
-                    # credit until the position survives the full minute.
                     sign = 1 if p.side == "LONG" else -1
                     cash_flow = -sign * p.qty * event.mark_price * event.rate
                     if cash_flow <= 0:
@@ -293,52 +323,62 @@ def run_portfolio(
                         p.accumulated_funding += cash_flow
                         if diagnostics:
                             traces[sym]["funding_net"] += cash_flow
-                            traces[sym]["funding_events"].append({
-                                "ts": event.ts, "rate": event.rate,
-                                "mark_price": event.mark_price, "qty": p.qty,
-                                "net": cash_flow, "timing": "before_exit_adverse"})
+                            traces[sym]["funding_events"].append(
+                                {
+                                    "ts": event.ts,
+                                    "rate": event.rate,
+                                    "mark_price": event.mark_price,
+                                    "qty": p.qty,
+                                    "net": cash_flow,
+                                    "timing": "before_exit_adverse",
+                                }
+                            )
                     else:
                         deferred_funding = event
                 existing_stop = p.stop
                 sign = 1 if p.side == "LONG" else -1
-                fixed_target_r = {"fixed-1r": 1.0, "fixed-2r": 2.0,
-                                  "fixed-3r": 3.0}.get(exit_policy)
-                open_exit_reason = ("breakout_invalidation" if invalidate else
-                                    "pair_horizon" if horizon_exit else None)
-                if open_exit_reason is not None and execution_index == 0:
-                    actions = [ExitStep(p.qty, eb.open, open_exit_reason, True)]
-                else:
-                    actions = (fixed_r_levels(p, eb.low, eb.high, eb.open, fixed_target_r)
-                               if fixed_target_r is not None else
-                               levels_for_bar(p, eb.low, eb.high, eb.open,
-                                              atr_value=prev_atr,
-                                              trailing_atr_mult=config.trailing_atr_mult,
-                                              policy=config.operations, now_ms=eb.ts))
+                open_exit_reason = None
+                actions = levels_for_bar(
+                    p,
+                    eb.low,
+                    eb.high,
+                    eb.open,
+                    atr_value=prev_atr,
+                    trailing_atr_mult=config.trailing_atr_mult,
+                    policy=config.operations,
+                    now_ms=eb.ts,
+                )
                 if diagnostics:
                     trace = traces[sym]
-                    terminal = any(a.final for a in actions)
+                    terminal = any((a.final for a in actions))
                     open_exit = open_exit_reason is not None and execution_index == 0
-                    stop_touch = (False if open_exit else
-                                  eb.low <= existing_stop if sign == 1 else eb.high >= existing_stop)
-                    one_r_touch = (False if open_exit else
-                                   (eb.high - p.entry if sign == 1 else p.entry - eb.low)
-                                   >= p.initial_risk)
+                    stop_touch = (
+                        False
+                        if open_exit
+                        else eb.low <= existing_stop
+                        if sign == 1
+                        else eb.high >= existing_stop
+                    )
+                    one_r_touch = (
+                        False
+                        if open_exit
+                        else (eb.high - p.entry if sign == 1 else p.entry - eb.low) >= p.initial_risk
+                    )
                     trace["exit_bar_ambiguous"] = terminal and stop_touch and one_r_touch
-                    # Terminal-bar extremes may happen AFTER exit; never credit them as actual MFE/MAE.
-                    # These fields are lower bounds from completed pre-terminal bars, not tick paths.
                     if not terminal:
-                        favorable = max(0., eb.high - p.entry if sign == 1 else p.entry - eb.low)
-                        adverse = max(0., p.entry - eb.low if sign == 1 else eb.high - p.entry)
+                        favorable = max(0.0, eb.high - p.entry if sign == 1 else p.entry - eb.low)
+                        adverse = max(0.0, p.entry - eb.low if sign == 1 else eb.high - p.entry)
                         for name, value in (("mfe", favorable), ("mae", adverse)):
                             field = name + "_price_before_exit_bar"
                             if value > trace[field]:
                                 trace[field] = value
                                 trace[name + "_first_ts"] = eb.ts
                     else:
-                        trace["terminal_bar"] = ({"ts": eb.ts, "low": eb.open,
-                                                  "high": eb.open, "open_exit": True}
-                                                 if open_exit else
-                                                 {"ts": eb.ts, "low": eb.low, "high": eb.high})
+                        trace["terminal_bar"] = (
+                            {"ts": eb.ts, "low": eb.open, "high": eb.open, "open_exit": True}
+                            if open_exit
+                            else {"ts": eb.ts, "low": eb.low, "high": eb.high}
+                        )
                 for action in actions:
                     px = action.price * (1 - exit_slip if p.side == "LONG" else 1 + exit_slip)
                     proportion = action.qty / p.qty
@@ -348,34 +388,54 @@ def run_portfolio(
                     if diagnostics:
                         trace = traces[sym]
                         trace["total_fees"] += exit_fee
-                        trace["partial_exits"].append({"ts": eb.ts, "qty": action.qty,
-                            "price": px, "reason": action.reason, "final": action.final,
-                            "entry_fee_allocated": entry_fee, "exit_fee": exit_fee, "net_pnl": (px - p.entry) * action.qty * (1 if p.side == "LONG" else -1) - exit_fee - entry_fee})
+                        trace["partial_exits"].append(
+                            {
+                                "ts": eb.ts,
+                                "qty": action.qty,
+                                "price": px,
+                                "reason": action.reason,
+                                "final": action.final,
+                                "entry_fee_allocated": entry_fee,
+                                "exit_fee": exit_fee,
+                                "net_pnl": (px - p.entry) * action.qty * (1 if p.side == "LONG" else -1)
+                                - exit_fee
+                                - entry_fee,
+                            }
+                        )
                     realized = (px - p.entry) * action.qty * (1 if p.side == "LONG" else -1)
                     net = realized - exit_fee - entry_fee
                     wallet += realized - exit_fee
                     reserve.record(net)
                     p.entry_fee -= entry_fee
-                    p.qty = max(0., p.qty - action.qty)
-                    p.margin *= max(0., 1. - proportion)
+                    p.qty = max(0.0, p.qty - action.qty)
+                    p.margin *= max(0.0, 1.0 - proportion)
                     p.accumulated_net += net
                     if action.final:
                         final_net = p.accumulated_net
                         risk.closed(final_net)
                         protection.closed(final_net, eb.ts)
-                        trades.append({"symbol": sym, "side": p.side,
-                                       "entry_ts": p.opened_ts, "exit_ts": eb.ts,
-                                       "entry": round(p.entry, 8), "exit": round(px, 8),
-                                       "net_pnl": round(final_net, 8),
-                                       "r_multiple": round(final_net / (p.initial_qty * p.initial_risk), 6)
-                                                     if p.initial_qty * p.initial_risk > 0 else None,
-                                       "votes": list(p.votes),"pyramid_count": p.pyramid_count,
-                                       "risk_fraction": p.risk_fraction,
-                                       "total_entry_qty": p.total_entry_qty or p.initial_qty,
-                                       "reason": action.reason})
+                        trades.append(
+                            {
+                                "symbol": sym,
+                                "side": p.side,
+                                "entry_ts": p.opened_ts,
+                                "exit_ts": eb.ts,
+                                "entry": round(p.entry, 8),
+                                "exit": round(px, 8),
+                                "net_pnl": round(final_net, 8),
+                                "r_multiple": round(final_net / (p.initial_qty * p.initial_risk), 6)
+                                if p.initial_qty * p.initial_risk > 0
+                                else None,
+                                "votes": list(p.votes),
+                                "pyramid_count": p.pyramid_count,
+                                "risk_fraction": p.risk_fraction,
+                                "total_entry_qty": p.total_entry_qty or p.initial_qty,
+                                "reason": action.reason,
+                            }
+                        )
                         if diagnostics:
                             trades[-1]["diagnostics"] = traces.pop(sym)
-                        cool[sym] = ts + config.cooldown_minutes * 60_000
+                        cool[sym] = ts + config.cooldown_minutes * 60000
                         del active[sym]
                         break
                 if sym not in active:
@@ -391,14 +451,23 @@ def run_portfolio(
                     p.accumulated_funding += cash_flow
                     if diagnostics:
                         traces[sym]["funding_net"] += cash_flow
-                        traces[sym]["funding_events"].append({
-                            "ts": deferred_funding.ts, "rate": deferred_funding.rate,
-                            "mark_price": deferred_funding.mark_price, "qty": p.qty,
-                            "net": cash_flow, "timing": "after_minute_favorable"})
-        # Use marks for continuous drawdown & daily loss without crediting fantasy fills.
+                        traces[sym]["funding_events"].append(
+                            {
+                                "ts": deferred_funding.ts,
+                                "rate": deferred_funding.rate,
+                                "mark_price": deferred_funding.mark_price,
+                                "qty": p.qty,
+                                "net": cash_flow,
+                                "timing": "after_minute_favorable",
+                            }
+                        )
         equity = wallet + sum(
-            (bar[s].close - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
-            - bar[s].close * p.qty * config.fee_rate for s, p in active.items())
+            (
+                (bar[s].close - p.entry) * p.qty * (1 if p.side == "LONG" else -1)
+                - bar[s].close * p.qty * config.fee_rate
+                for s, p in active.items()
+            )
+        )
         highwater = max(highwater, equity)
         ending_equity = equity
         curve.append({"ts": bar[symbols[0]].close_ts, "equity": round(equity, 6)})
@@ -407,79 +476,79 @@ def run_portfolio(
         protection.observe(bar[symbols[0]].close_ts, equity)
         if risk.blocked or not protection.allow(bar[symbols[0]].close_ts)[0]:
             pending.clear()
-            continue  # continue monitoring stops, never open new positions
-        # After bar close, queue signals for next bar only; forbid final-bar entries.
+            continue
         if i + 1 >= len(stamps):
             continue
-        if portfolio_policy != "baseline":
-            next_open = bar[symbols[0]].close_ts + 1
-            if not active and not pending and next_open % 14_400_000 == 0:
-                histories = {sym:[by_symbol[sym][when]
-                                  for when in stamps[max(0, i-219):i+1]]
-                             for sym in symbols}
-                pair = relative_strength_pair(
-                    histories, config.min_score,
-                    contrarian=portfolio_policy == "relative-strength-reversal")
-                if pair and all(ts >= cool.get(sym, 0) for sym in pair):
-                    pending.update(pair)
-        else:
-            for sym in symbols:
-                if sym in active or sym in pending or ts < cool.get(sym, 0):
-                    continue
-                history = [by_symbol[sym][when] for when in stamps[max(0, i-219):i+1]]
-                hi_end = bisect_right(upper_times[sym], bar[sym].close_ts)
-                upper = higher[sym][max(0, hi_end-120):hi_end]
-                if macro is not None:
-                    m_end = bisect_right(macro_times[sym], bar[sym].close_ts)
-                    macro_upper = macro[sym][max(0, m_end-250):m_end]
-                else:
-                    macro_upper = None
-                vote_options = ({"strict_votes": config.strict_votes,
-                                 "min_strong_score": config.min_strong_score}
-                                if not config.strict_votes else {})
-                if config.phase1.enabled:
-                    vote_options["policy"] = config.phase1
-                if minute is not None:
-                    ix = bisect_right(minute_closes[sym], bar[sym].close_ts)
-                    minute_window = minute[sym][max(0, ix - 90):ix]
-                    sig = analyze(sym, history, upper, config.min_score, macro=macro_upper,
-                                  minute=minute_window, **vote_options)
-                else:
-                    sig = (analyze(sym, history, upper, config.min_score,
-                                   macro=macro_upper, **vote_options)
-                           if macro is not None else
-                           analyze(sym, history, upper, config.min_score, **vote_options))
-                if sig:
-                    pending[sym] = sig
+        for sym in symbols:
+            if sym in active or sym in pending or ts < cool.get(sym, 0):
+                continue
+            history = [by_symbol[sym][when] for when in stamps[max(0, i - 219) : i + 1]]
+            hi_end = bisect_right(upper_times[sym], bar[sym].close_ts)
+            upper = higher[sym][max(0, hi_end - 120) : hi_end]
+            if macro is not None:
+                m_end = bisect_right(macro_times[sym], bar[sym].close_ts)
+                macro_upper = macro[sym][max(0, m_end - 250) : m_end]
+            else:
+                macro_upper = None
+            vote_options = {}
+            if config.phase1.enabled:
+                vote_options["policy"] = config.phase1
+            if minute is not None:
+                ix = bisect_right(minute_closes[sym], bar[sym].close_ts)
+                minute_window = minute[sym][max(0, ix - 90) : ix]
+                sig = analyze(
+                    sym,
+                    history,
+                    upper,
+                    config.min_score,
+                    macro=macro_upper,
+                    minute=minute_window,
+                    **vote_options,
+                )
+            else:
+                sig = (
+                    analyze(sym, history, upper, config.min_score, macro=macro_upper, **vote_options)
+                    if macro is not None
+                    else analyze(sym, history, upper, config.min_score, **vote_options)
+                )
+            if sig:
+                pending[sym] = sig
     stats = summary(trades, curve)
     pnl = [t["net_pnl"] for t in trades]
-    wins = sum(x > 0 for x in pnl)
-    gross_win = sum(x for x in pnl if x > 0)
-    gross_loss = -sum(x for x in pnl if x < 0)
-    return {"operations_protection": protection.state(), "execution_rejections": execution_rejections,
-        "reserved_profit": reserve.reserved,"pyramid_events": pyramid_events,
-        "correlation_rejections": correlation_rejections,"phase2_enabled": config.phase2.enabled,
-        "metrics": stats, "equity_curve": stats["equity_curve"],
+    wins = sum((x > 0 for x in pnl))
+    gross_win = sum((x for x in pnl if x > 0))
+    gross_loss = -sum((x for x in pnl if x < 0))
+    return {
+        "operations_protection": protection.state(),
+        "execution_rejections": execution_rejections,
+        "reserved_profit": reserve.reserved,
+        "pyramid_events": pyramid_events,
+        "correlation_rejections": correlation_rejections,
+        "phase2_enabled": config.phase2.enabled,
+        "metrics": stats,
+        "equity_curve": stats["equity_curve"],
         "average_r": stats["average_r"],
         "max_drawdown_pct": max(round(maxdd * 100, 3), stats["max_drawdown_pct"]),
-        "start_equity": config.starting_equity, "cash_wallet": round(wallet, 6),
+        "start_equity": config.starting_equity,
+        "cash_wallet": round(wallet, 6),
         "equity_with_unrealized": round(ending_equity, 6),
-        "open_positions_unrealized_net": round(ending_equity-wallet, 6),
+        "open_positions_unrealized_net": round(ending_equity - wallet, 6),
         "open_positions": sorted(active),
         "realized_net_pnl": round(sum(pnl), 6),
-        "execution_interval": execution_interval, "exit_policy": exit_policy,
-        "portfolio_policy": portfolio_policy,
+        "execution_interval": execution_interval,
         "diagnostics_enabled": diagnostics,
         "closed_trades": len(pnl),
-        "win_rate": (wins / len(pnl) if pnl else None),
-        "profit_factor": (gross_win / gross_loss if gross_loss else None),
+        "win_rate": wins / len(pnl) if pnl else None,
+        "profit_factor": gross_win / gross_loss if gross_loss else None,
         "max_mark_to_market_drawdown_pct": round(maxdd * 100, 3),
         "total_fees": round(fees_total, 6),
         "total_funding_net": round(funding_total, 6),
         "halted": risk.blocked,
-        "warnings": ["OHLC approximations; liquidation, historic spread and queue not replayed"
-                     if funding is not None else
-                     "OHLC approximations; funding, liquidation, historic spread and queue not replayed",
-                     "Historical results are NOT a forward-profit forecast"],
+        "warnings": [
+            "OHLC approximations; liquidation, historic spread and queue not replayed"
+            if funding is not None
+            else "OHLC approximations; funding, liquidation, historic spread and queue not replayed",
+            "Historical results are NOT a forward-profit forecast",
+        ],
         "trades": trades,
     }

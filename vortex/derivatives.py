@@ -3,10 +3,13 @@
 Do NOT interpolate missing exchange observations, infer liquidation events from
 ticker volume, or mark a derivative vote from an old cached premium index.
 """
+
 from __future__ import annotations
-from math import isfinite
+
 import logging
-from .strategies import Derivatives
+from math import isfinite
+
+from .market_features import Derivatives
 
 log = logging.getLogger("vortex.votes")
 
@@ -20,14 +23,14 @@ class DerivativesTracker:
 
     def timing(self, market, symbol: str):
         """Refresh funding timing without changing the independent OI vote interval."""
-        index = market.get('/fapi/v1/premiumIndex', {'symbol': symbol})
+        index = market.get("/fapi/v1/premiumIndex", {"symbol": symbol})
         checked = market.server_ms()
         self.funding_timing.pop(symbol, None)
-        rate = float(index['lastFundingRate'])
-        stamp, next_ms = int(index['time']), int(index['nextFundingTime'])
-        if index.get('symbol') != symbol or not isfinite(rate):
+        rate = float(index["lastFundingRate"])
+        stamp, next_ms = int(index["time"]), int(index["nextFundingTime"])
+        if index.get("symbol") != symbol or not isfinite(rate):
             return None
-        if not 0 <= checked-stamp <= 15000 or next_ms <= checked:
+        if not 0 <= checked - stamp <= 15000 or next_ms <= checked:
             return None
         snapshot = (stamp, rate, next_ms)
         self.funding_timing[symbol] = snapshot
@@ -35,6 +38,7 @@ class DerivativesTracker:
 
     def sample(self, market, symbol: str, now_ms: int) -> Derivatives | None:
         self.checked_ms = None
+
         def abstain(reason):
             log.debug("DERIVATIVE %s status=ABSTAIN reason=%s", symbol, reason)
             return None
@@ -61,7 +65,7 @@ class DerivativesTracker:
                 return abstain(f"future_{name}_timestamp age_ms={age}")
             if age > 15000:
                 return abstain(f"stale_{name}_timestamp age_ms={age}")
-        next_funding = int(index.get('nextFundingTime', 0))
+        next_funding = int(index.get("nextFundingTime", 0))
         if next_funding > checked:
             self.funding_timing[symbol] = (index_ms, funding, next_funding)
         previous = self.last.get(symbol)
@@ -80,8 +84,13 @@ class DerivativesTracker:
         if not 60_000 <= gap <= 30 * 60_000:
             return abstain(f"open_interest_interval_outside_bounds gap_ms={gap}")
         change = (current / previous[1] - 1) * 100
-        log.debug("DERIVATIVE %s status=VALID funding_rate=%.6f oi_change_pct=%.4f checked_ms=%d cycle_ms=%d",
-                  symbol, funding, change, checked, now_ms)
-        price_change = ((mark / old_price - 1) * 100
-                        if old_price and isfinite(mark) and mark > 0 else None)
+        log.debug(
+            "DERIVATIVE %s status=VALID funding_rate=%.6f oi_change_pct=%.4f checked_ms=%d cycle_ms=%d",
+            symbol,
+            funding,
+            change,
+            checked,
+            now_ms,
+        )
+        price_change = (mark / old_price - 1) * 100 if old_price and isfinite(mark) and mark > 0 else None
         return Derivatives(funding, change, min(index_ms, oi_ms), price_change, gap)

@@ -1,15 +1,21 @@
 """Read-only Binance USD-M public market data gateway."""
+
 from __future__ import annotations
+
 import time
+
 import requests
+
 from .models import Candle
 from .risk import Filters
 
 BASE = "https://fapi.binance.com"
 TESTNET = "https://testnet.binancefuture.com"
 
+
 class MarketError(RuntimeError):
     pass
+
 
 class Market:
     def __init__(self, base: str = BASE, session: requests.Session | None = None):
@@ -21,7 +27,17 @@ class Market:
         self._exchange: dict | None = None
 
     def get(self, path: str, params: dict | None = None):
-        if path not in {"/fapi/v1/time", "/fapi/v1/exchangeInfo", "/fapi/v1/klines", "/fapi/v1/ticker/bookTicker", "/fapi/v1/depth", "/fapi/v1/aggTrades", "/fapi/v1/ticker/24hr", "/fapi/v1/premiumIndex", "/fapi/v1/openInterest"}:
+        if path not in {
+            "/fapi/v1/time",
+            "/fapi/v1/exchangeInfo",
+            "/fapi/v1/klines",
+            "/fapi/v1/ticker/bookTicker",
+            "/fapi/v1/depth",
+            "/fapi/v1/aggTrades",
+            "/fapi/v1/ticker/24hr",
+            "/fapi/v1/premiumIndex",
+            "/fapi/v1/openInterest",
+        }:
             raise MarketError("Public endpoints only")
         for n in range(3):
             try:
@@ -31,7 +47,7 @@ class Market:
                     time.sleep(max(1, wait))
                     continue
                 if response.status_code >= 500:
-                    time.sleep(2 ** n)
+                    time.sleep(2**n)
                     continue
                 response.raise_for_status()
                 result = response.json()
@@ -41,7 +57,7 @@ class Market:
             except (requests.RequestException, ValueError) as exc:
                 if n == 2:
                     raise MarketError(f"Binance request failed: {path}") from exc
-                time.sleep(2 ** n)
+                time.sleep(2**n)
         raise MarketError("Binance unavailable; no market decisions")
 
     def server_ms(self) -> int:
@@ -49,16 +65,24 @@ class Market:
 
     def metadata(self) -> dict:
         if self._exchange is None:
-            self._exchange = {s["symbol"]: s for s in self.get("/fapi/v1/exchangeInfo")["symbols"]
-                              if s.get("status") == "TRADING" and s.get("quoteAsset") == "USDT"
-                              and s.get("contractType") == "PERPETUAL"}
+            self._exchange = {
+                s["symbol"]: s
+                for s in self.get("/fapi/v1/exchangeInfo")["symbols"]
+                if s.get("status") == "TRADING"
+                and s.get("quoteAsset") == "USDT"
+                and s.get("contractType") == "PERPETUAL"
+            }
         return self._exchange
 
     def symbol_filters(self, symbol: str) -> Filters:
         return Filters.from_exchange(self.metadata()[symbol])
 
     def candles(self, symbol: str, interval: str, limit: int, now_ms: int) -> list[Candle]:
-        if symbol not in self.metadata() or interval not in {"1m", "5m", "15m", "1h"} or not 1 <= limit <= 1500:
+        if (
+            symbol not in self.metadata()
+            or interval not in {"1m", "5m", "15m", "1h"}
+            or not 1 <= limit <= 1500
+        ):
             raise MarketError("Invalid symbol, timeframe or limit")
         raw = self.get("/fapi/v1/klines", {"symbol": symbol, "interval": interval, "limit": limit})
         data = [Candle.from_binance(row) for row in raw]
@@ -67,8 +91,7 @@ class Market:
             raise MarketError("Non-monotone candles; reject market data")
         return closed
 
-    def quotes(self, *, now_ms: int | None = None,
-               max_age_ms: int = 4000) -> dict[str, tuple[float, float]]:
+    def quotes(self, *, now_ms: int | None = None, max_age_ms: int = 4000) -> dict[str, tuple[float, float]]:
         """Return ONLY fresh exchange-timestamped executable REST quotes.
 
         Do not silently accept a stale cached bookTicker from an idle contract.
@@ -92,7 +115,6 @@ class Market:
                 continue
         return out
 
-
     def history(self, symbol: str, interval: str, days: int, now_ms: int) -> list[Candle]:
         """Paginate completed candles over 1..45 days with indicator warmup.
 
@@ -109,9 +131,10 @@ class Market:
         end = now_ms - 1
         candles: list[Candle] = []
         while cursor < end:
-            raw = self.get("/fapi/v1/klines",
-                           {"symbol": symbol, "interval": interval, "startTime": cursor,
-                            "endTime": end, "limit": 1500})
+            raw = self.get(
+                "/fapi/v1/klines",
+                {"symbol": symbol, "interval": interval, "startTime": cursor, "endTime": end, "limit": 1500},
+            )
             if not raw:
                 break
             batch = [Candle.from_binance(row) for row in raw]

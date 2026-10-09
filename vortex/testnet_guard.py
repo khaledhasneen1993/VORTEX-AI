@@ -4,12 +4,15 @@ This code NEVER accepts production credentials/hostname. Startup refuses unmanag
 positions. Any uncertain order response latches a halt for manual inspection.
 Always use exchange position truth, not a local simulated quantity.
 """
+
 from __future__ import annotations
+
 import json
 import os
 import uuid
 from pathlib import Path
-from .exchange_testnet import ExchangeRejected, ExchangeUncertain, decimal_text
+
+from .exchange_testnet import ExchangeRejected, ExchangeUncertain
 from .models import Signal
 from .risk import Filters, floor_step
 
@@ -20,6 +23,7 @@ class ProtectionError(RuntimeError):
 
 class TestnetSupervisor:
     __test__ = False  # pytest must not treat service classes as test cases
+
     def __init__(self, api, state_path: Path):
         self.api = api
         self.path = Path(state_path)
@@ -77,20 +81,29 @@ class TestnetSupervisor:
             return False
         protective_side = "SELL" if amount > 0 else "BUY"
         # Find only OUR named orders, reject accidentally counting manual protective orders.
-        own = [o for o in orders if o.get("clientAlgoId") in
-               {self.state.get("stop_id"), self.state.get("take_id")}]
+        own = [
+            o
+            for o in orders
+            if o.get("clientAlgoId") in {self.state.get("stop_id"), self.state.get("take_id")}
+        ]
         verified = {}
         for order in own:
             kind = order.get("orderType", order.get("type"))
-            if (order.get("side") != protective_side or
-                str(order.get("closePosition")).lower() != "true" or
-                order.get("positionSide", "BOTH") != "BOTH"):
+            if (
+                order.get("side") != protective_side
+                or str(order.get("closePosition")).lower() != "true"
+                or order.get("positionSide", "BOTH") != "BOTH"
+            ):
                 continue
-            wanted = self.state.get("stop") if kind == "STOP_MARKET" else (
-                self.state.get("target") if kind == "TAKE_PROFIT_MARKET" else None)
+            wanted = (
+                self.state.get("stop")
+                if kind == "STOP_MARKET"
+                else (self.state.get("target") if kind == "TAKE_PROFIT_MARKET" else None)
+            )
             if wanted is None or "triggerPrice" not in order:
                 continue
             from decimal import Decimal
+
             if Decimal(str(order["triggerPrice"])) == Decimal(str(wanted)):
                 verified[kind] = True
         return {"STOP_MARKET", "TAKE_PROFIT_MARKET"} <= set(verified)
@@ -105,8 +118,9 @@ class TestnetSupervisor:
         close_id = self.client_id("exit")
         self.persist(close_id=close_id, phase="HALTED", reason="Emergency close attempted")
         try:
-            self.api.market_order(symbol, "SELL" if amount > 0 else "BUY",
-                                  abs(amount), close_id, reduce_only=True)
+            self.api.market_order(
+                symbol, "SELL" if amount > 0 else "BUY", abs(amount), close_id, reduce_only=True
+            )
         except (ExchangeUncertain, ExchangeRejected) as exc:
             self.halt(f"EMERGENCY CLOSE UNCERTAIN: {type(exc).__name__}; operator must reconcile")
         try:
@@ -134,29 +148,43 @@ class TestnetSupervisor:
             raise ValueError("Quantity must be pre-rounded by risk engine")
         if signal.stop <= 0 or signal.target <= 0:
             raise ValueError("Invalid protective prices")
-        if not (signal.stop < signal.entry < signal.target if signal.side == "LONG"
-                else signal.target < signal.entry < signal.stop):
+        if not (
+            signal.stop < signal.entry < signal.target
+            if signal.side == "LONG"
+            else signal.target < signal.entry < signal.stop
+        ):
             raise ValueError("Stop/target wrong side of entry")
         # Round SL *toward* entry (risk must never widen just to meet tick rules).
         # Round TP conservatively. Check again after rounding.
-        from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
+        from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
+
         tick = Decimal(str(filt.tick))
+
         def quantize(price: float, rule) -> float:
             x = Decimal(str(price))
             return float((x / tick).to_integral_value(rounding=rule) * tick)
+
         stop = quantize(signal.stop, ROUND_CEILING if signal.side == "LONG" else ROUND_FLOOR)
         take = quantize(signal.target, ROUND_FLOOR if signal.side == "LONG" else ROUND_CEILING)
-        if not (stop < signal.entry < take if signal.side == "LONG"
-                else take < signal.entry < stop):
+        if not (stop < signal.entry < take if signal.side == "LONG" else take < signal.entry < stop):
             raise ValueError("Protective prices invalid after tick rounding")
         if stop <= 0 or take <= 0:
             raise ValueError("Invalid rounded protective level")
         entry_id = self.client_id("in")
         stop_id = self.client_id("sl")
         take_id = self.client_id("tp")
-        self.persist(phase="INTENT", symbol=signal.symbol, side=signal.side,
-                     entry_id=entry_id, stop_id=stop_id, take_id=take_id,
-                     qty=q, stop=stop, target=take, reason="Entry intent logged")
+        self.persist(
+            phase="INTENT",
+            symbol=signal.symbol,
+            side=signal.side,
+            entry_id=entry_id,
+            stop_id=stop_id,
+            take_id=take_id,
+            qty=q,
+            stop=stop,
+            target=take,
+            reason="Entry intent logged",
+        )
         try:
             self.api.set_leverage(signal.symbol, leverage)
             side = "BUY" if signal.side == "LONG" else "SELL"
@@ -170,13 +198,23 @@ class TestnetSupervisor:
                 try:
                     avg = float(self.api.query_order(signal.symbol, entry_id).get("avgPrice", "0") or 0)
                 except (AttributeError, ExchangeRejected, ExchangeUncertain):
-                    avg = 0.
-            self.persist(phase="PROTECTING", filled_qty=abs(actual),
-                         actual_entry=avg, initial_risk=abs(avg - stop) if avg > 0 else 0,
-                         initial_qty=abs(actual), atr_value=signal.atr_value or abs(signal.entry-stop)/1.5,
-                         step=filt.step, tick=filt.tick, peak=avg,
-                         tp1_done=False, tp2_done=False, stage_intent=None,
-                         stop_replace_intent=None, old_stop_cancel=None)
+                    avg = 0.0
+            self.persist(
+                phase="PROTECTING",
+                filled_qty=abs(actual),
+                actual_entry=avg,
+                initial_risk=abs(avg - stop) if avg > 0 else 0,
+                initial_qty=abs(actual),
+                atr_value=signal.atr_value or abs(signal.entry - stop) / 1.5,
+                step=filt.step,
+                tick=filt.tick,
+                peak=avg,
+                tp1_done=False,
+                tp2_done=False,
+                stage_intent=None,
+                stop_replace_intent=None,
+                old_stop_cancel=None,
+            )
             closing_side = "SELL" if actual > 0 else "BUY"
             self.api.protective(signal.symbol, closing_side, "STOP_MARKET", stop, stop_id)
             self.api.protective(signal.symbol, closing_side, "TAKE_PROFIT_MARKET", take, take_id)
@@ -186,11 +224,13 @@ class TestnetSupervisor:
             if avg <= 0:
                 self.emergency_flatten(signal.symbol)
                 self.halt("No verified entry fill price: emergency close; cannot stage safely")
-            if abs(avg - signal.entry) > abs(signal.entry - stop) * .35:
+            if abs(avg - signal.entry) > abs(signal.entry - stop) * 0.35:
                 self.emergency_flatten(signal.symbol)
                 self.halt("Actual fill deviated beyond preflight risk budget")
             if acknowledgement.get("status") == "PARTIALLY_FILLED":
-                self.halt("Entry partially filled; protections placed; manual cancellation/reconciliation required")
+                self.halt(
+                    "Entry partially filled; protections placed; manual cancellation/reconciliation required"
+                )
             self.persist(phase="PROTECTED", reason="Two exchange-side close-all guards verified")
             return dict(self.state)
         except (ExchangeRejected, ExchangeUncertain) as exc:
@@ -210,14 +250,20 @@ class TestnetSupervisor:
             return {"ok": True, "phase": "IDLE"}
         if self.state["phase"] == "HALTED":
             raise ProtectionError(self.state.get("reason", "HALTED"))
-        if self.state.get("stage_intent") or self.state.get("stop_replace_intent") or self.state.get("old_stop_cancel"):
+        if (
+            self.state.get("stage_intent")
+            or self.state.get("stop_replace_intent")
+            or self.state.get("old_stop_cancel")
+        ):
             self.halt("Interrupted TESTNET write requires human reconciliation")
         sym, side = self.state["symbol"], self.state["side"]
         amount = self.api.position(sym)
         if not amount:
             # Zero/missing position rows can be briefly stale. NEVER cancel protective
             # orders or reset the journal based on a single unsigned-timing assumption.
-            self.halt("TESTNET position appears flat: inspect exchange fills and remaining protective orders manually")
+            self.halt(
+                "TESTNET position appears flat: inspect exchange fills and remaining protective orders manually"
+            )
         if not self.verify_protection(sym, side):
             if may_flatten:
                 self.emergency_flatten(sym)

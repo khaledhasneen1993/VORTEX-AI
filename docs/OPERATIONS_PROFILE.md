@@ -1,11 +1,9 @@
 # Additional PAPER operations profile
 
-Status: implementation and deterministic tests, **not economically accepted**.
-This is a separate opt-in profile after Phase2; no production exchange execution
-exists. Testnet single-entry commissioning explicitly refuses `OPS_ENABLED=true`
-before credentials/network, because its existing exit controller does not implement
-this portfolio policy. Existing legacy/Phase2 results remain reproducible when OPS
-is disabled. No running Termux session or its settings are remotely changed.
+Status: current maintained software release; **not economically accepted**.
+This is the default operations policy, not an optional alternate version.
+Automatic Testnet strategy entry is unavailable; no production path exists.
+Old executable strategies were removed. Historical evidence is inert in `archive/`.
 
 ## Entry and exits
 
@@ -50,8 +48,7 @@ risk. Gaps and sampled quotes can still exceed the modeled loss budget.
 After two final losing trades: 30-minute global entry/add cooldown, then 60, 90,
 and at most 120 minutes for more consecutive losses. Profitable final trades reset
 the streak but do not cancel an already scheduled cooldown. Partial losses are not
-counted as final trades. This opt-in rule supersedes the earlier no-streak-pause
-policy only for OPS sessions.
+counted as final trades. This is the current default progressive cooldown policy.
 
 A 12% decline from sampled peak within one hour, or 18% within two hours, latches
 a new-entry/add halt. Open stops/exits continue; it does not submit an invented
@@ -94,8 +91,8 @@ change the historical dataset passed explicitly to replay or manual-card scannin
 
 All policy fields have matching `OPS_<FIELD>` entries in `.env.example`, including
 exits, thresholds, liquidity, funding, modeled costs, protection and notifications.
-`OPS_ENABLED=true` activates them; code defaults disabled for frozen baselines.
-The example enables them for **new isolated PAPER sessions**. Existing `.env` wins;
+`OPS_ENABLED=true` identifies the current policy; code and example defaults enable the current release.
+Disabled master policy flags are refused; no old engine is selectable. Existing `.env` wins;
 copying the example over secret-bearing or active-session settings is unnecessary.
 
 ## Replay and stress

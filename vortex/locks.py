@@ -4,6 +4,7 @@ Do not use a portable 'pid file only' lock: stale pid files after SIGKILL would
 require unsafe manual deletion, and O_EXCL alone does not prove owner liveness.
 This project deploys on Linux containers/Termux, where flock auto-releases on exit.
 """
+
 from __future__ import annotations
 
 import os

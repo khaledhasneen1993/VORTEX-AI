@@ -1,6 +1,8 @@
 """Two workers must never trade the same state ledger simultaneously."""
+
 import pytest
-from vortex.locks import ProcessLock, AlreadyRunning
+
+from vortex.locks import AlreadyRunning, ProcessLock
 
 
 def test_single_writer_blocks_second_worker(tmp_path):
@@ -20,6 +22,6 @@ def test_testnet_and_paper_locks_are_independent(tmp_path):
 
 def test_reset_lock_survives_stale_pid_file_after_process_crash(tmp_path):
     file = tmp_path / "paper.lock"
-    file.write_text("999999")  # stale PID is NOT proof of a live lock
+    file.write_text("999999")
     with ProcessLock(file):
         assert file.read_text().strip().isdigit()

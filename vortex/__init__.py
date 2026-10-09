@@ -2,4 +2,5 @@
 
 No claim of AI/ML predictive edge until independently validated.
 """
-__version__ = "0.1.0"
+
+__version__ = "0.2.0"

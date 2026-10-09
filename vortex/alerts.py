@@ -1,6 +1,9 @@
 """Optional Telegram operational notifications; NEVER log secrets or chat tokens."""
+
 from __future__ import annotations
+
 import os
+
 import requests
 
 
@@ -18,7 +21,8 @@ def notify(event: str, *, session=None) -> bool:
         response = sender.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
             data={"chat_id": chat, "text": "VORTEX AI\n" + event},
-            timeout=8)
+            timeout=8,
+        )
         response.raise_for_status()
         return bool(response.json().get("ok"))
     except (requests.RequestException, ValueError):
@@ -27,8 +31,27 @@ def notify(event: str, *, session=None) -> bool:
 
 def detailed_event(kind, data):
     """PAPER notices; partial net and final cumulative net are explicitly different."""
-    keys = ('symbol', 'side', 'score', 'entry', 'stop', 'target', 'qty', 'quantity',
-            'margin', 'risk_fraction', 'entry_fee', 'exit_fee', 'allocated_entry_fee', 'exit', 'stage_net_pnl',
-            'net_pnl', 'final', 'reason', 'wallet', 'votes', 'pyramid_count')
-    return 'PAPER ' + kind + '\n' + '\n'.join(
-        f'{key}: {data[key]}' for key in keys if key in data)
+    keys = (
+        "symbol",
+        "side",
+        "score",
+        "entry",
+        "stop",
+        "target",
+        "qty",
+        "quantity",
+        "margin",
+        "risk_fraction",
+        "entry_fee",
+        "exit_fee",
+        "allocated_entry_fee",
+        "exit",
+        "stage_net_pnl",
+        "net_pnl",
+        "final",
+        "reason",
+        "wallet",
+        "votes",
+        "pyramid_count",
+    )
+    return "PAPER " + kind + "\n" + "\n".join(f"{key}: {data[key]}" for key in keys if key in data)

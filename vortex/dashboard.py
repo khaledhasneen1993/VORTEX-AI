@@ -2,11 +2,14 @@
 
 Never expose to the public Internet. No buttons change positions, risk or settings.
 """
+
 from __future__ import annotations
+
 import html
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
+
 from .config import Settings
 from .monitoring import recent_decisions, rejection_counts
 
@@ -23,15 +26,25 @@ def serve(cfg: Settings, port: int = 8765) -> None:
                 return
             try:
                 state_path = cfg.data_dir / "paper_state.json"
-                state = json.loads(state_path.read_text()) if state_path.exists() else {
-                    "wallet": cfg.starting_equity, "positions": {}, "closed_count": 0,
-                    "risk": {"blocked": False, "consecutive_losses": 0}}
-                telemetry_path = cfg.data_dir / 'telemetry.json'
+                state = (
+                    json.loads(state_path.read_text())
+                    if state_path.exists()
+                    else {
+                        "wallet": cfg.starting_equity,
+                        "positions": {},
+                        "closed_count": 0,
+                        "risk": {"blocked": False, "consecutive_losses": 0},
+                    }
+                )
+                telemetry_path = cfg.data_dir / "telemetry.json"
                 telemetry = json.loads(telemetry_path.read_text()) if telemetry_path.exists() else {}
                 decisions = recent_decisions(cfg.data_dir)
                 journal = cfg.data_dir / "closed_trades.jsonl"
-                trades = ([json.loads(line) for line in journal.read_text().splitlines() if line.strip()][-100:]
-                          if journal.exists() else [])
+                trades = (
+                    [json.loads(line) for line in journal.read_text().splitlines() if line.strip()][-100:]
+                    if journal.exists()
+                    else []
+                )
             except (OSError, ValueError, KeyError):
                 self.send_error(503, "Unable to load paper state")
                 return
@@ -41,26 +54,52 @@ def serve(cfg: Settings, port: int = 8765) -> None:
             self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
             if path.startswith("/api/"):
                 self.send_header("Content-Type", "application/json; charset=utf-8")
-                body = json.dumps({'/api/status': state, '/api/trades': trades,
-                                   '/api/rejections': decisions, '/api/telemetry': telemetry}[path]).encode()
+                body = json.dumps(
+                    {
+                        "/api/status": state,
+                        "/api/trades": trades,
+                        "/api/rejections": decisions,
+                        "/api/telemetry": telemetry,
+                    }[path]
+                ).encode()
             else:
-                position_rows = "".join(
-                    "<tr><td>" + html.escape(s) + "</td><td>" +
-                    html.escape(str(p.get("side", ""))) + "</td><td>" +
-                    html.escape(str(p.get("entry", ""))) + "</td></tr>"
-                    for s, p in state.get("positions", {}).items()
-                ) or "<tr><td colspan=3>No open paper positions</td></tr>"
-                trades_rows = "".join(
-                    "<tr><td>" + html.escape(str(t.get("symbol", ""))) +
-                    "</td><td>" + html.escape(str(t.get("side", ""))) +
-                    "</td><td>" + html.escape(str(t.get("net_pnl", ""))) +
-                    "</td><td>" + html.escape(str(t.get("reason", ""))) + "</td></tr>"
-                    for t in reversed(trades[-25:])
-                ) or "<tr><td colspan=4>No closed trades yet</td></tr>"
-                observed = html.escape(str(telemetry.get('observed_utc', 'No sampled telemetry yet')))
-                metrics = html.escape(json.dumps({k: v for k, v in telemetry.items() if k != 'protection'}, indent=2))
-                protection = html.escape(json.dumps(state.get('protection', {}), indent=2))
-                rejection_rows = ''.join('<tr><td>'+html.escape(str(row['reason']))+'</td></tr>' for row in reversed(decisions[-25:]))
+                position_rows = (
+                    "".join(
+                        "<tr><td>"
+                        + html.escape(s)
+                        + "</td><td>"
+                        + html.escape(str(p.get("side", "")))
+                        + "</td><td>"
+                        + html.escape(str(p.get("entry", "")))
+                        + "</td></tr>"
+                        for s, p in state.get("positions", {}).items()
+                    )
+                    or "<tr><td colspan=3>No open paper positions</td></tr>"
+                )
+                trades_rows = (
+                    "".join(
+                        "<tr><td>"
+                        + html.escape(str(t.get("symbol", "")))
+                        + "</td><td>"
+                        + html.escape(str(t.get("side", "")))
+                        + "</td><td>"
+                        + html.escape(str(t.get("net_pnl", "")))
+                        + "</td><td>"
+                        + html.escape(str(t.get("reason", "")))
+                        + "</td></tr>"
+                        for t in reversed(trades[-25:])
+                    )
+                    or "<tr><td colspan=4>No closed trades yet</td></tr>"
+                )
+                observed = html.escape(str(telemetry.get("observed_utc", "No sampled telemetry yet")))
+                metrics = html.escape(
+                    json.dumps({k: v for k, v in telemetry.items() if k != "protection"}, indent=2)
+                )
+                protection = html.escape(json.dumps(state.get("protection", {}), indent=2))
+                rejection_rows = "".join(
+                    "<tr><td>" + html.escape(str(row["reason"])) + "</td></tr>"
+                    for row in reversed(decisions[-25:])
+                )
                 counts = html.escape(json.dumps(rejection_counts(decisions), ensure_ascii=False, indent=2))
                 page = f"""<!doctype html><html lang=en><meta charset=utf-8>
 <meta http-equiv="refresh" content="5"><title>VORTEX AI — Paper Dashboard</title>

@@ -1,18 +1,20 @@
 """TESTNET staging mock tests: no network, no real positions, no API keys."""
+
 import pytest
+
+from vortex.exchange_testnet import ExchangeUncertain
 from vortex.models import Signal
 from vortex.risk import Filters
-from vortex.testnet_guard import TestnetSupervisor, ProtectionError
-from vortex.testnet_stages import maintain, tighten_stop
-from vortex.exchange_testnet import ExchangeUncertain
+from vortex.testnet_guard import ProtectionError, TestnetSupervisor
+from vortex.testnet_stages import maintain
 
-F = Filters(.001, .001, 5., .01)
+F = Filters(0.001, 0.001, 5.0, 0.01)
 S = Signal("BTCUSDT", "LONG", 10, 100, 98, 106, 7, "trend + breakout")
 
 
 class Exchange:
     def __init__(self, *, uncertain_cancel=False):
-        self.qty = 0.
+        self.qty = 0.0
         self.algos = []
         self.requests = []
         self.uncertain_cancel = uncertain_cancel
@@ -49,9 +51,16 @@ class Exchange:
         return {"status": "FILLED", "avgPrice": "100"}
 
     def protective(self, symbol, side, kind, trigger, client_id):
-        self.algos.append({"clientAlgoId": client_id, "orderType": kind,
-                           "side": side, "closePosition": True,
-                           "positionSide": "BOTH", "triggerPrice": str(trigger)})
+        self.algos.append(
+            {
+                "clientAlgoId": client_id,
+                "orderType": kind,
+                "side": side,
+                "closePosition": True,
+                "positionSide": "BOTH",
+                "triggerPrice": str(trigger),
+            }
+        )
         return {"algoId": len(self.algos)}
 
     def cancel_algo(self, client_id):
@@ -64,19 +73,19 @@ class Exchange:
 def test_partial_exit_then_tighten_never_cancels_only_stop(tmp_path):
     exchange = Exchange()
     supervisor = TestnetSupervisor(exchange, tmp_path / "journal.json")
-    assert supervisor.enter(S, .100, F, 5)["phase"] == "PROTECTED"
+    assert supervisor.enter(S, 0.1, F, 5)["phase"] == "PROTECTED"
     assert len(exchange.algos) == 2
     old_stop = supervisor.state["stop_id"]
     result = maintain(supervisor, 102.1, 102.11)
     assert result["status"] == "tp1"
-    assert exchange.qty == pytest.approx(.075)
+    assert exchange.qty == pytest.approx(0.07)
     assert supervisor.state["stop"] >= 100
-    assert exchange.requests[-1][-1]  # reduceOnly
+    assert exchange.requests[-1][-1]
     assert old_stop not in {o["clientAlgoId"] for o in exchange.algos}
     assert supervisor.verify_protection("BTCUSDT", "LONG")
     result2 = maintain(supervisor, 103.1, 103.11)
     assert result2["status"] == "tp2"
-    assert exchange.qty == pytest.approx(.05)
+    assert exchange.qty == pytest.approx(0.04)
     assert maintain(supervisor, 105.1, 105.11)["status"] == "stop tightened"
     assert supervisor.state["stop"] >= 103.0
     assert supervisor.verify_protection("BTCUSDT", "LONG")
@@ -86,10 +95,10 @@ def test_partial_exit_then_tighten_never_cancels_only_stop(tmp_path):
 def test_unknown_cancel_latches_account_and_keeps_both_guards(tmp_path):
     exchange = Exchange(uncertain_cancel=True)
     supervisor = TestnetSupervisor(exchange, tmp_path / "journal.json")
-    supervisor.enter(S, .100, F, 5)
+    supervisor.enter(S, 0.1, F, 5)
     with pytest.raises(ProtectionError):
         maintain(supervisor, 102.1, 102.11)
-    assert exchange.qty == pytest.approx(.075)
+    assert exchange.qty == pytest.approx(0.07)
     assert supervisor.state["phase"] == "HALTED"
     assert len(exchange.algos) == 3
     with pytest.raises(ProtectionError):
@@ -102,17 +111,17 @@ def test_unarmed_or_unconfirmed_state_cannot_send_partial(tmp_path):
     with pytest.raises(ProtectionError):
         maintain(supervisor, 105, 105.01)
     assert not exchange.requests
-    supervisor.enter(S, .100, F, 5)
+    supervisor.enter(S, 0.1, F, 5)
     supervisor.persist(stage_intent={"id": "vxpending", "qty": 0.025})
     with pytest.raises(ProtectionError):
         maintain(supervisor, 102.1, 102.11)
-    assert len(exchange.requests) == 1  # initial order only
+    assert len(exchange.requests) == 1
 
 
 def test_flat_testnet_read_halts_without_cancelling_any_protection(tmp_path):
     exchange = Exchange()
     supervisor = TestnetSupervisor(exchange, tmp_path / "journal.json")
-    supervisor.enter(S, .100, F, 5)
+    supervisor.enter(S, 0.1, F, 5)
     old_orders = [o["clientAlgoId"] for o in exchange.algos]
     exchange.qty = 0
     with pytest.raises(ProtectionError):

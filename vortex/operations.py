@@ -11,7 +11,7 @@ from math import isfinite
 
 @dataclass(frozen=True)
 class OperationsPolicy:
-    enabled: bool = False
+    enabled: bool = True
     profile: str = "aggressive"
     break_even_r: float = 0.8
     tp1_fraction: float = 0.30

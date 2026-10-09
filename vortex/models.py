@@ -12,10 +12,12 @@ class Candle:
     close: float
     volume: float
     close_ts: int = 0
+    taker_buy_volume: float | None = None
 
     @classmethod
     def from_binance(cls, values: list) -> "Candle":
-        c = cls(int(values[0]), *map(float, values[1:6]), close_ts=int(values[6]))
+        c = cls(int(values[0]), *map(float, values[1:6]), close_ts=int(values[6]),
+                taker_buy_volume=float(values[9]) if len(values) > 9 else None)
         if min(c.open, c.high, c.low, c.close) <= 0 or c.low > c.high:
             raise ValueError("Malformed exchange candle")
         return c

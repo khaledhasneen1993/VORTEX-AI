@@ -379,6 +379,8 @@ def run_portfolio(
                 vote_options = ({"strict_votes": config.strict_votes,
                                  "min_strong_score": config.min_strong_score}
                                 if not config.strict_votes else {})
+                if config.phase1.enabled:
+                    vote_options["policy"] = config.phase1
                 if minute is not None:
                     ix = bisect_right(minute_closes[sym], bar[sym].close_ts)
                     minute_window = minute[sym][max(0, ix - 90):ix]

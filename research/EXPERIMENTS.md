@@ -934,3 +934,20 @@ actual-rate result remains negative, below 100 trades, below PF 1.2 and above
 20% drawdown. W009 remains rejected, April-June validation remains unopened,
 and the next candidate must use a new preregistered source of edge rather than
 more threshold tuning on the now heavily exposed January-March sample.
+
+## P1 — operator-requested Phase 1 policy, registered 2026-10-09
+
+Implementation parent 7744b016393785f7866c8a6cd87fa37b6bb92ea2. One initial
+policy configuration, zero performance trials; not a rerun of E/W experiments.
+Hypothesis: aligned multi-frame primary momentum with observed flow/regime
+confirmation improves entry selectivity; high-confidence setups may require
+one primary vote. This multi-feature operator specification is not a causal
+single-filter ablation. All legacy experiments and main are preserved.
+Defaults/configuration and planned temporal exposure protocol are frozen in
+.env.example and docs/PHASE1_STRATEGY.md before seeing P1 returns. January–March,
+September and supplied October observations are exposed development. April–June
+remain proposed locked validation and July secondary subject to exposure audit.
+Acceptance unchanged; no source market data downloaded or performance result
+invented for this implementation. Record actual commit/config/source hashes,
+periods, and trial count for each subsequent measurement. Do not describe
+197 passing code tests as a validated edge. Phases 2–4 have not started.

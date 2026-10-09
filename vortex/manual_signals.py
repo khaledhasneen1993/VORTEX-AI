@@ -125,7 +125,7 @@ def main(argv=None):
                         signal = analyze(symbol, bars[0], bars[1], cfg.min_score,
                                          macro=bars[2], minute=bars[3], derivatives=derivative,
                                          decision_ms=decision, strict_votes=cfg.strict_votes,
-                                         min_strong_score=cfg.min_strong_score)
+                                         min_strong_score=cfg.min_strong_score, policy=cfg.phase1)
                         if signal:
                             quoted_at = market.server_ms()
                             quotes = market.quotes(now_ms=quoted_at)

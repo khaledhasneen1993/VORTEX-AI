@@ -2,13 +2,15 @@
 from __future__ import annotations
 import os
 from math import isfinite
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from dotenv import load_dotenv
+from .phase1_config import StrategyPolicy
 
 
 @dataclass(frozen=True)
 class Settings:
+    phase1: StrategyPolicy = field(default_factory=StrategyPolicy)
     mode: str = "paper"
     symbols: tuple[str, ...] = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT")
     timeframe: str = "5m"
@@ -37,6 +39,8 @@ class Settings:
             raise ValueError("Symbols must be unique and nonempty")
         if any(not x.isalnum() or not x.endswith("USDT") for x in self.symbols):
             raise ValueError("USD-M USDT symbols only")
+        if self.phase1.enabled and self.timeframe != "5m":
+            raise ValueError("Phase 1 requires TIMEFRAME=5m with 15m and 1h confirmation")
         if self.timeframe not in {"5m", "15m"}:
             raise ValueError("Supported timeframe: 5m, 15m")
         if (not isfinite(self.starting_equity) or self.starting_equity <= 0
@@ -72,6 +76,7 @@ class Settings:
         if strict not in {"true", "false"}:
             raise ValueError("STRICT_VOTES must be true or false")
         return cls(
+            phase1=StrategyPolicy.from_env(),
             strict_votes=(strict == "true"),
             trailing_atr_mult=float(f("TRAILING_ATR_MULT", "1.0")),
             min_strong_score=int(f("MIN_STRONG_SCORE", "7")),

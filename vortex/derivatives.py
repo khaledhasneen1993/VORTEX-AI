@@ -14,6 +14,7 @@ log = logging.getLogger("vortex.votes")
 class DerivativesTracker:
     def __init__(self):
         self.last: dict[str, tuple[int, float]] = {}
+        self.prices: dict[str, float] = {}
         self.checked_ms: int | None = None
 
     def sample(self, market, symbol: str, now_ms: int) -> Derivatives | None:
@@ -47,6 +48,12 @@ class DerivativesTracker:
         previous = self.last.get(symbol)
         if previous is not None and oi_ms <= previous[0]:
             return abstain("duplicate_or_out_of_order_open_interest")
+        old_price = self.prices.get(symbol)
+        mark = float(index.get("markPrice", "nan"))
+        if isfinite(mark) and mark > 0:
+            self.prices[symbol] = mark
+        else:
+            self.prices.pop(symbol, None)
         self.last[symbol] = (oi_ms, current)
         if not previous or previous[1] <= 0:
             return abstain("first_open_interest_observation")
@@ -56,4 +63,6 @@ class DerivativesTracker:
         change = (current / previous[1] - 1) * 100
         log.debug("DERIVATIVE %s status=VALID funding_rate=%.6f oi_change_pct=%.4f checked_ms=%d cycle_ms=%d",
                   symbol, funding, change, checked, now_ms)
-        return Derivatives(funding, change, min(index_ms, oi_ms))
+        price_change = ((mark / old_price - 1) * 100
+                        if old_price and isfinite(mark) and mark > 0 else None)
+        return Derivatives(funding, change, min(index_ms, oi_ms), price_change, gap)

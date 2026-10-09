@@ -56,13 +56,13 @@ def _once_locked(cfg: Settings, symbol: str, *, acknowledge: bool) -> dict:
     macro = market.candles(symbol, "1h", 260, now)
     minute = market.candles(symbol, "1m", 120, now)
     sig = analyze(symbol, candles, higher, cfg.min_score, macro=macro, minute=minute,
-                  strict_votes=cfg.strict_votes, min_strong_score=cfg.min_strong_score)
+                  strict_votes=cfg.strict_votes, min_strong_score=cfg.min_strong_score, policy=cfg.phase1)
     if not sig or now - candles[-1].close_ts > 90_000:
         return {"ok": False, "reason": "No fresh qualified setup; no order sent"}
     if os.getenv("USE_CLAUDE", "false").lower() == "true":
         from .ml import feature_snapshot
         from .claude_review import confirm, ReviewUnavailable
-        sig = replace(sig, features=feature_snapshot(candles, sig))
+        sig = replace(sig, features={**sig.features, **feature_snapshot(candles, sig)})
         try:
             approved, confidence, explanation = confirm(sig)
         except ReviewUnavailable:

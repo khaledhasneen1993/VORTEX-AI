@@ -237,12 +237,12 @@ def main(argv: list[str] | None = None) -> int:
                                      macro=macro, derivatives=deriv, decision_ms=decision_ms,
                                      minute=minute,
                                      strict_votes=cfg.strict_votes,
-                                     min_strong_score=cfg.min_strong_score)
+                                     min_strong_score=cfg.min_strong_score, policy=cfg.phase1)
                     if signal and symbol in quotes:
                         from .ml import feature_snapshot, evaluate
                         # Capture only features observable at this completed entry signal.
                         features = feature_snapshot(data, signal)
-                        signal = replace(signal, features=features)
+                        signal = replace(signal, features={**signal.features, **features})
                         if use_ai:
                             probability = evaluate(ai_model, features)
                             if probability is None or probability < 0.56:

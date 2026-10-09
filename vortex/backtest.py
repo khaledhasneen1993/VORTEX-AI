@@ -110,6 +110,8 @@ def run(symbol: str, small: list[Candle], higher: list[Candle],
         vote_options = ({"strict_votes": cfg.strict_votes,
                          "min_strong_score": cfg.min_strong_score}
                         if not cfg.strict_votes else {})
+        if cfg.phase1.enabled:
+            vote_options["policy"] = cfg.phase1
         if minute is not None:
             signal = analyze(symbol, small[max(0, i - 219):i + 1], upper,
                              cfg.min_score, macro=macro_upper, minute=minute_window,

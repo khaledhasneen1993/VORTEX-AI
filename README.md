@@ -13,7 +13,7 @@ Default: `STRICT_VOTES=true` requires two agreeing votes. Optional `STRICT_VOTES
 - Five-minute volume breakout with directional OBV and relative volume.
 - Live extreme funding-rate fade using authentic Binance premiumIndex and two independent, time-separated open-interest readings. Unavailable readings ABSTAIN.
 - At least **TWO independent LONG or SHORT strategy votes** must agree. Hourly macro cannot oppose the decision.
-- Optional liquid-mover radar (top 12), order-book/taker-flow filter, and exchange-timestamp-validated WebSocket bookTicker quotes.
+- Optional liquid-mover radar (up to 24), order-book/taker-flow filter, and exchange-timestamp-validated WebSocket bookTicker quotes.
 - Optional Claude review (veto-only, no order/risk authority). Optional local logistic ML model needs real trade labels and chronological holdout validation.
 
 ## Risk and exits
@@ -56,7 +56,7 @@ No production API keys are accepted in signed order paths. Testnet orders are ne
 The supplied `.env.example` enables dynamic radar with `USE_RADAR=true` and
 `USE_WEBSOCKET=false`. Keep the fixed-symbol WebSocket disabled while radar is
 enabled; enabling both is rejected at startup. Each completed-candle cycle
-selects up to 12 active USDT-M perpetual candidates using observed 24h turnover
+selects up to 24 active USDT-M perpetual candidates using observed 24h turnover
 and absolute price change, then applies the existing Trend / Reversion /
 Breakout / Funding vote engine and all risk gates. Ranking does not itself
 authorize an entry. The 10% maximum modeled stop-risk budget, 5x effective
@@ -169,3 +169,19 @@ no more than 50%. PAPER and historical simulation are not proof of profit.
 **Daily portfolio circuit breaker = 50%. Single-trade risk budget = 10%.** One position can lose approximately **10% of equity** at its planned stop **before the 50% daily breaker activates**; gaps, slippage or other costs could make the actual loss larger. The breaker blocks new entries, not existing positions, and is not a guaranteed loss limit.
 
 The default is `MAX_DAILY_LOSS=0.50`. With a day's starting equity of 1000 USDT, `RiskGate` permits new entries at 501 USDT (assuming no other restriction) and blocks them at 500 USDT or below. Individual stops remain at 1.5 ATR, with the unchanged 10% modeled risk budget, 5x effective leverage and three-position cap. No Live/real-money execution is enabled.
+
+## Phase 1 research strategy (2026-10-09)
+
+The new `.env.example` selects `PHASE1_ENABLED=true`; existing .env files must
+explicitly enable it. Missing/false keeps the frozen legacy vote engine.
+Phase 1 requires TIMEFRAME=5m, full 15m/1h confirmation, weighted Trend/Volume
+Breakout primary votes, range-only low-weight reversion, configurable UTC
+sessions, past-only ATR percentile and actual kline taker-volume rolling CVD.
+Funding needs fresh meaningful OI growth plus paired mark-price confirmation.
+Strong high-volume aligned signals can use one primary vote; ordinary signals
+need two. All thresholds and switches are PHASE1_* environment settings.
+
+See [full rules, file map, test evidence and limitations](docs/PHASE1_STRATEGY.md).
+197 local tests pass. Economic edge remains unvalidated; profitability is not
+guaranteed. Financial risk caps, staged exits and effective leverage are
+unchanged. PAPER/Testnet only; no real-money route. Phases 2–4 await approval.

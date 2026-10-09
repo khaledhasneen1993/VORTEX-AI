@@ -138,3 +138,18 @@ execution. Read README.md for CLI usage.
 - [x] Other limits unchanged: 10% planned position risk, 5× leverage, maximum three positions, 25% aggregate margin and a latched daily 50% equity breaker. Individual ATR stops and staged exits remain unchanged.
 - [x] Regression coverage checks 10/20 successive losing trades still allow new entries, but the daily 50% breaker still halts them.
 - [ ] Legacy local PAPER states previously halted by the old breaker stay halted until an explicit operator reset. Never reset old halted states automatically, because the halt reason might be daily risk.
+
+## Phase 1 — 2026-10-09
+
+Implemented on research/hourly-development, main unchanged. Full specification
+and stage file map: [PHASE1_STRATEGY.md](PHASE1_STRATEGY.md).
+Weighted primary strategies, range-only auxiliary reversion, UTC session,
+ATR percentile, real rolling CVD, stronger 1h/15m/5m confirmation, fresh paired
+funding/OI/price and exceptional strong single-vote path are configurable.
+
+Functional verification: 197 pytest tests passed locally (12 new Phase 1 tests),
+fatal-code lint passed. No actual Testnet order or new market-performance test
+was performed. Economic acceptance remains PENDING, with unchanged research
+gates. This is research implementation acceptance only, not profitability,
+production readiness or authority to place real-money orders. No phase 2
+risk increase, pyramiding, new state backend or phase 4 leverage/veto change.

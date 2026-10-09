@@ -21,6 +21,8 @@ class Derivatives:
     funding_rate: float
     oi_change_pct: float
     observed_ms: int
+    price_change_pct: float | None = None
+    interval_ms: int | None = None
 
     def valid(self, decision_ms: int) -> bool:
         return (isfinite(self.funding_rate) and isfinite(self.oi_change_pct)

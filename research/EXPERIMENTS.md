@@ -352,3 +352,80 @@ all financial risk settings frozen. September remains development-only.
 
 Current conclusion remains: no tested version demonstrates a profitable edge;
 main stays unchanged and PR #11 remains draft.
+
+## E013 — 15m volatility-compression expansion (pre-registered)
+
+Registered before implementation or replay; September remains exposed
+DEVELOPMENT data. Use completed 15m decision candles and actual 1m execution.
+For each completed setup candle, compute relative Bollinger width as four
+population standard deviations of its trailing 20 closes divided by their
+mean. Define compression when the setup width is <= the 20th-smallest value
+from exactly 100 preceding rolling 20-close widths (nearest-rank 20th
+percentile); the setup value is excluded from its reference distribution.
+
+The next completed 15m candle must close strictly above the highest high or
+below the lowest low of the preceding 20 completed candles (including the
+compressed setup), with a body in the breakout direction. Its true range must
+be >=1.25 times ATR14 computed through the setup candle, and its volume must be
+>=1.5 times the mean volume of those preceding 20 candles. ATR14/decision close
+must remain in the existing 0.0008..0.045 sanity range. No EMA, ADX, RSI, macro
+trend, symbol/side selection or minute confirmation is added.
+
+Enter at the next 15m open under the unchanged gap/slippage check. Size stop
+and target from decision-time ATR14 at 1.5 ATR and 4.5 ATR (3R), retaining the
+baseline staged exit engine, normal modeled costs and every financial risk
+setting. No threshold search on September. Positive development results must
+be frozen before independent periods; non-positive or inadequate samples fail.
+
+Command: `python -m research.replay --month 2026-09 --decision-interval 15m --execution 1m --entry-policy compression-expansion --output research/results/E013-compression-expansion-15m.json`
+
+## E013 result and E014 registration
+
+E013 FAILS after normal costs: 111 closed trades, 49 winners (44.14%), net
+-67.142891, PF .7783680195, maxDD 9.564%, fees 106.511229, ending equity
+932.857108 and no open positions. Adding fees back yields +39.368338 while
+modeled slippage remains embedded, so the entry family has positive pre-fee
+movement but insufficient net edge. BNB (+9.339947, PF 1.218) and XRP
+(+11.096404, PF 1.204) are positive post-cost; BTC, DOGE, ETH and SOL are
+negative. Do not select the two winners post hoc. Thirteen of 29 active days
+are positive. Only 6 trades reach final target; 105 end at a stop, though 58
+positions with staged exits net +231.477 versus -298.620 for 53 without any
+partial. This argues against removing staged exits and points to entry economics.
+
+E014 is one cost-viability ablation on the frozen E013 signal stream. Preserve
+every compression, breakout, volume, true-range, ATR, stop/target and exit rule.
+Reject only signals whose 1.5-ATR initial stop gap is less than three times the
+normal modeled round-trip fee+slippage per unit, using the same frozen E004
+formula: `(entry + max(entry, stop)) * (.0005 + 3/10000)`, multiplied by 3.
+The gate remains based on normal costs even in any later cost stress. This is
+not permission to tune the multiplier or select symbols after the result.
+September is exposed development data; passing still requires independent
+months, doubled costs and forward PAPER.
+
+Command: `python -m research.replay --month 2026-09 --decision-interval 15m --execution 1m --entry-policy compression-expansion-cost --output research/results/E014-compression-expansion-cost-15m.json`
+
+## E014 result and E015 pre-registration
+
+E014 FAILS and is worse than E013: 76 closed trades, 38 winners (50%), net
+-81.022327, PF .7578575017, maxDD 12.451%, fees 86.230419, ending equity
+918.977673 and no open positions. The cost gate reduced turnover but did not
+isolate positive expectancy. Four symbols remain negative; the one BTC trade
+and positive ETH/XRP subsets are far too small and observed to justify symbol
+selection. Fourteen of 27 active days are positive. Reject the gate and restore
+the unfiltered E013 entry stream for the next exit hypothesis.
+
+E015 is pre-registered before implementation or replay. Preserve E013 entries,
+stops, targets, baseline staged exits and all costs/risk settings exactly. Add
+one failed-breakout invalidation: while TP1 has not executed, if a completed
+15m candle AFTER entry closes back at or inside the original broken channel
+boundary (LONG close <= signal channel_high; SHORT close >= signal channel_low),
+close the entire remaining position at the next 15m open with normal adverse
+slippage and entry/exit fees. Stops and partial/target executions inside the
+completed candle remain resolved first from actual 1m bars; only a surviving
+position can invalidate at the following open. After TP1, never use this rule
+and retain baseline exit management. No time limit, threshold tuning, cost
+filter, or symbol/side selection. September remains exposed development data.
+
+This directly tests whether failed expansion should be abandoned when its
+structural premise is invalidated, rather than waiting for the full ATR stop.
+It is not yet executed. Main remains unchanged and no candidate is promoted.

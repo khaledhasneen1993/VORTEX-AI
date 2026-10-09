@@ -209,3 +209,65 @@ def range_reversion(symbol, bars, higher, min_score, *, minute=None,
                   'minute_confirmation_required': float(require_minute_confirmation)},
         votes=('range_reversion',), atr_value=volatility,
     )
+
+
+def _relative_bandwidth(prices) -> float:
+    """Four population standard deviations divided by mean (20 closes)."""
+    if len(prices) != 20:
+        raise ValueError('Bandwidth requires exactly 20 closes')
+    mean = sum(prices) / 20
+    if mean <= 0:
+        raise ValueError('Bandwidth prices must have a positive mean')
+    deviation = sqrt(sum((price - mean) ** 2 for price in prices) / 20)
+    return 4 * deviation / mean
+
+
+def compression_expansion(symbol, bars, higher, min_score, **_options) -> Signal | None:
+    """E013: 15m channel expansion from a relative low-volatility state."""
+    if len(bars) < 121 or not higher:
+        return None
+    current, setup = bars[-1], bars[-2]
+    if higher[-1].close_ts > current.close_ts:
+        return None
+    closes = [bar.close for bar in bars]
+    prior_widths = [
+        _relative_bandwidth(closes[end - 19:end + 1])
+        for end in range(len(closes) - 102, len(closes) - 2)
+    ]
+    setup_width = _relative_bandwidth(closes[-21:-1])
+    compression_threshold = sorted(prior_widths)[19]
+    if setup_width > compression_threshold:
+        return None
+    channel = bars[-21:-1]
+    channel_high = max(bar.high for bar in channel)
+    channel_low = min(bar.low for bar in channel)
+    if current.close > channel_high and current.close > current.open:
+        direction = 1
+    elif current.close < channel_low and current.close < current.open:
+        direction = -1
+    else:
+        return None
+    pre_atr = atr(bars[:-1])
+    true_range = max(current.high - current.low,
+                     abs(current.high - setup.close), abs(current.low - setup.close))
+    if pre_atr <= 0 or true_range < 1.25 * pre_atr:
+        return None
+    average_volume = sum(bar.volume for bar in channel) / 20
+    if average_volume <= 0 or current.volume / average_volume < 1.5:
+        return None
+    volatility = atr(bars)
+    if volatility <= 0 or not 0.0008 <= volatility / current.close <= 0.045:
+        return None
+    stop = current.close - direction * 1.5 * volatility
+    target = current.close + direction * 4.5 * volatility
+    return Signal(
+        symbol, 'LONG' if direction == 1 else 'SHORT', current.ts,
+        current.close, stop, target, max(min_score, 7),
+        'COMPRESSION_EXPANSION 15m 20-bar channel; frozen percentile and volume gates',
+        features={'setup_bandwidth': setup_width,
+                  'compression_threshold': compression_threshold,
+                  'breakout_true_range_atr': true_range / pre_atr,
+                  'relative_volume': current.volume / average_volume,
+                  'channel_high': channel_high, 'channel_low': channel_low},
+        votes=('compression_expansion',), atr_value=volatility,
+    )

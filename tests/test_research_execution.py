@@ -245,3 +245,49 @@ def test_range_reversion_ablation_changes_only_minute_gate(monkeypatch):
     assert strict is None and ablated is not None
     assert ablated.features['minute_confirmation_required']==0
     assert ablated.stop==98.3 and ablated.target==102.8
+
+
+def test_compression_expansion_uses_prior_widths_and_frozen_gates(monkeypatch):
+    from dataclasses import replace
+    import vortex.research_policy as policy
+    bars=[]
+    for i in range(130):
+        close=100 + (1 if i % 2 else -1)
+        bars.append(Candle(START+i*900000,close,close+.2,close-.2,close,10,
+                           START+(i+1)*900000-1))
+    # Last 20 setup closes are tightly compressed relative to earlier widths.
+    for i in range(109,129):
+        close=100 + (.01 if i % 2 else -.01)
+        bars[i]=replace(bars[i],open=close,high=close+.05,low=close-.05,close=close)
+    bars[-1]=replace(bars[-1],open=100,high=102.2,low=99.8,close=102,volume=15)
+    monkeypatch.setattr(policy,'atr',lambda _bars: 1.0)
+    signal=policy.compression_expansion('BTCUSDT',bars,bars,5)
+    assert signal is not None and signal.side=='LONG'
+    assert signal.stop==100.5 and signal.target==106.5
+    assert signal.features['relative_volume']==1.5
+    assert signal.features['setup_bandwidth'] <= signal.features['compression_threshold']
+    assert signal.votes==('compression_expansion',)
+    quiet=list(bars); quiet[-1]=replace(quiet[-1],volume=14.99)
+    assert policy.compression_expansion('BTCUSDT',quiet,quiet,5) is None
+
+
+def test_compression_expansion_rejects_future_higher_and_short_history(monkeypatch):
+    from dataclasses import replace
+    import vortex.research_policy as policy
+    small,_=fixture_history()
+    assert policy.compression_expansion('BTCUSDT',small,small,5) is None
+    bars=[Candle(START+i*900000,100,101,99,100,10,START+(i+1)*900000-1)
+          for i in range(121)]
+    future=[replace(bars[-1],close_ts=bars[-1].close_ts+1)]
+    assert policy.compression_expansion('BTCUSDT',bars,future,5) is None
+
+
+def test_compression_cost_ablation_reuses_frozen_e004_formula():
+    from dataclasses import replace
+    from vortex.research_policy import filter_signal
+    signal=Signal('BTCUSDT','LONG',START,100,99.521,102,7,'compression',
+                  votes=('compression_expansion',),atr_value=.319333)
+    assert filter_signal(signal,'cost-floor') is None
+    viable=replace(signal,stop=99.51)
+    assert filter_signal(viable,'cost-floor') is viable
+    assert viable.votes==('compression_expansion',)

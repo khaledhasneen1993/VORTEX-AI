@@ -709,3 +709,23 @@ No candidate advances, so April-June validation and 2x-cost stress stay locked.
 The next hypothesis must change the source of edge, not another direction or
 timing tweak to this 24h-return family. Main and all financial caps remain
 unchanged.
+
+## W004 — preregistered high-volume liquidity-sweep reversal
+
+Registered before W004 returns are generated. This changes the source of edge
+after rejecting the 24h-return family. On completed 15m candles, form the prior
+20-bar high/low excluding the current candle. A SHORT candidate must trade above
+the prior high, close back below it, and have an upper wick at least 50% of its
+full range. Mirror for LONG below the prior low. Require current volume >=1.5x
+the prior 20-bar mean; reject candles sweeping both sides.
+
+Place the structural stop 0.1 ATR beyond the sweep extreme. Require the entry-
+to-stop distance to be 0.5..2.5 ATR and target 3R. Use baseline staged exits,
+actual 1m ordering and stop-first ambiguity. Enter next 15m open under the
+existing gap rule. ATR/price remains 0.0008..0.045. No trend filter, symbol
+selection, time-of-day filter or threshold search. Risk remains 10% modeled
+stop budget, 5x leverage, three positions, 25% total margin, 50% daily breaker
+and no consecutive-loss halt. April-June validation remains locked.
+
+Development command:
+`python -m research.walk_forward --phase development --output research/results/W004-development-normal.json`

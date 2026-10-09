@@ -408,3 +408,42 @@ def momentum_pullback(symbol, bars, higher, min_score, **_options) -> Signal | N
                   'ema9': current_ema9, 'pair_exit_ts': next_open + 14_400_000},
         votes=('momentum_pullback',), atr_value=volatility,
     )
+
+
+def liquidity_sweep_reversal(symbol, bars, higher, min_score, **_options) -> Signal | None:
+    """W004: fade a completed, high-volume 20-bar range sweep with rejection wick."""
+    if len(bars) < 22:
+        return None
+    current = bars[-1]
+    prior = bars[-21:-1]
+    upper = max(bar.high for bar in prior)
+    lower = min(bar.low for bar in prior)
+    candle_range = current.high - current.low
+    average_volume = sum(bar.volume for bar in prior) / len(prior)
+    if candle_range <= 0 or average_volume <= 0 or current.volume < 1.5 * average_volume:
+        return None
+    upper_wick = current.high - max(current.open, current.close)
+    lower_wick = min(current.open, current.close) - current.low
+    swept_high = current.high > upper and current.close < upper and upper_wick >= .5 * candle_range
+    swept_low = current.low < lower and current.close > lower and lower_wick >= .5 * candle_range
+    if swept_high == swept_low:
+        return None
+    volatility = atr(bars)
+    if volatility <= 0 or not .0008 <= volatility / current.close <= .045:
+        return None
+    direction = -1 if swept_high else 1
+    raw_stop = (current.high + .1 * volatility if direction == -1
+                else current.low - .1 * volatility)
+    risk = abs(current.close - raw_stop)
+    if not .5 * volatility <= risk <= 2.5 * volatility:
+        return None
+    return Signal(
+        symbol, 'LONG' if direction == 1 else 'SHORT', current.ts,
+        current.close, raw_stop, current.close + direction * 3 * risk,
+        max(min_score, 7), 'LIQUIDITY_SWEEP_REVERSAL frozen 20-bar rejection',
+        features={'channel_high': upper, 'channel_low': lower,
+                  'wick_fraction': (lower_wick if direction == 1 else upper_wick) / candle_range,
+                  'relative_volume': current.volume / average_volume,
+                  'structural_risk_atr': risk / volatility},
+        votes=('liquidity_sweep_reversal',), atr_value=volatility,
+    )

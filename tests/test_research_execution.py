@@ -526,3 +526,18 @@ def test_momentum_pullback_requires_completed_reclaim():
     no_reclaim = list(bars)
     no_reclaim[-1] = replace(no_reclaim[-1], open=103.5, close=102)
     assert policy.momentum_pullback('BTCUSDT', no_reclaim, [], 5) is None
+
+
+def test_liquidity_sweep_reversal_uses_completed_range_and_wick():
+    from vortex import research_policy as policy
+    prior = [Candle(START+i*900000, 100, 101, 99, 100, 10,
+                    START+(i+1)*900000-1) for i in range(21)]
+    ts = START + 21*900000
+    sweep = Candle(ts, 100, 101.2, 96, 100, 20, ts+899999)
+    signal = policy.liquidity_sweep_reversal('BTCUSDT', [*prior, sweep], [], 5)
+    assert signal is not None and signal.side == 'LONG'
+    assert signal.stop < sweep.low and signal.target > signal.entry
+    assert signal.features['wick_fraction'] >= .5
+    assert signal.features['relative_volume'] >= 1.5
+    weak_volume = Candle(ts, 100, 101.2, 96, 100, 10, ts+899999)
+    assert policy.liquidity_sweep_reversal('BTCUSDT', [*prior, weak_volume], [], 5) is None

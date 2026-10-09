@@ -10,8 +10,29 @@
     "previously_accessed_warmup_not_holdout": ["2026-08"],
     "exposed_development": ["2026-09"]
   },
-  "candidate": null,
-  "development_trials_2026_q1": 3,
+  "candidate": {
+    "id": "W004",
+    "status": "preregistered",
+    "hypothesis": "A high-volume sweep beyond a completed 20-bar range followed by a close back inside may identify forced-liquidation exhaustion rather than the failed trend and breakout continuation families.",
+    "replay_args": [
+      "--decision-interval", "15m",
+      "--execution", "1m",
+      "--entry-policy", "liquidity-sweep-reversal",
+      "--exit-policy", "baseline"
+    ],
+    "frozen_parameters": {
+      "range_lookback_bars": 20,
+      "minimum_wick_fraction": 0.5,
+      "minimum_relative_volume": 1.5,
+      "stop_buffer_atr": 0.1,
+      "minimum_structural_risk_atr": 0.5,
+      "maximum_structural_risk_atr": 2.5,
+      "target_r": 3.0,
+      "atr_price_min": 0.0008,
+      "atr_price_max": 0.045
+    }
+  },
+  "development_trials_2026_q1": 4,
   "last_development_result": {
     "id": "W003",
     "status": "rejected",

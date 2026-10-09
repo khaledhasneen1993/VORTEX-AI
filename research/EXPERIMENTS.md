@@ -794,3 +794,24 @@ January-March have informed six candidate trials (W001-W006). No candidate
 advances, so April-June validation and doubled-cost stress remain locked. The
 next candidate must use another source of edge and must be preregistered before
 its development returns are read.
+
+## W007 — preregistered UTC opening-range expansion
+
+Registered before W007 returns are generated. This uses daily session structure
+instead of 24h momentum or high-volume sweep patterns. For each symbol, build
+the completed 00:00-01:00 UTC range from exactly four 15m candles. Make exactly
+one decision per day for the next open at 04:00 UTC. LONG if the 03:45 candle
+closes above the opening high; SHORT if it closes below the opening low; skip
+inside the range.
+
+Require opening-range width 0.5..3.0 ATR. Stop 0.1 ATR beyond the opposite side
+of the opening range and require total structural risk 0.5..4.0 ATR. Target 2R
+with baseline staged management, actual 1m execution and conservative stop-first
+ambiguity. No volume, trend, symbol or day-of-week filter and no alternate UTC
+anchor search. The once-daily cadence directly tests whether lower turnover can
+avoid the cost and repeated-stop pattern without lowering the aggressive 10%
+risk ceiling, 5x leverage, three-position or 25% margin caps. Validation stays
+locked unless development passes the registered gate.
+
+Development command:
+`python -m research.walk_forward --phase development --output research/results/W007-development-normal.json`

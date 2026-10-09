@@ -10,8 +10,28 @@
     "previously_accessed_warmup_not_holdout": ["2026-08"],
     "exposed_development": ["2026-09"]
   },
-  "candidate": null,
-  "development_trials_2026_q1": 6,
+  "candidate": {
+    "id": "W007",
+    "status": "preregistered",
+    "hypothesis": "A single daily 04:00 UTC decision outside the completed first-hour range may capture persistent session expansion while sharply reducing the overtrading and cost drag observed in W001-W006.",
+    "replay_args": [
+      "--decision-interval", "15m",
+      "--execution", "1m",
+      "--entry-policy", "opening-range-breakout",
+      "--exit-policy", "baseline"
+    ],
+    "frozen_parameters": {
+      "opening_range_utc": "00:00-01:00",
+      "decision_utc": "04:00",
+      "minimum_opening_range_atr": 0.5,
+      "maximum_opening_range_atr": 3.0,
+      "stop_buffer_atr": 0.1,
+      "minimum_structural_risk_atr": 0.5,
+      "maximum_structural_risk_atr": 4.0,
+      "target_r": 2.0
+    }
+  },
+  "development_trials_2026_q1": 7,
   "last_development_result": {
     "id": "W006",
     "status": "rejected",

@@ -452,3 +452,44 @@ def liquidity_sweep_reversal(symbol, bars, higher, min_score, *, continuation=Fa
         votes=(('liquidity_sweep_continuation' if continuation
                 else 'liquidity_sweep_reversal'),), atr_value=volatility,
     )
+
+
+def opening_range_breakout(symbol, bars, higher, min_score, **_options) -> Signal | None:
+    """W007: one 04:00 UTC decision from the completed 00:00-01:00 range."""
+    if len(bars) < 20:
+        return None
+    current = bars[-1]
+    next_open = current.close_ts + 1
+    day_ms = 86_400_000
+    if next_open % day_ms != 14_400_000:
+        return None
+    day_start = next_open - 14_400_000
+    opening = [bar for bar in bars if day_start <= bar.ts < day_start + 3_600_000]
+    if len(opening) != 4:
+        return None
+    opening_high = max(bar.high for bar in opening)
+    opening_low = min(bar.low for bar in opening)
+    volatility = atr(bars)
+    width = opening_high - opening_low
+    if volatility <= 0 or not .5 * volatility <= width <= 3 * volatility:
+        return None
+    if current.close > opening_high:
+        direction = 1
+        raw_stop = opening_low - .1 * volatility
+    elif current.close < opening_low:
+        direction = -1
+        raw_stop = opening_high + .1 * volatility
+    else:
+        return None
+    risk = abs(current.close - raw_stop)
+    if not .5 * volatility <= risk <= 4 * volatility:
+        return None
+    return Signal(
+        symbol, 'LONG' if direction == 1 else 'SHORT', current.ts,
+        current.close, raw_stop, current.close + direction * 2 * risk,
+        max(min_score, 7), 'OPENING_RANGE_BREAKOUT frozen 04:00 UTC decision',
+        features={'opening_range_high': opening_high, 'opening_range_low': opening_low,
+                  'opening_range_atr': width / volatility,
+                  'structural_risk_atr': risk / volatility},
+        votes=('opening_range_breakout',), atr_value=volatility,
+    )

@@ -546,3 +546,19 @@ def test_liquidity_sweep_reversal_uses_completed_range_and_wick():
     assert continuation.votes == ('liquidity_sweep_continuation',)
     weak_volume = Candle(ts, 100, 101.2, 96, 100, 10, ts+899999)
     assert policy.liquidity_sweep_reversal('BTCUSDT', [*prior, weak_volume], [], 5) is None
+
+
+def test_opening_range_breakout_is_one_frozen_daily_decision():
+    from dataclasses import replace
+    from vortex import research_policy as policy
+    day = (START // 86_400_000 + 1) * 86_400_000
+    bars = [Candle(day-4*900000+i*900000, 100, 101, 99, 100, 10,
+                   day-4*900000+(i+1)*900000-1) for i in range(20)]
+    bars[-1] = replace(bars[-1], open=100, high=104, low=99.5, close=103)
+    signal = policy.opening_range_breakout('BTCUSDT', bars, [], 5)
+    assert signal is not None and signal.side == 'LONG'
+    assert signal.target > signal.entry and signal.stop < signal.entry
+    assert signal.features['opening_range_high'] == 101
+    off_time = [replace(bar, ts=bar.ts+900000, close_ts=bar.close_ts+900000)
+                for bar in bars]
+    assert policy.opening_range_breakout('BTCUSDT', off_time, [], 5) is None

@@ -18,6 +18,21 @@ class DerivativesTracker:
         self.prices: dict[str, float] = {}
         self.checked_ms: int | None = None
 
+    def timing(self, market, symbol: str):
+        """Refresh funding timing without changing the independent OI vote interval."""
+        index = market.get('/fapi/v1/premiumIndex', {'symbol': symbol})
+        checked = market.server_ms()
+        self.funding_timing.pop(symbol, None)
+        rate = float(index['lastFundingRate'])
+        stamp, next_ms = int(index['time']), int(index['nextFundingTime'])
+        if index.get('symbol') != symbol or not isfinite(rate):
+            return None
+        if not 0 <= checked-stamp <= 15000 or next_ms <= checked:
+            return None
+        snapshot = (stamp, rate, next_ms)
+        self.funding_timing[symbol] = snapshot
+        return snapshot
+
     def sample(self, market, symbol: str, now_ms: int) -> Derivatives | None:
         self.checked_ms = None
         def abstain(reason):

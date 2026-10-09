@@ -356,3 +356,21 @@ def test_operations_single_and_portfolio_replay_synthetic_parity(monkeypatch):
     many = portfolio.run_portfolio({"BTCUSDT": bars}, {"BTCUSDT": bars}, {"BTCUSDT": F}, cfg)
     assert one["trades"][0]["reason"] == many["trades"][0]["reason"] == "time_stagnation"
     assert one["trades"][0]["net_pnl"] == pytest.approx(many["trades"][0]["net_pnl"], abs=1e-5)
+
+
+def test_funding_timing_refresh_does_not_reset_oi_vote_interval():
+    from vortex.derivatives import DerivativesTracker
+
+    tracker = DerivativesTracker()
+    tracker.last["BTCUSDT"] = (NOW - 300000, 100)
+
+    class Market:
+        def get(self, path, params):
+            assert path == "/fapi/v1/premiumIndex"
+            return {"symbol": "BTCUSDT", "lastFundingRate": ".001", "time": NOW, "nextFundingTime": NOW + 600000}
+
+        def server_ms(self):
+            return NOW
+
+    assert tracker.timing(Market(), "BTCUSDT") == (NOW, 0.001, NOW + 600000)
+    assert tracker.last["BTCUSDT"] == (NOW - 300000, 100)

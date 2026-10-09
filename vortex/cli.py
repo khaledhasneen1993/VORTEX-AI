@@ -228,13 +228,17 @@ def main(argv: list[str] | None = None) -> int:
                     if not old or old[-1].close_ts//300000 != now//300000-1:
                         histories[sym] = market.candles(sym,"5m",max(70,cfg.phase2.correlation_lookback+1),now)
                 for sym in list(broker.positions):
+                    p = broker.positions[sym]
+                    if (not cfg.phase2.pyramiding or not p.tp2_done
+                            or p.pyramid_count >= cfg.phase2.pyramid_max_adds
+                            or not broker.protection.allow(now)[0] or broker.gate.blocked):
+                        continue
                     if sym in quotes:
                         bid,ask = quotes[sym]
                         depth = None
                         funding = None
                         if cfg.operations.enabled:
-                            derivative_tracker.sample(market, sym, now)
-                            funding = derivative_tracker.funding_timing.get(sym)
+                            funding = derivative_tracker.timing(market, sym)
                             depth = market.get('/fapi/v1/depth', {'symbol': sym, 'limit': 100})
                             now = market.server_ms()
                             quotes = stream.snapshot() if stream else market.quotes(now_ms=now)

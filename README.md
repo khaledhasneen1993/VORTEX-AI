@@ -53,6 +53,15 @@ No production API keys are accepted in signed order paths. Testnet orders are ne
 
 ## Optional configuration
 
+The supplied `.env.example` enables dynamic radar with `USE_RADAR=true` and
+`USE_WEBSOCKET=false`. Keep the fixed-symbol WebSocket disabled while radar is
+enabled; enabling both is rejected at startup. Each completed-candle cycle
+selects up to 12 active USDT-M perpetual candidates using observed 24h turnover
+and absolute price change, then applies the existing Trend / Reversion /
+Breakout / Funding vote engine and all risk gates. Ranking does not itself
+authorize an entry. The 10% maximum modeled stop-risk budget, 5x effective
+leverage, three-position limit and 25% total margin cap still apply.
+
 - USE_WEBSOCKET=true — fixed-symbol public book quotes, reject out-of-order and stale exchange event time.
 - USE_RADAR=true — liquid/fast-mover discovery (mutually exclusive with fixed-symbol WebSocket in current code).
 - USE_MICROSTRUCTURE=true — real public depth and aggressor flow check.

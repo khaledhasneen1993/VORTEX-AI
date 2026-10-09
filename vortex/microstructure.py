@@ -2,7 +2,9 @@
 
 Optional live/paper filter; historical OHLC backtests CANNOT replay these snapshots.
 """
+
 from __future__ import annotations
+
 from dataclasses import dataclass
 from math import isfinite
 
@@ -17,9 +19,9 @@ class MicroScore:
     reason: str
 
 
-def analyze_microstructure(side: str, depth: dict, trades: list[dict],
-                           min_side_usdt: float = 25000.0,
-                           max_spread_bps: float = 12.0) -> MicroScore:
+def analyze_microstructure(
+    side: str, depth: dict, trades: list[dict], min_side_usdt: float = 25000.0, max_spread_bps: float = 12.0
+) -> MicroScore:
     if side not in {"LONG", "SHORT"}:
         raise ValueError("Invalid position side")
     bids = depth.get("bids", [])
@@ -43,7 +45,7 @@ def analyze_microstructure(side: str, depth: dict, trades: list[dict],
         if not all(isfinite(v) for v in (bd, ad, bp, fraction)):
             raise ValueError("Nonfinite market data")
         wall = bd if side == "LONG" else ad
-        aligned = fraction >= .52 if side == "LONG" else fraction <= .48
+        aligned = fraction >= 0.52 if side == "LONG" else fraction <= 0.48
         passed = wall >= min_side_usdt and bp <= max_spread_bps and aligned
         why = "confirmed" if passed else "thin book, spread or adverse taker flow"
         return MicroScore(bd, ad, fraction, bp, passed, why)
@@ -53,7 +55,8 @@ def analyze_microstructure(side: str, depth: dict, trades: list[dict],
 
 def collect_micro(market, symbol: str, side: str, now_ms: int) -> MicroScore:
     depth = market.get("/fapi/v1/depth", {"symbol": symbol, "limit": 20})
-    trades = market.get("/fapi/v1/aggTrades",
-                        {"symbol": symbol, "startTime": now_ms - 15_000, "endTime": now_ms,
-                         "limit": 1000})
+    trades = market.get(
+        "/fapi/v1/aggTrades",
+        {"symbol": symbol, "startTime": now_ms - 15_000, "endTime": now_ms, "limit": 1000},
+    )
     return analyze_microstructure(side, depth, trades)

@@ -1,11 +1,11 @@
-name: VORTEX canonical main
+name: VORTEX 0.2 quality
 
 on:
   push:
-    branches: [main]
+    branches: [main, research/hourly-development]
 
 concurrency:
-  group: vortex-main-approved
+  group: vortex-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -24,9 +24,9 @@ jobs:
       - name: Install
         run: python -m pip install -e '.[dev]'
       - name: Compile
-        run: python -m compileall -q vortex tests
+        run: python -m compileall -q vortex tests research
       - name: Fatal-code lint
-        run: python -m ruff check --select E9,F63,F7,F82 vortex tests
+        run: python -m ruff check --select E9,F63,F7,F82 vortex tests research
       - name: Dependency consistency
         run: python -m pip check
       - name: Tests
@@ -34,75 +34,3 @@ jobs:
       - name: Smoke CLI
         run: python -m vortex.cli status
 
-  prune-old-runs-and-branches:
-    needs: [quality]
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      actions: write
-      contents: write
-    steps:
-      - name: Remove only verified merged work branches
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          for pr in 5 6 7 8 10; do
-            meta=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr")
-            merged=$(echo "$meta" | jq -r '.merged')
-            branch=$(echo "$meta" | jq -r '.head.ref')
-            expected=$(echo "$meta" | jq -r '.head.sha')
-            if [[ "$merged" != "true" || -z "$branch" || "$branch" == "main" ]]; then
-              continue
-            fi
-            actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)
-            if [[ -n "$actual" && "$actual" == "$expected" ]]; then
-              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
-              echo "Deleted merged unchanged branch $branch"
-            elif [[ -n "$actual" ]]; then
-              echo "Preserving branch $branch because it changed after merge"
-            fi
-          done
-
-      - name: Remove superseded closed, unchanged September research branch
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          meta=$(gh api "repos/$GITHUB_REPOSITORY/pulls/9")
-          state=$(echo "$meta" | jq -r '.state')
-          merged=$(echo "$meta" | jq -r '.merged')
-          branch=$(echo "$meta" | jq -r '.head.ref')
-          expected=$(echo "$meta" | jq -r '.head.sha')
-          actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)
-          if [[ "$state" == "closed" && "$merged" == "false" &&
-                "$branch" == "research/september-2026-calendar-replay" &&
-                -n "$actual" && "$actual" == "$expected" ]]; then
-            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
-            echo "Deleted superseded unchanged research branch"
-          fi
-
-      - name: Preserve newest main build and delete older workflow runs
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100" \
-            --jq '.workflow_runs[] | select(.status == "completed") | .id' > "$RUNNER_TEMP/prunable_run_ids"
-          total=0
-          failed=0
-          while IFS= read -r old_run; do
-            [[ -z "$old_run" || "$old_run" == "$GITHUB_RUN_ID" ]] && continue
-            if gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/runs/$old_run" >/dev/null; then
-              total=$((total+1))
-            else
-              echo "Could not delete workflow run $old_run" >&2
-              failed=$((failed+1))
-            fi
-          done < "$RUNNER_TEMP/prunable_run_ids"
-          echo "Removed $total previous workflow runs; failures=$failed."
-          test "$failed" -eq 0

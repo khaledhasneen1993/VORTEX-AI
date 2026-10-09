@@ -3,7 +3,9 @@
 Scores use *observed* Binance 24h change/turnover only. This is a candidate
 discovery stage, not a trading signal and not a claim of whale detection.
 """
+
 from __future__ import annotations
+
 from dataclasses import dataclass
 from math import isfinite, log10
 
@@ -16,8 +18,9 @@ class Candidate:
     change_24h_pct: float
 
 
-def rank(exchange: dict, rows: list[dict], *, limit: int = 12,
-         min_turnover_usdt: float = 20_000_000) -> list[Candidate]:
+def rank(
+    exchange: dict, rows: list[dict], *, limit: int = 12, min_turnover_usdt: float = 20_000_000
+) -> list[Candidate]:
     if not 1 <= limit <= 30:
         raise ValueError("Radar limit outside audited quota")
     results: list[Candidate] = []
@@ -31,7 +34,7 @@ def rank(exchange: dict, rows: list[dict], *, limit: int = 12,
             if not isfinite(volume) or not isfinite(change) or volume < min_turnover_usdt:
                 continue
             # Avoid limitless score from one extreme mover, use log turnover.
-            score = round(log10(max(volume, 1)) + min(abs(change), 35.0) * .2, 4)
+            score = round(log10(max(volume, 1)) + min(abs(change), 35.0) * 0.2, 4)
             results.append(Candidate(sym, score, volume, change))
         except (KeyError, TypeError, ValueError):
             continue

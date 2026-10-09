@@ -4,21 +4,29 @@ No production URL; no silent retries for mutating requests. A network timeout
 after POST is AMBIGUOUS: caller must query exchange state, never replay entry.
 See Binance USDT-M new algo orders: POST /fapi/v1/algoOrder.
 """
+
 from __future__ import annotations
+
 import hashlib
 import hmac
 import os
 import time
-from urllib.parse import urlencode
 from decimal import Decimal
+from urllib.parse import urlencode
+
 import requests
 
 TESTNET_URL = "https://testnet.binancefuture.com"
 READ_PATHS = {
-    "/fapi/v1/time", "/fapi/v1/exchangeInfo",
-    "/fapi/v1/positionSide/dual", "/fapi/v3/positionRisk",
-    "/fapi/v2/balance", "/fapi/v1/order", "/fapi/v1/openAlgoOrders",
-    "/fapi/v1/algoOrder", "/fapi/v1/openOrders",
+    "/fapi/v1/time",
+    "/fapi/v1/exchangeInfo",
+    "/fapi/v1/positionSide/dual",
+    "/fapi/v3/positionRisk",
+    "/fapi/v2/balance",
+    "/fapi/v1/order",
+    "/fapi/v1/openAlgoOrders",
+    "/fapi/v1/algoOrder",
+    "/fapi/v1/openOrders",
     "/fapi/v1/symbolConfig",
 }
 WRITE_PATHS = {"/fapi/v1/order", "/fapi/v1/algoOrder", "/fapi/v1/leverage"}
@@ -42,8 +50,8 @@ def decimal_text(value: float) -> str:
 
 class TestnetGateway:
     __test__ = False  # pytest must not treat service classes as test cases
-    def __init__(self, key: str, secret: str, session=None, *,
-                 armed: bool = False, clock=None):
+
+    def __init__(self, key: str, secret: str, session=None, *, armed: bool = False, clock=None):
         if not key or not secret:
             raise ValueError("TESTNET credentials missing")
         self.session = session or requests.Session()
@@ -58,12 +66,12 @@ class TestnetGateway:
         # Credentials cannot be typed as mainnet vs testnet by their shape.
         # Refuse any configured mainnet aliases; the signed TESTNET challenge
         # in prepare() rejects keys which do not authenticate on Testnet.
-        if any(os.getenv(name, "").strip() for name in
-               ("BINANCE_API_KEY", "BINANCE_API_SECRET",
-                "BINANCE_KEY", "BINANCE_SECRET")):
+        if any(
+            os.getenv(name, "").strip()
+            for name in ("BINANCE_API_KEY", "BINANCE_API_SECRET", "BINANCE_KEY", "BINANCE_SECRET")
+        ):
             raise PermissionError("Production Binance key variables are forbidden for TESTNET")
-        return cls(os.getenv("VORTEX_TESTNET_KEY", ""),
-                   os.getenv("VORTEX_TESTNET_SECRET", ""), armed=armed)
+        return cls(os.getenv("VORTEX_TESTNET_KEY", ""), os.getenv("VORTEX_TESTNET_SECRET", ""), armed=armed)
 
     def sync_clock(self) -> None:
         response = self.session.get(TESTNET_URL + "/fapi/v1/time", timeout=10)
@@ -74,8 +82,15 @@ class TestnetGateway:
 
     def request(self, method: str, path: str, params: dict | None = None):
         method = method.upper()
-        allowed = (READ_PATHS if method == "GET" else WRITE_PATHS if method == "POST"
-                   else DELETE_PATHS if method == "DELETE" else set())
+        allowed = (
+            READ_PATHS
+            if method == "GET"
+            else WRITE_PATHS
+            if method == "POST"
+            else DELETE_PATHS
+            if method == "DELETE"
+            else set()
+        )
         if path not in allowed:
             raise ValueError("Endpoint not allowlisted")
         if method in ("POST", "DELETE") and not self.armed:
@@ -89,13 +104,18 @@ class TestnetGateway:
         try:
             # HTTP verb / hostname pinned; server never sees credentials in repo.
             result = self.session.request(
-                method, TESTNET_URL + path,
+                method,
+                TESTNET_URL + path,
                 params=query + "&signature=" + signature if method in {"GET", "DELETE"} else None,
                 data=query + "&signature=" + signature if method == "POST" else None,
-                headers=headers, timeout=12)
+                headers=headers,
+                timeout=12,
+            )
         except requests.RequestException as exc:
             if method in {"POST", "DELETE"}:
-                raise ExchangeUncertain("Ambiguous testnet write; reconcile exchange before another write") from exc
+                raise ExchangeUncertain(
+                    "Ambiguous testnet write; reconcile exchange before another write"
+                ) from exc
             raise ExchangeRejected("Testnet read unavailable") from exc
         if result.status_code >= 400:
             try:
@@ -114,8 +134,9 @@ class TestnetGateway:
         return self.request("GET", "/fapi/v3/positionRisk")
 
     def position(self, symbol: str) -> float:
-        result = [x for x in self.positions() if x["symbol"] == symbol
-                  and x.get("positionSide", "BOTH") == "BOTH"]
+        result = [
+            x for x in self.positions() if x["symbol"] == symbol and x.get("positionSide", "BOTH") == "BOTH"
+        ]
         if not result:
             # Binance omits some zero-size position rows; this is not an error
             # after an independently confirmed exchange-flat state. Reject
@@ -129,8 +150,11 @@ class TestnetGateway:
         return self.request("GET", "/fapi/v1/openAlgoOrders", {"symbol": symbol})
 
     def symbol_config(self, symbol: str) -> dict:
-        matches = [s for s in self.request("GET", "/fapi/v1/symbolConfig",
-                                           {"symbol": symbol}) if s["symbol"] == symbol]
+        matches = [
+            s
+            for s in self.request("GET", "/fapi/v1/symbolConfig", {"symbol": symbol})
+            if s["symbol"] == symbol
+        ]
         if len(matches) != 1:
             raise ExchangeRejected("Missing symbol configuration")
         return matches[0]
@@ -144,45 +168,53 @@ class TestnetGateway:
     def set_leverage(self, symbol: str, leverage: int) -> None:
         if not 1 <= leverage <= 10:
             raise ValueError("Leverage outside bot policy")
-        response = self.request("POST", "/fapi/v1/leverage",
-                                {"symbol": symbol, "leverage": leverage})
+        response = self.request("POST", "/fapi/v1/leverage", {"symbol": symbol, "leverage": leverage})
         if int(response.get("leverage", -1)) != leverage:
             raise ExchangeUncertain("Unable to verify leverage")
 
-    def market_order(self, symbol: str, side: str, qty: float, client_id: str,
-                     *, reduce_only: bool = False) -> dict:
+    def market_order(
+        self, symbol: str, side: str, qty: float, client_id: str, *, reduce_only: bool = False
+    ) -> dict:
         if not client_id.startswith("vx") or len(client_id) > 36:
             raise ValueError("Invalid deterministic client ID")
         if side not in ("BUY", "SELL"):
             raise ValueError("Invalid order side")
-        params = {"symbol": symbol, "side": side, "type": "MARKET",
-                  "quantity": decimal_text(qty), "newClientOrderId": client_id,
-                  "newOrderRespType": "RESULT"}
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "type": "MARKET",
+            "quantity": decimal_text(qty),
+            "newClientOrderId": client_id,
+            "newOrderRespType": "RESULT",
+        }
         if reduce_only:
             params["reduceOnly"] = "true"
         return self.request("POST", "/fapi/v1/order", params)
 
     def query_order(self, symbol: str, client_id: str) -> dict:
-        return self.request("GET", "/fapi/v1/order",
-                            {"symbol": symbol, "origClientOrderId": client_id})
+        return self.request("GET", "/fapi/v1/order", {"symbol": symbol, "origClientOrderId": client_id})
 
-    def protective(self, symbol: str, side: str, kind: str, trigger: float,
-                   client_id: str) -> dict:
+    def protective(self, symbol: str, side: str, kind: str, trigger: float, client_id: str) -> dict:
         if kind not in ("STOP_MARKET", "TAKE_PROFIT_MARKET"):
             raise ValueError("Invalid protective order type")
         if side not in ("BUY", "SELL"):
             raise ValueError("Invalid protective order side")
-        params = {"algoType": "CONDITIONAL", "symbol": symbol, "side": side,
-                  "type": kind, "triggerPrice": decimal_text(trigger),
-                  "workingType": "MARK_PRICE", "closePosition": "true",
-                  "clientAlgoId": client_id, "positionSide": "BOTH"}
+        params = {
+            "algoType": "CONDITIONAL",
+            "symbol": symbol,
+            "side": side,
+            "type": kind,
+            "triggerPrice": decimal_text(trigger),
+            "workingType": "MARK_PRICE",
+            "closePosition": "true",
+            "clientAlgoId": client_id,
+            "positionSide": "BOTH",
+        }
         # Close-all explicitly forbids quantity and reduceOnly.
         return self.request("POST", "/fapi/v1/algoOrder", params)
 
     def query_algo(self, symbol: str, client_id: str) -> dict:
-        return self.request("GET", "/fapi/v1/algoOrder",
-                            {"symbol": symbol, "clientAlgoId": client_id})
-
+        return self.request("GET", "/fapi/v1/algoOrder", {"symbol": symbol, "clientAlgoId": client_id})
 
     def cancel_algo(self, client_id: str) -> dict:
         """Only by recorded deterministic ID. Never broad-cancel all guards."""

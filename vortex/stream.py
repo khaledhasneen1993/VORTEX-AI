@@ -3,11 +3,14 @@
 Uses updated Binance /public URL family for high-frequency bookTicker (2026). No REST fallback on stale data:
 a missing/old quote is rejected rather than used for a simulated execution.
 """
+
 from __future__ import annotations
+
 import json
 import threading
 import time
 from dataclasses import dataclass
+
 from websocket import WebSocketApp
 
 STREAM_URL = "wss://fstream.binance.com/public/stream?streams="
@@ -22,8 +25,15 @@ class Quote:
 
 
 class QuoteStream:
-    def __init__(self, symbols: tuple[str, ...], *, clock=time.monotonic, wall_ms=None, ws_factory=WebSocketApp,
-                 stale_seconds: float = 3.0):
+    def __init__(
+        self,
+        symbols: tuple[str, ...],
+        *,
+        clock=time.monotonic,
+        wall_ms=None,
+        ws_factory=WebSocketApp,
+        stale_seconds: float = 3.0,
+    ):
         if not symbols or any(not s.isalnum() or not s.endswith("USDT") for s in symbols):
             raise ValueError("Invalid stream symbols")
         if not 0.2 <= stale_seconds <= 30:
@@ -71,10 +81,13 @@ class QuoteStream:
         now = self.clock()
         needed = symbols or self.symbols
         with self._lock:
-            if any(s not in self._quotes or now - self._quotes[s].received_monotonic >
-                   self.stale_seconds or
-                   self.wall_ms() - self._quotes[s].exchange_ms > 3000 or
-                   self.wall_ms() < self._quotes[s].exchange_ms - 1000 for s in needed):
+            if any(
+                s not in self._quotes
+                or now - self._quotes[s].received_monotonic > self.stale_seconds
+                or self.wall_ms() - self._quotes[s].exchange_ms > 3000
+                or self.wall_ms() < self._quotes[s].exchange_ms - 1000
+                for s in needed
+            ):
                 raise ValueError("Missing/stale WebSocket quote: refuse trading")
             return {s: (self._quotes[s].bid, self._quotes[s].ask) for s in needed}
 

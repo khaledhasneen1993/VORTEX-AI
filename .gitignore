@@ -11,3 +11,5 @@ data/
 *.sqlite*
 *.log
 .coverage
+
+runs/

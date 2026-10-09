@@ -686,3 +686,26 @@ the immediate stops seen in both fixed-anchor directions.
 
 Development command:
 `python -m research.walk_forward --phase development --output research/results/W003-development-normal.json`
+
+## W003 result — reject the 24h momentum family
+
+W003 FAILS: 737 closed trades, 291 winners, net -706.715624,
+PF .6216706648, maxDD 72.804%, fees 391.334210 and ending marked equity
+292.742112 with ETH open. It loses before closed-trade fees (-315.564593).
+All three development months are negative: January -265.190282 (218 closes),
+February -263.996948 (274), March -177.528394 (245). LONG loses -364.498453
+and SHORT loses -342.217171. Five symbols are negative; ETH's observed
++86.871696 cannot be selected after the fact. Five hundred eighty stops lose
+-988.948202, 129 horizon exits gain +106.487470 and 28 targets gain +175.745108.
+Result SHA256 is
+`19e2292e04b9ddfef889847bc9d2084314f1c2eea51ada3d4098a6d3b4f7f3a4`.
+
+Reject W003 and the tested 24h-return family: fixed-anchor continuation,
+fixed-anchor reversal and pullback/reclaim timing all lose before fees, in all
+three months, with both sides negative. Do not tune the return threshold, select
+ETH/DOGE or widen/remove the protective stop. January-March have now informed
+three candidate trials (W001-W003) and remain exposed DEVELOPMENT only.
+No candidate advances, so April-June validation and 2x-cost stress stay locked.
+The next hypothesis must change the source of edge, not another direction or
+timing tweak to this 24h-return family. Main and all financial caps remain
+unchanged.

@@ -10,31 +10,12 @@
     "previously_accessed_warmup_not_holdout": ["2026-08"],
     "exposed_development": ["2026-09"]
   },
-  "candidate": {
+  "candidate": null,
+  "development_trials_2026_q1": 3,
+  "last_development_result": {
     "id": "W003",
-    "status": "preregistered",
-    "hypothesis": "W001 and W002 both lost before fees in opposite directions, while their surviving 4h exits were positive; retain W001 direction but delay entry until a completed 15m EMA9 pullback reclaim.",
-    "replay_args": [
-      "--decision-interval", "15m",
-      "--execution", "1m",
-      "--entry-policy", "momentum-pullback",
-      "--exit-policy", "pair-horizon"
-    ],
-    "frozen_parameters": {
-      "lookback_hours": 24,
-      "absolute_return_threshold": 0.02,
-      "entry_trigger": "completed_15m_ema9_reclaim_in_24h_direction",
-      "initial_stop_atr": 1.5,
-      "target_atr": 4.5,
-      "maximum_holding_hours": 4,
-      "atr_price_min": 0.0008,
-      "atr_price_max": 0.045
-    },
-    "prior_development_result": {
-      "id": "W002",
-      "status": "rejected",
-      "sha256": "eead66f88a09c4529563f5ce597d0431fcc3356970fb7533d81135eb4eaf89f1"
-    }
+    "status": "rejected",
+    "sha256": "19e2292e04b9ddfef889847bc9d2084314f1c2eea51ada3d4098a6d3b4f7f3a4"
   },
   "validation_access": "locked_until_candidate_frozen_after_development",
   "acceptance": {

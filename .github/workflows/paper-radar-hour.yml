@@ -1,0 +1,48 @@
+name: VORTEX one-hour radar PAPER
+on:
+  push:
+    branches: [paper/radar-one-hour-20261009]
+concurrency:
+  group: vortex-radar-one-hour
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      RUN_MODE: paper
+      USE_RADAR: 'true'
+      USE_WEBSOCKET: 'false'
+      STARTING_EQUITY: '1000'
+      RISK_PER_TRADE: '0.10'
+      MAX_LEVERAGE: '5'
+      MAX_POSITIONS: '3'
+      MAX_MARGIN_FRACTION: '0.25'
+      MAX_DAILY_LOSS: '0.50'
+      STRICT_VOTES: 'true'
+      TIMEFRAME: 5m
+      LOOP_SECONDS: '20'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Verify before session
+        run: |
+          python -m compileall -q vortex research
+          python -m ruff check --select E9,F63,F7,F82 vortex tests research
+          python -m pytest -q
+      - name: One hour live-data PAPER with radar
+        run: python -m research.paper_hour
+      - name: Preserve complete or failed attempt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vortex-radar-hour-${{ github.run_id }}
+          path: runs/radar-one-hour/
+          if-no-files-found: warn
+          retention-days: 90

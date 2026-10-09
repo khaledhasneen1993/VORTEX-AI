@@ -1,0 +1,173 @@
+{
+  "provenance": {
+    "origin": "user-supplied VORTEX-public-data-20261010-013906.zip; public-inputs/exchange_info.json; selected six symbol contract metadata and required sizing filters",
+    "original_json_sha256": "6d842d787c44a8319fbf1419258a557b9e94fa2750d016975b9a7ab12b2fedfc",
+    "fetched_utc": "2026-10-09T22:39:05.880082+00:00",
+    "historical_asof_proven": false,
+    "important": "Original full exchangeInfo contains more symbols/fields. Current snapshot is NOT historically authoritative; this is a restricted six-symbol snapshot and must not be treated as observed 90-day filters."
+  },
+  "symbols": [
+    {
+      "symbol": "BTCUSDT",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "status": "TRADING",
+      "filters": [
+        {
+          "filterType": "PRICE_FILTER",
+          "tickSize": "0.10"
+        },
+        {
+          "filterType": "LOT_SIZE",
+          "stepSize": "0.001",
+          "minQty": "0.001"
+        },
+        {
+          "filterType": "MARKET_LOT_SIZE",
+          "stepSize": "0.001",
+          "minQty": "0.001",
+          "maxQty": "120"
+        },
+        {
+          "filterType": "MIN_NOTIONAL",
+          "notional": "50"
+        }
+      ]
+    },
+    {
+      "symbol": "ETHUSDT",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "status": "TRADING",
+      "filters": [
+        {
+          "filterType": "PRICE_FILTER",
+          "tickSize": "0.01"
+        },
+        {
+          "filterType": "LOT_SIZE",
+          "stepSize": "0.001",
+          "minQty": "0.001"
+        },
+        {
+          "filterType": "MARKET_LOT_SIZE",
+          "stepSize": "0.001",
+          "minQty": "0.001",
+          "maxQty": "2000"
+        },
+        {
+          "filterType": "MIN_NOTIONAL",
+          "notional": "20"
+        }
+      ]
+    },
+    {
+      "symbol": "SOLUSDT",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "status": "TRADING",
+      "filters": [
+        {
+          "filterType": "PRICE_FILTER",
+          "tickSize": "0.0100"
+        },
+        {
+          "filterType": "LOT_SIZE",
+          "stepSize": "0.01",
+          "minQty": "0.01"
+        },
+        {
+          "filterType": "MARKET_LOT_SIZE",
+          "stepSize": "0.01",
+          "minQty": "0.01",
+          "maxQty": "80000"
+        },
+        {
+          "filterType": "MIN_NOTIONAL",
+          "notional": "5"
+        }
+      ]
+    },
+    {
+      "symbol": "BNBUSDT",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "status": "TRADING",
+      "filters": [
+        {
+          "filterType": "PRICE_FILTER",
+          "tickSize": "0.010"
+        },
+        {
+          "filterType": "LOT_SIZE",
+          "stepSize": "0.01",
+          "minQty": "0.01"
+        },
+        {
+          "filterType": "MARKET_LOT_SIZE",
+          "stepSize": "0.01",
+          "minQty": "0.01",
+          "maxQty": "2000"
+        },
+        {
+          "filterType": "MIN_NOTIONAL",
+          "notional": "5"
+        }
+      ]
+    },
+    {
+      "symbol": "XRPUSDT",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "status": "TRADING",
+      "filters": [
+        {
+          "filterType": "PRICE_FILTER",
+          "tickSize": "0.0001"
+        },
+        {
+          "filterType": "LOT_SIZE",
+          "stepSize": "0.1",
+          "minQty": "0.1"
+        },
+        {
+          "filterType": "MARKET_LOT_SIZE",
+          "stepSize": "0.1",
+          "minQty": "0.1",
+          "maxQty": "2000000"
+        },
+        {
+          "filterType": "MIN_NOTIONAL",
+          "notional": "5"
+        }
+      ]
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "status": "TRADING",
+      "filters": [
+        {
+          "filterType": "PRICE_FILTER",
+          "tickSize": "0.000010"
+        },
+        {
+          "filterType": "LOT_SIZE",
+          "stepSize": "1",
+          "minQty": "1"
+        },
+        {
+          "filterType": "MARKET_LOT_SIZE",
+          "stepSize": "1",
+          "minQty": "1",
+          "maxQty": "30000000"
+        },
+        {
+          "filterType": "MIN_NOTIONAL",
+          "notional": "5"
+        }
+      ]
+    }
+  ]
+}

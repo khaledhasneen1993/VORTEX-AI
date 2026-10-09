@@ -203,6 +203,68 @@ def fetch_filters(root, symbols, session):
         return record
 
 
+def fetch_funding(root, symbol, start, end, session):
+    """Read public realized settlement rates/marks, preserving every raw page."""
+    identity(symbol, "1m")
+    if not 0 < (end - start).days <= 110:
+        raise ValueError("Funding REST range must be 1..110 days")
+    begin = int(datetime.combine(start, datetime.min.time(), timezone.utc).timestamp() * 1000)
+    finish = int(datetime.combine(end, datetime.min.time(), timezone.utc).timestamp() * 1000)
+    folder = Path(root) / "supplemental" / symbol / "fundingREST" / f"{start}_{end}"
+    folder.mkdir(parents=True, exist_ok=False)
+    url = "https://fapi.binance.com/fapi/v1/fundingRate"
+    rows, pages = [], []
+    cursor = begin
+    for number in range(20):
+        params = dict(symbol=symbol, startTime=cursor, endTime=finish - 1, limit=1000)
+        response = session.get(url, params=params, timeout=25)
+        page = folder / f"page-{number:02d}.json"
+        page.write_bytes(response.content)
+        pages.append(dict(url=url, params=params, file=page.name, sha256=digest(page)))
+        response.raise_for_status()
+        batch = response.json()
+        if not isinstance(batch, list):
+            raise ValueError("Invalid funding response")
+        previous = cursor - 1
+        for item in batch:
+            stamp = int(item["fundingTime"])
+            rate, mark = float(item["fundingRate"]), float(item["markPrice"])
+            if (
+                item["symbol"] != symbol
+                or not previous < stamp < finish
+                or not math.isfinite(rate)
+                or abs(rate) > 1
+                or not math.isfinite(mark)
+                or mark <= 0
+            ):
+                raise ValueError("Invalid funding settlement row")
+            previous = stamp
+        rows.extend(batch)
+        if len(batch) < 1000:
+            break
+        cursor = previous + 1
+    else:
+        raise ValueError("Funding pagination cap reached; partial data preserved")
+    if not rows:
+        raise ValueError("No funding settlements returned")
+    record = dict(
+        url=url,
+        symbol=symbol,
+        start_ms=begin,
+        end_exclusive_ms=finish,
+        fetched_utc=datetime.now(timezone.utc).isoformat(),
+        rows=len(rows),
+        first_ms=int(rows[0]["fundingTime"]),
+        last_ms=int(rows[-1]["fundingTime"]),
+        pages=pages,
+        pagination_complete=True,
+        continuous_coverage_proven=False,
+        use_limitations="Realized funding and settlement marks only; not pre-event forecasts",
+    )
+    (folder / "manifest.json").write_text(json.dumps(record, indent=2) + "\n")
+    return record
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--symbols", nargs="+", default=["BTCUSDT"])
@@ -210,12 +272,19 @@ def main():
     p.add_argument("--metrics-dates", nargs="*", default=[])
     p.add_argument("--depth-dates", nargs="*", default=[])
     p.add_argument("--fetch-filters", action="store_true")
+    p.add_argument("--funding-rest-start", type=date.fromisoformat)
+    p.add_argument("--funding-rest-end", type=date.fromisoformat, help="Exclusive UTC date")
     p.add_argument("--output", default="data/ohlcv")
     p.add_argument("--evidence", required=True, help="New JSON report; never overwrite")
     args = p.parse_args()
+    if bool(args.funding_rest_start) != bool(args.funding_rest_end):
+        p.error("Supply both funding REST dates")
+    if args.funding_rest_start and not 0 < (args.funding_rest_end - args.funding_rest_start).days <= 110:
+        p.error("Funding REST range must be 1..110 days")
     requests_to_make = sum(map(len, [args.funding_months, args.metrics_dates, args.depth_dates])) * len(
         args.symbols
     )
+    requests_to_make += len(args.symbols) if args.funding_rest_start else 0
     if requests_to_make > 300 or not (requests_to_make or args.fetch_filters):
         p.error("Request 1..300 archives and/or filters")
     evidence = Path(args.evidence)
@@ -256,6 +325,14 @@ def main():
             os.fsync(f.fileno())
             print(label, result["status"], result.get("http_status"), flush=True)
 
+        if args.funding_rest_start:
+            for symbol in args.symbols:
+                collect(
+                    f"{symbol} funding REST",
+                    lambda s=symbol: fetch_funding(
+                        args.output, s, args.funding_rest_start, args.funding_rest_end, session
+                    ),
+                )
         if args.fetch_filters:
             collect("exchangeInfo current filters", lambda: fetch_filters(args.output, args.symbols, session))
         for kind, periods in [

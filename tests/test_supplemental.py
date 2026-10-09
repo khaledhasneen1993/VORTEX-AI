@@ -154,3 +154,58 @@ def test_local_filter_manifest_detects_tampering(tmp_path):
     p.write_text(p.read_text() + " ")
     with pytest.raises(MarketError, match="hash mismatch"):
         m.metadata()
+
+
+def test_rest_funding_preserves_published_settlement_mark(tmp_path):
+    from datetime import date
+    from research.download_supplemental import fetch_funding
+
+    rows = [{"symbol": "BTCUSDT", "fundingTime": 1790812800000, "fundingRate": "0.0001", "markPrice": "100"}]
+    result = fetch_funding(
+        tmp_path, "BTCUSDT", date(2026, 10, 1), date(2026, 10, 9), Session(json.dumps(rows).encode())
+    )
+    assert result["rows"] == 1 and result["pagination_complete"]
+    assert not result["continuous_coverage_proven"]
+    path = next(tmp_path.rglob("page-00.json"))
+    assert json.loads(path.read_text())[0]["markPrice"] == "100"
+    with pytest.raises(FileExistsError):
+        fetch_funding(
+            tmp_path, "BTCUSDT", date(2026, 10, 1), date(2026, 10, 9), Session(json.dumps(rows).encode())
+        )
+
+
+def test_rest_funding_rejects_missing_or_fabricated_mark(tmp_path):
+    from datetime import date
+    from research.download_supplemental import fetch_funding
+
+    rows = [{"symbol": "BTCUSDT", "fundingTime": 1790812800000, "fundingRate": "0.0001", "markPrice": "0"}]
+    with pytest.raises(ValueError, match="settlement"):
+        fetch_funding(
+            tmp_path, "BTCUSDT", date(2026, 10, 1), date(2026, 10, 9), Session(json.dumps(rows).encode())
+        )
+    assert not list(tmp_path.rglob("manifest.json"))
+
+
+def test_rest_funding_pagination_advances_without_duplicates(tmp_path):
+    from datetime import date
+    from research.download_supplemental import fetch_funding
+
+    start = 1790812800000
+    rows = [
+        dict(symbol="BTCUSDT", fundingTime=start + i * 60000, fundingRate="0.0001", markPrice="100")
+        for i in range(1001)
+    ]
+
+    class Paged:
+        def __init__(self):
+            self.cursors = []
+
+        def get(self, url, params, **kwargs):
+            self.cursors.append(params["startTime"])
+            batch = [r for r in rows if r["fundingTime"] >= params["startTime"]][:1000]
+            return Response(json.dumps(batch).encode())
+
+    session = Paged()
+    result = fetch_funding(tmp_path, "BTCUSDT", date(2026, 10, 1), date(2026, 10, 9), session)
+    assert result["rows"] == 1001 and len(result["pages"]) == 2
+    assert session.cursors[1] == rows[999]["fundingTime"] + 1

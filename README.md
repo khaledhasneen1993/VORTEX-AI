@@ -186,3 +186,15 @@ pre-settlement forecasts; settlement marks are still missing. Aggregated depth h
 no actual best bid/ask and is not passed as a fabricated price-level order book.
 OI rows are not forward-filled past freshness bounds. Supplemental data is not yet
 wired into trade replay. Phase 0 remains incomplete; no new PnL was measured.
+
+For an accessible Termux connection, collect missing October funding plus the
+exchange-published settlement mark (GET only, no credentials), using a new folder:
+
+```sh
+python -m research.download_supplemental --symbols BTCUSDT ETHUSDT SOLUSDT BNBUSDT XRPUSDT DOGEUSDT --fetch-filters --funding-rest-start 2026-10-01 --funding-rest-end 2026-10-09 --output runs/termux-inputs --evidence runs/termux-inputs-report.json
+```
+
+Raw paginated API responses are preserved with hashes; missing/invalid marks fail,
+not replaced by candle prices. Finished pagination does not prove settlement
+coverage, historical filter validity or pre-event forecast availability. This is
+collection only, not simulation or order submission.

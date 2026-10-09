@@ -173,3 +173,13 @@ October funding, actual filter snapshot/history, as-of funding/depth/quotes and
 historical derivative wiring remain pending. Shadow coverage and paired ablations
 also remain unfinished. No baseline, performance figure or promotion is claimed;
 main stays intact and this work remains in PR #12.
+
+### Termux handoff helper
+
+Added explicit `--funding-rest-start/--funding-rest-end` to the read-only supplemental
+collector so an accessible connection can acquire October settlements and actual
+published mark prices in one command alongside filters. Raw API pages/hashes are
+preserved; bounded pagination, strict ordering/range/finite-value checks, no
+inferred marks or prior forecasts. No successful remote download is claimed from
+this environment; software tests use synthetic responses. This does not complete
+Phase 0 or change the existing blocked data evidence.

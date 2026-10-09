@@ -157,3 +157,32 @@ historical depth/spread, as-of funding/OI or funding settlement marks. Existing
 execution guards still reject absent observations; no filters are disabled to
 manufacture results. Real smoke verification loaded 4,320 BTC 1m bars for Oct 6–8,
 2026 (one measurement day plus two warmup days). No PnL was measured.
+
+### Supplemental collection (not a complete replay dataset)
+
+```sh
+python -m research.download_supplemental --symbols BTCUSDT ETHUSDT SOLUSDT BNBUSDT XRPUSDT DOGEUSDT --funding-months 2026-07 2026-08 2026-09 --metrics-dates 2026-10-08 --depth-dates 2026-09-30 --fetch-filters --output data/ohlcv --evidence runs/supplemental-first.json
+```
+
+The evidence filename must be new. Archived files are cached with verified ZIP/
+CSV hashes. Errors are recorded individually; a failed source never becomes a
+successful dataset. `--fetch-filters` reads public exchangeInfo only, needs no
+keys and refuses to overwrite an existing snapshot. A successful current snapshot
+is not evidence of historical filter changes. Local reads check its manifest hash
+when present. Running the same filters-only collector from Termux is possible:
+
+```sh
+python -m research.download_supplemental --fetch-filters --output data/ohlcv --evidence runs/filters-first.json
+```
+
+Observed in this run: July–September funding files downloaded for all six symbols;
+October funding files were HTTP 404, exchangeInfo HTTP 451. September 30 aggregated
+depth downloaded (including ±0.2% bands), but October 8 depth was HTTP 404. October 8
+OI archives contain unordered raw rows; we preserve them and count that quality
+issue rather than silently inventing a clean time sequence.
+
+**No historical execution inputs are synthesized.** Final funding rates are not
+pre-settlement forecasts; settlement marks are still missing. Aggregated depth has
+no actual best bid/ask and is not passed as a fabricated price-level order book.
+OI rows are not forward-filled past freshness bounds. Supplemental data is not yet
+wired into trade replay. Phase 0 remains incomplete; no new PnL was measured.

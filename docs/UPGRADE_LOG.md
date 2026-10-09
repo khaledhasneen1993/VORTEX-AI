@@ -131,3 +131,45 @@ main suite also ran: `190 passed in 0.82s`.
   Historical exchange filters, depth/spread, derivative observations/settlements,
   full shadow labels and paired voter ablations remain outstanding. No economic
   comparison, profitability claim or Phase 1 promotion.
+
+## Supplemental collection — real evidence acquired, baseline still blocked
+
+Actual run on 2026-10-09 UTC / 2026-10-10 Asia/Amman:
+
+| Source | Acquired | Missing / limitations |
+|---|---:|---|
+| Realized funding, six symbols, July–September | 18 verified files, 1,656 rows | October monthly archive: HTTP 404 for six symbols; no event mark/forecast |
+| Aggregated depth, six symbols, September 30 | 6 verified files, 207,360 rows | October 8: HTTP 404; percent bands incl. ±0.2%, but no best bid/ask |
+| OI metrics, six symbols, October 8 | 6 verified files, 1,728 rows | Unordered raw observations; only a one-day sample |
+| Current genuine contract filters | None | Official exchangeInfo returned HTTP 451 |
+
+Added `research/download_supplemental.py` using requests + standard library only:
+allowlisted official read-only sources, publisher ZIP checksum validation, streamed
+bounded downloads, CSV schema/value/time checks, flock, cached source hashes and
+exclusive durable evidence files. Each failed request is retained in the collection
+report. Current filter snapshots require actual lot/tick/minimum notional fields;
+no defaults are fabricated. Added hash validation for local filter manifests.
+
+Initial metrics validation rejected all six official raw files as unordered. On
+inspection, ordering is a source-quality issue rather than an excuse to discard
+raw evidence: the collector now preserves unchanged CSVs and explicitly reports
+unordered transitions/duplicates and min/max observation times. A separate retry
+report preserves the original rejection history. This does not normalize, make
+fresh or inject those data into the strategy.
+
+Raw funding timestamps (including non-minute offsets) remain unchanged. No final
+funding rate is used as a prior entry-time observation and no candle price is
+asserted to be the exact settlement mark. Depth aggregate bands are not converted
+to fictional book levels. No strategy, risk, cost, guard or real-order path changed.
+
+Evidence and hashes: `research/baselines/supplemental-20261009/collection.json`,
+`metrics-retry.json`, `readiness.json`. Actual local suite: `213 passed in 0.89s`;
+fatal lint passed; compile exit 0. Nine new tests include preserving unordered raw
+observations, archive corruption, genuine filter field requirements, cache refusal
+and filter manifest tampering.
+
+**No backtest rerun:** required inputs are not complete. Full 30/90-day OHLCV,
+October funding, actual filter snapshot/history, as-of funding/depth/quotes and
+historical derivative wiring remain pending. Shadow coverage and paired ablations
+also remain unfinished. No baseline, performance figure or promotion is claimed;
+main stays intact and this work remains in PR #12.

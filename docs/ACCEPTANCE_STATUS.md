@@ -55,3 +55,14 @@ candles (Oct 6–8, 2026), with official ZIP checksum and local CSV hashes. Loca
 software suite: 204 passing. This is input-integrity evidence only, not a completed
 30/90-day baseline or economic acceptance. Missing historical execution/derivative
 observations remain blocking; strategy and risk defaults are unchanged.
+
+### Supplemental collection status
+
+July–September: 1,656 actual funding rows (18 files); September 30: 207,360
+aggregated depth rows (6 files); October 8: 1,728 raw OI rows (6 files). Publisher
+ZIP checksums and CSV hashes verified. Genuine filters still unavailable (HTTP 451),
+October funding/depth archives requested are unavailable (HTTP 404). Raw funding
+is realized and lacks settlement marks/pre-event forecasts; aggregate depth is not
+a bid/ask execution book. Full window/as-of coverage remains unproven. No new
+backtest ran, Phase 0 remains incomplete, no economic acceptance or main merge.
+Software suite: 213 passing locally.

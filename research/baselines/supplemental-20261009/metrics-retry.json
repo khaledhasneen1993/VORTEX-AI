@@ -1,0 +1,133 @@
+{
+  "collected_utc": "2026-10-09T22:28:46.797552+00:00",
+  "results": [
+    {
+      "request": "BTCUSDT metrics 2026-10-08",
+      "status": "downloaded_verified",
+      "source": {
+        "url": "https://data.binance.vision/data/futures/um/daily/metrics/BTCUSDT/BTCUSDT-metrics-2026-10-08.zip",
+        "archive_sha256": "f91237d81ac5817885ae7caefe9e971db60ab231c48c717b24c3852d43f04518",
+        "csv_sha256": "76f4de80023505d2ab18545779a6c7ccdab4ff0f3eb53b20f3a71dc6738bbd4a",
+        "fetched_utc": "2026-10-09T22:28:43.132826+00:00",
+        "kind": "metrics",
+        "symbol": "BTCUSDT",
+        "period": "2026-10-08",
+        "rows": 288,
+        "first_ms": 1791417600000,
+        "last_ms": 1791503700000,
+        "non_minute_timestamps": 0,
+        "unordered_transitions": 37,
+        "duplicate_timestamps": 0,
+        "continuous_coverage_proven": false,
+        "use_limitations": "Sparse OI observations; do not fabricate freshness or fill gaps."
+      }
+    },
+    {
+      "request": "ETHUSDT metrics 2026-10-08",
+      "status": "downloaded_verified",
+      "source": {
+        "url": "https://data.binance.vision/data/futures/um/daily/metrics/ETHUSDT/ETHUSDT-metrics-2026-10-08.zip",
+        "archive_sha256": "54ff3855d775ed15d6bc3cf0db3e5e0665b4e545b24f84df19a7c2be19d1871b",
+        "csv_sha256": "05d565234955f054e1953c10d7de5308d664ce446bef6dc6e3e1afe67da3d78f",
+        "fetched_utc": "2026-10-09T22:28:43.937483+00:00",
+        "kind": "metrics",
+        "symbol": "ETHUSDT",
+        "period": "2026-10-08",
+        "rows": 288,
+        "first_ms": 1791417600000,
+        "last_ms": 1791503700000,
+        "non_minute_timestamps": 0,
+        "unordered_transitions": 40,
+        "duplicate_timestamps": 0,
+        "continuous_coverage_proven": false,
+        "use_limitations": "Sparse OI observations; do not fabricate freshness or fill gaps."
+      }
+    },
+    {
+      "request": "SOLUSDT metrics 2026-10-08",
+      "status": "downloaded_verified",
+      "source": {
+        "url": "https://data.binance.vision/data/futures/um/daily/metrics/SOLUSDT/SOLUSDT-metrics-2026-10-08.zip",
+        "archive_sha256": "688fd5a4fdf157e3d02444bb48a78b63f840a3badbca511731c256ed4aa57e70",
+        "csv_sha256": "5040c3e3a7e9945c234ad4d049bfec5cff2ee49f367baa6f01089aa3bfce0d52",
+        "fetched_utc": "2026-10-09T22:28:44.754746+00:00",
+        "kind": "metrics",
+        "symbol": "SOLUSDT",
+        "period": "2026-10-08",
+        "rows": 288,
+        "first_ms": 1791417600000,
+        "last_ms": 1791503700000,
+        "non_minute_timestamps": 0,
+        "unordered_transitions": 45,
+        "duplicate_timestamps": 0,
+        "continuous_coverage_proven": false,
+        "use_limitations": "Sparse OI observations; do not fabricate freshness or fill gaps."
+      }
+    },
+    {
+      "request": "BNBUSDT metrics 2026-10-08",
+      "status": "downloaded_verified",
+      "source": {
+        "url": "https://data.binance.vision/data/futures/um/daily/metrics/BNBUSDT/BNBUSDT-metrics-2026-10-08.zip",
+        "archive_sha256": "afeece345bd595a782a84dddde994bfa5d1dd95d3d15ba1c40337d0df03f73aa",
+        "csv_sha256": "bd2aa01ccca476819274249dff7eb39ac4a99658850ac62fb71bff441182465c",
+        "fetched_utc": "2026-10-09T22:28:45.371551+00:00",
+        "kind": "metrics",
+        "symbol": "BNBUSDT",
+        "period": "2026-10-08",
+        "rows": 288,
+        "first_ms": 1791417600000,
+        "last_ms": 1791503700000,
+        "non_minute_timestamps": 0,
+        "unordered_transitions": 42,
+        "duplicate_timestamps": 0,
+        "continuous_coverage_proven": false,
+        "use_limitations": "Sparse OI observations; do not fabricate freshness or fill gaps."
+      }
+    },
+    {
+      "request": "XRPUSDT metrics 2026-10-08",
+      "status": "downloaded_verified",
+      "source": {
+        "url": "https://data.binance.vision/data/futures/um/daily/metrics/XRPUSDT/XRPUSDT-metrics-2026-10-08.zip",
+        "archive_sha256": "cab6d8301d6d7745ffc7483906f3e404029c3d7d4da3841c0657ba2f4fd02710",
+        "csv_sha256": "b3a1878ed1c0b9b30f4b3d46209f6be54057ac310aac2a379cde0f930485b863",
+        "fetched_utc": "2026-10-09T22:28:45.977672+00:00",
+        "kind": "metrics",
+        "symbol": "XRPUSDT",
+        "period": "2026-10-08",
+        "rows": 288,
+        "first_ms": 1791417600000,
+        "last_ms": 1791503700000,
+        "non_minute_timestamps": 0,
+        "unordered_transitions": 40,
+        "duplicate_timestamps": 0,
+        "continuous_coverage_proven": false,
+        "use_limitations": "Sparse OI observations; do not fabricate freshness or fill gaps."
+      }
+    },
+    {
+      "request": "DOGEUSDT metrics 2026-10-08",
+      "status": "downloaded_verified",
+      "source": {
+        "url": "https://data.binance.vision/data/futures/um/daily/metrics/DOGEUSDT/DOGEUSDT-metrics-2026-10-08.zip",
+        "archive_sha256": "3bce6230ce00199174f932887200c0f46e071b38e229ded0ac886f0823030126",
+        "csv_sha256": "497ce71ff2edee22f87bb47c5caf70e1e0c4ac3f4b4a39739d14f3d9ee2f0a0e",
+        "fetched_utc": "2026-10-09T22:28:46.797141+00:00",
+        "kind": "metrics",
+        "symbol": "DOGEUSDT",
+        "period": "2026-10-08",
+        "rows": 288,
+        "first_ms": 1791417600000,
+        "last_ms": 1791503700000,
+        "non_minute_timestamps": 0,
+        "unordered_transitions": 36,
+        "duplicate_timestamps": 0,
+        "continuous_coverage_proven": false,
+        "use_limitations": "Sparse OI observations; do not fabricate freshness or fill gaps."
+      }
+    }
+  ],
+  "full_baseline_ready": false,
+  "performance_metrics": null
+}

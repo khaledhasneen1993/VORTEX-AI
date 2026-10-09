@@ -539,5 +539,10 @@ def test_liquidity_sweep_reversal_uses_completed_range_and_wick():
     assert signal.stop < sweep.low and signal.target > signal.entry
     assert signal.features['wick_fraction'] >= .5
     assert signal.features['relative_volume'] >= 1.5
+    continuation = policy.liquidity_sweep_reversal(
+        'BTCUSDT', [*prior, sweep], [], 5, continuation=True)
+    assert continuation is not None and continuation.side == 'SHORT'
+    assert continuation.stop > continuation.entry
+    assert continuation.votes == ('liquidity_sweep_continuation',)
     weak_volume = Candle(ts, 100, 101.2, 96, 100, 10, ts+899999)
     assert policy.liquidity_sweep_reversal('BTCUSDT', [*prior, weak_volume], [], 5) is None

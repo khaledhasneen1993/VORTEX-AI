@@ -729,3 +729,26 @@ and no consecutive-loss halt. April-June validation remains locked.
 
 Development command:
 `python -m research.walk_forward --phase development --output research/results/W004-development-normal.json`
+
+## W004 result and W005 preregistration
+
+W004 FAILS: 592 closed trades, 202 winners, net -729.186614,
+PF .4424074882, maxDD 73.374%, fees 344.231591 and ending equity 270.813386
+with no open position. It loses -384.955023 before closed-trade fees. January,
+February and March are all negative (-311.830534, -306.066701, -111.289379).
+Both sides and every symbol lose. Five hundred fifty-six stops lose
+-888.208284; 36 targets gain +159.021669. Result SHA256 is
+`75c0e4b6c8bd6366b90f4bc33bbc760672d49883abe63f0f8d94ff3c013d396e`.
+Reject W004 and keep validation locked.
+
+W005 is an exact directional ablation registered before reading its returns.
+Preserve W004's completed 20-bar sweep, close-back-inside requirement, 50% wick,
+1.5x volume, ATR bounds, structural risk distance, 3R target, next-open timing,
+1m execution, costs and account limits. Invert direction only: continue upward
+after the high sweep and downward after the low sweep. Mirror the same frozen
+entry-to-stop distance around entry, so risk sizing remains comparable. Do not
+combine with filters or select symbols. This determines whether the event is
+continuation rather than exhaustion; it does not tune W004 thresholds.
+
+Development command:
+`python -m research.walk_forward --phase development --output research/results/W005-development-normal.json`

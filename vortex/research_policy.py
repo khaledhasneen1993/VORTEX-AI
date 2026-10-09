@@ -410,7 +410,8 @@ def momentum_pullback(symbol, bars, higher, min_score, **_options) -> Signal | N
     )
 
 
-def liquidity_sweep_reversal(symbol, bars, higher, min_score, **_options) -> Signal | None:
+def liquidity_sweep_reversal(symbol, bars, higher, min_score, *, continuation=False,
+                             **_options) -> Signal | None:
     """W004: fade a completed, high-volume 20-bar range sweep with rejection wick."""
     if len(bars) < 22:
         return None
@@ -431,19 +432,23 @@ def liquidity_sweep_reversal(symbol, bars, higher, min_score, **_options) -> Sig
     volatility = atr(bars)
     if volatility <= 0 or not .0008 <= volatility / current.close <= .045:
         return None
-    direction = -1 if swept_high else 1
-    raw_stop = (current.high + .1 * volatility if direction == -1
-                else current.low - .1 * volatility)
-    risk = abs(current.close - raw_stop)
+    reversal_direction = -1 if swept_high else 1
+    structural_stop = (current.high + .1 * volatility if reversal_direction == -1
+                       else current.low - .1 * volatility)
+    risk = abs(current.close - structural_stop)
     if not .5 * volatility <= risk <= 2.5 * volatility:
         return None
+    direction = -reversal_direction if continuation else reversal_direction
+    raw_stop = current.close - direction * risk
+    family = 'CONTINUATION' if continuation else 'REVERSAL'
     return Signal(
         symbol, 'LONG' if direction == 1 else 'SHORT', current.ts,
         current.close, raw_stop, current.close + direction * 3 * risk,
-        max(min_score, 7), 'LIQUIDITY_SWEEP_REVERSAL frozen 20-bar rejection',
+        max(min_score, 7), f'LIQUIDITY_SWEEP_{family} frozen 20-bar rejection',
         features={'channel_high': upper, 'channel_low': lower,
                   'wick_fraction': (lower_wick if direction == 1 else upper_wick) / candle_range,
                   'relative_volume': current.volume / average_volume,
                   'structural_risk_atr': risk / volatility},
-        votes=('liquidity_sweep_reversal',), atr_value=volatility,
+        votes=(('liquidity_sweep_continuation' if continuation
+                else 'liquidity_sweep_reversal'),), atr_value=volatility,
     )

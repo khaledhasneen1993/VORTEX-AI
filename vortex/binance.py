@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import os
 
 import requests
 
@@ -117,11 +118,16 @@ class Market:
         return out
 
     def history(self, symbol: str, interval: str, days: int, now_ms: int) -> list[Candle]:
-        """Paginate completed candles over 1..45 days with indicator warmup.
+        """Paginate completed candles with indicator warmup (90 days opt-in).
 
         Binance rows must be strictly contiguous (fail rather than silently mask gaps).
         """
-        if symbol not in self.metadata() or interval not in {"1m", "5m", "15m", "1h"} or not 1 <= days <= 45:
+        limit_days = 90 if os.getenv("VORTEX_EXTENDED_HISTORY", "false").lower() == "true" else 45
+        if (
+            symbol not in self.metadata()
+            or interval not in {"1m", "5m", "15m", "1h"}
+            or not 1 <= days <= limit_days
+        ):
             raise MarketError("Invalid history request")
         step = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000}[interval]
         # EMA200 on completed 1h candles needs >= 200 hours of pre-roll.
@@ -155,4 +161,8 @@ class Market:
                 break
         if len(candles) < 100:
             raise MarketError("Insufficient historical data; cannot infer backtest profitability")
+        if limit_days == 90:
+            expected_end = (now_ms // step) * step
+            if not candles or candles[0].ts != start or candles[-1].ts + step != expected_end:
+                raise MarketError("Incomplete extended historical range; refuse partial baseline")
         return candles

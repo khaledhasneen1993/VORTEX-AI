@@ -70,3 +70,27 @@ def test_attribution_never_invents_empty_or_causal_metrics():
     assert result["funding_fade"]["profit_factor"] is None
     assert all(row["low_sample_warning"] for row in result.values())
 
+
+def test_extended_history_requires_opt_in_and_complete_range(monkeypatch):
+    from vortex.binance import Market, MarketError
+
+    market = Market()
+    market._exchange = {"BTCUSDT": {}}
+    monkeypatch.delenv("VORTEX_EXTENDED_HISTORY", raising=False)
+    with pytest.raises(MarketError, match="Invalid history"):
+        market.history("BTCUSDT", "1h", 90, 200 * 86400000)
+    monkeypatch.setenv("VORTEX_EXTENDED_HISTORY", "true")
+    now = 200 * 86400000
+
+    def get(path, params):
+        start = params["startTime"]
+        return [
+            [ts, 100, 101, 99, 100, 100, ts + 3599999]
+            for ts in range(start, min(start + 1500 * 3600000, now), 3600000)
+        ]
+
+    monkeypatch.setattr(market, "get", get)
+    assert len(market.history("BTCUSDT", "1h", 90, now)) == 2400
+    monkeypatch.setattr(market, "get", lambda *args: get(*args)[:100])
+    with pytest.raises(MarketError, match="Incomplete extended"):
+        market.history("BTCUSDT", "1h", 90, now)

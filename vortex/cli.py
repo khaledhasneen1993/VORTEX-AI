@@ -67,7 +67,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--symbol", default="BTCUSDT", help="Backtest symbol")
     parser.add_argument("--bars", type=int, default=1200, help="Backtest candle count 300-1500")
-    parser.add_argument("--days", type=int, default=None, help="Paginated backtest span 1-45 days")
+    max_history_days = 90 if os.getenv("VORTEX_EXTENDED_HISTORY", "false").lower() == "true" else 45
+    parser.add_argument(
+        "--days", type=int, default=None, help=f"Paginated backtest span 1-{max_history_days} days"
+    )
     parser.add_argument("--once", action="store_true", help="Run one polling cycle")
     parser.add_argument("--port", type=int, default=8765, help="Dashboard loopback port")
     parser.add_argument("--ack-risk", action="store_true", help="Acknowledge a manual paper risk reset")
@@ -171,8 +174,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "portfolio-backtest":
         from .portfolio import run_portfolio
 
-        if args.days is None or not 1 <= args.days <= 45:
-            parser.error("Portfolio backtest requires --days 1..45")
+        if args.days is None or not 1 <= args.days <= max_history_days:
+            parser.error(f"Portfolio backtest requires --days 1..{max_history_days}")
         now = market.server_ms()
         data = {s: market.history(s, cfg.timeframe, args.days, now) for s in cfg.symbols}
         higher = {s: market.history(s, "15m", args.days, now) for s in cfg.symbols}
@@ -186,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
         if (
             args.days is None
             and (not 300 <= args.bars <= 1500)
-            or (args.days is not None and (not 1 <= args.days <= 45))
+            or (args.days is not None and (not 1 <= args.days <= max_history_days))
             or args.symbol not in market.metadata()
         ):
             parser.error("bars=300..1500 and a valid futures symbol required")
@@ -207,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
             else market.candles(args.symbol, "1h", 500, server)
         )
         duration_days = args.days or max(1, (args.bars * (5 if cfg.timeframe == "5m" else 15) + 1439) // 1440)
-        minute = market.history(args.symbol, "1m", min(45, duration_days), server)
+        minute = market.history(args.symbol, "1m", min(max_history_days, duration_days), server)
         report = backtest(
             args.symbol, bars, upper, market.symbol_filters(args.symbol), cfg, macro=macro, minute=minute
         )

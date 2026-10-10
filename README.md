@@ -177,6 +177,12 @@ read-only dashboard. `LIVE_RESILIENCE=true` rechecks REST freshness, reconnects
 silent WS feeds and manages fresh PAPER exits during long Radar scans. All four
 switches remain off by default, including under the aggressive preset.
 
+`PAPER_FAST_SCAN=true` optionally prepares public candidate data in at most four
+workers and processes ready results before the existing 90-second signal deadline.
+Execution remains in one PAPER thread; use a new session when enabling/changing it.
+Recorder decisions drain between requests, and Ctrl-C now finalizes bounded-run
+reports with an explicit interrupted status.
+
 Original R is shared across signals/sizing, staged exits and reports; no financial
 caps were raised in Phase 3. Sampling does not supply a complete trade tape or
 continuous depth. See [architecture, integrity checks and remaining gaps](docs/LIVE_INFRASTRUCTURE.md).
@@ -193,6 +199,7 @@ PHASE1_FLOW_ENABLED=true PHASE1_FLOW_MODE=confirm PHASE1_REGIME_ENABLED=true \
 PHASE1_VOLUME_SPIKE_ENABLED=true PHASE1_LIQUIDITY_SWEEP_ENABLED=true \
 PHASE1_FUNDING_FLOW_CONFIRM=true RECORDER_ENABLED=true RECORDER_DECISIONS=true \
 HEALTH_ENABLED=true LIVE_RESILIENCE=true RECORDER_INTERVAL_SECONDS=60 RECORDER_FLOW=true \
+PAPER_FAST_SCAN=true PAPER_SCAN_WORKERS=4 \
 USE_RADAR=true USE_WEBSOCKET=false OPS_FOCUS_SYMBOL= OPS_TELEGRAM_ALERTS=false \
 DATA_DIR="$SESSION" python -m vortex.cli paper
 # Another shell: substitute the same SESSION path; dashboard is read-only.

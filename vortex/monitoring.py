@@ -19,7 +19,7 @@ def save_telemetry(broker, quotes, now_ms, rejection_count):
         "daily_loss_fraction": max(0.0, 1 - equity / broker.gate.day_start_equity),
         "daily_loss_limit": broker.cfg.max_daily_loss,
         "margin": sum(p.margin for p in broker.positions.values()),
-        "current_process_rejections": rejection_count,
+        "current_process_decision_records": rejection_count,
         "protection": broker.protection.state(),
     }
     path = broker.folder / "telemetry.json"

@@ -1,63 +1,38 @@
-name: VORTEX 0.2 quality
+name: VORTEX-AI Build & Test
 
 on:
   push:
-    branches: [main, research/hourly-development]
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: vortex-${{ github.ref }}
+  group: vortex-quality-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  quality:
+  build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
-      - name: Install
+      - name: Install approved project
         run: python -m pip install -e '.[dev]'
       - name: Compile
         run: python -m compileall -q vortex tests research
-      - name: Fatal-code lint
+      - name: Check code
         run: python -m ruff check --select E9,F63,F7,F82 vortex tests research
-      - name: Dependency consistency
+      - name: Check dependencies
         run: python -m pip check
-      - name: Tests
+      - name: Run tests
         run: python -m pytest -q
-      - name: Smoke CLI
+      - name: Smoke-test PAPER CLI
         run: python -m vortex.cli status
-  # One-time, explicitly requested removal of the reviewed historical run IDs.
-  # Future builds skip this job; research evidence in archive/ is untouched.
-  cleanup_requested_history:
-    needs: quality
-    if: >-
-      github.ref == 'refs/heads/main' && github.event.head_commit.message == 'chore: remove reviewed old Actions runs [actions-cleanup-20261009]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      actions: write
-    steps:
-      - name: Delete reviewed old builds after current quality checks pass
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          OLD_RUN_IDS: '37994970427 37994897755 37994748880 37993620449 37993493975 37991980168 37990333726 37988133114 37987551135 37947773557 37942540017 37926606817 37923858496 37920759494 37917002773 37916498192 37916091420 37911205590 37904586497 37904492118 37904342177 37904147627 37898921674 37898799513 37898679785 37898523715 37893192881 37893083803 37892939511 37892593544 37887982368 37883175836 37879280623 37873973027 37869136068 37865104791 37859700727 37859577150 37859064802 37857359721'
-        shell: bash
-        run: |
-          set -euo pipefail
-          for run_id in $OLD_RUN_IDS; do
-            test "$run_id" != "$GITHUB_RUN_ID"
-            status="$(gh api "repos/$GH_REPO/actions/runs/$run_id" --jq .status)"
-            test "$status" = completed
-            gh api --method DELETE "repos/$GH_REPO/actions/runs/$run_id"
-            echo "Deleted historical run $run_id"
-          done
-          echo "Retained current verified build $GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"

@@ -71,6 +71,7 @@ class PaperBroker:
         saved_entry.setdefault("flow_policy", self._flow_policy(defaults=True))
         saved_entry.setdefault("regime_policy", self._regime_policy(defaults=True))
         saved_entry.setdefault("volume_spike_policy", self._volume_spike_policy(defaults=True))
+        saved_entry.setdefault("sweep_policy", self._sweep_policy(defaults=True))
         if saved_entry != self._opportunity_policy():
             raise ValueError("Entry policy changed: use a new isolated session")
         self.protection = Protection(self.cfg.operations, raw.get("protection"))
@@ -152,6 +153,7 @@ class PaperBroker:
             "flow_policy": self._flow_policy(),
             "regime_policy": self._regime_policy(),
             "volume_spike_policy": self._volume_spike_policy(),
+            "sweep_policy": self._sweep_policy(),
         }
 
     def _flow_policy(self, defaults=False):
@@ -171,6 +173,16 @@ class PaperBroker:
 
         policy = StrategyPolicy() if defaults else self.cfg.phase1
         return {k: v for k, v in asdict(policy).items() if k.startswith("volume_spike_")}
+
+    def _sweep_policy(self, defaults=False):
+        from .phase1_config import StrategyPolicy
+
+        policy = StrategyPolicy() if defaults else self.cfg.phase1
+        return {
+            k: v
+            for k, v in asdict(policy).items()
+            if k.startswith("sweep_") or k == "liquidity_sweep_enabled"
+        }
 
     def save(self) -> None:
         obj = {

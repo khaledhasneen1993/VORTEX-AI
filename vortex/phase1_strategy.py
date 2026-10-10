@@ -9,7 +9,7 @@ from .market_features import _macd_hist, _std, _vwap
 from .models import Signal
 from .orderflow import flow_direction
 from .regime import classify
-from .extra_voters import volume_spike
+from .extra_voters import liquidity_sweep, volume_spike
 from .reversal import confirm as confirm_1m
 
 log = logging.getLogger("vortex.votes")
@@ -234,6 +234,9 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         # Same price/volume evidence: replace the breakout vote, never double it.
         votes.pop("breakout", None)
         votes["volume_spike"] = spike_sign
+    sweep_sign, sweep_code = liquidity_sweep(small, a, relvol, policy)
+    if sweep_sign:
+        votes["liquidity_sweep"] = sweep_sign
     # Independent auxiliary vote alongside the primary strategies.
     if (
         adx5 < policy.range_adx
@@ -247,7 +250,15 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     funding = funding_direction(deriv, decision, policy)
     if funding:
         votes["funding_fade"] = funding
-    for name in ("trend", "breakout", "reversion", "funding_fade", "volume_spike", "order_flow"):
+    for name in (
+        "trend",
+        "breakout",
+        "reversion",
+        "funding_fade",
+        "volume_spike",
+        "liquidity_sweep",
+        "order_flow",
+    ):
         value = votes.get(name, 0)
         log.debug(
             "VOTE %s %s=%s reason=phase1 regime_adx=%.1f funding_freshness_and_price_required",
@@ -264,6 +275,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         funding_fade=policy.funding_weight,
         order_flow=policy.flow_weight,
         volume_spike=policy.volume_spike_weight + boost,
+        liquidity_sweep=policy.sweep_weight,
     )
     strong = (
         adx15 >= policy.strong_adx
@@ -347,6 +359,8 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     reason += " flow=" + flow_code + " regime=" + regime_code
     if policy.volume_spike_enabled:
         reason += " spike=" + spike_code
+    if policy.liquidity_sweep_enabled:
+        reason += " sweep=" + sweep_code
     log.info(
         "ACCEPT %s code=SIGNAL_ACCEPTED %s %s score=%d",
         symbol,

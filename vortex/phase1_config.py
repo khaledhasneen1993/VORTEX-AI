@@ -62,6 +62,12 @@ class StrategyPolicy:
     volume_spike_min_body_atr: float = 0.6
     volume_spike_close_fraction: float = 0.75
     volume_spike_weight: float = 2.0
+    liquidity_sweep_enabled: bool = False
+    sweep_lookback: int = 20
+    sweep_min_volume: float = 1.5
+    sweep_min_atr: float = 0.1
+    sweep_min_wick_fraction: float = 0.5
+    sweep_weight: float = 1.0
     funding_extreme: float = 0.0015
     funding_oi_min_pct: float = 0.25
     funding_price_min_pct: float = 0.10
@@ -115,6 +121,14 @@ class StrategyPolicy:
             and 0 < self.volume_spike_weight <= 3
         ):
             raise ValueError("Invalid volume-spike voter policy")
+        if not isinstance(self.liquidity_sweep_enabled, bool) or not (
+            5 <= self.sweep_lookback <= 100
+            and 1 <= self.sweep_min_volume <= 20
+            and 0 < self.sweep_min_atr <= 1
+            and 0.25 <= self.sweep_min_wick_fraction <= 1
+            and 0 < self.sweep_weight <= 2
+        ):
+            raise ValueError("Invalid liquidity-sweep voter policy")
         if not 0 <= self.atr_percentile_min <= 100 or not 0 <= self.cvd_min <= 1:
             raise ValueError("Invalid phase1 percentile/CVD threshold")
         if not 0 < self.atr_pct_min < self.atr_pct_max < 1:

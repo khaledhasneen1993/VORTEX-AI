@@ -140,15 +140,23 @@ def weighted_selection(votes, weights, macro, strong, policy, *, clear_single=Fa
 def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min_score, policy, flow=None):
     flow_code = "FLOW_DISABLED" if not policy.flow_enabled else "FLOW_ABSTAIN_NOT_EVALUATED"
     regime_code = "REGIME_DISABLED" if not policy.regime_enabled else "REGIME_ABSTAIN_NOT_EVALUATED"
+    spike_code = (
+        "VOLUME_SPIKE_ABSTAIN_NOT_EVALUATED" if policy.volume_spike_enabled else "VOLUME_SPIKE_DISABLED"
+    )
+    sweep_code = "SWEEP_ABSTAIN_NOT_EVALUATED" if policy.liquidity_sweep_enabled else "SWEEP_DISABLED"
+    funding_code = "FUNDING_ABSTAIN_NOT_EVALUATED" if policy.funding_flow_confirm else "FUNDING_BASELINE"
 
     def reject(reason):
         log.debug(
-            "REJECT %s code=%s phase1=%s flow=%s regime=%s",
+            "REJECT %s code=%s phase1=%s flow=%s regime=%s spike=%s sweep=%s funding=%s",
             symbol,
             reason.upper(),
             reason,
             flow_code,
             regime_code,
+            spike_code,
+            sweep_code,
+            funding_code,
         )
         return None
 

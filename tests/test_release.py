@@ -33,6 +33,15 @@ def test_latest_defaults_and_no_alternative_master_profile(monkeypatch):
         monkeypatch.delenv(flag)
     monkeypatch.setenv("OPS_PROFILE", "aggressive")
     aggressive = Settings.from_env()
+    assert not any(
+        (
+            aggressive.phase1.flow_enabled,
+            aggressive.phase1.regime_enabled,
+            aggressive.phase1.volume_spike_enabled,
+            aggressive.phase1.liquidity_sweep_enabled,
+            aggressive.phase1.funding_flow_confirm,
+        )
+    )
     assert not aggressive.phase1.strict_votes and aggressive.phase1.allow_single_strong_vote
     assert aggressive.min_strong_score == aggressive.phase1.min_strong_score == 6
     assert aggressive.phase2.aggressive_strong_risk and aggressive.phase2.strong_max == 0.18
@@ -103,6 +112,9 @@ def test_environment_migration_preserves_secrets_and_old_session(tmp_path):
     assert PaperBroker(old_cfg).wallet == broker.wallet
     with pytest.raises(ValueError, match="Entry policy changed"):
         PaperBroker(replace(old_cfg, phase1=replace(old_cfg.phase1, strict_votes=False)))
+    for flag in ("flow_enabled", "regime_enabled", "volume_spike_enabled", "liquidity_sweep_enabled"):
+        with pytest.raises(ValueError, match="Entry policy changed"):
+            PaperBroker(replace(old_cfg, phase1=replace(old_cfg.phase1, **{flag: True})))
 
 
 def test_no_retired_strategy_or_research_policy_imports():

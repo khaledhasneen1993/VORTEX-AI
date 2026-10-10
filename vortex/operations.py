@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, fields
 from math import isfinite
 
@@ -236,10 +237,11 @@ class Protection:
 class DecisionJournal(logging.Handler):
     """Append every emitted rejection/skip with original diagnostic explanation."""
 
-    def __init__(self, folder):
+    def __init__(self, folder, strategy_policy=None):
         super().__init__(logging.DEBUG)
         self.path = folder / "decisions.jsonl"
         self.count = 0
+        self.strategy_policy = strategy_policy
 
     def emit(self, record):
         message = record.getMessage()
@@ -247,6 +249,7 @@ class DecisionJournal(logging.Handler):
             tag in message
             for tag in (
                 "REJECT",
+                "ACCEPT",
                 "ENTRY_SKIP",
                 "accepted=False",
                 "CARD_SKIP",
@@ -261,6 +264,26 @@ class DecisionJournal(logging.Handler):
                 "logger": record.name,
                 "reason": message,
             }
+
+            def label(name, fallback):
+                match = re.search(r"\b" + name + r"=([A-Za-z0-9_]+)", message)
+                return match.group(1).upper() if match else fallback
+
+            row["code"] = label(
+                "code", label("reason", "SIGNAL_ACCEPTED" if "ACCEPT" in message else "DECISION_REJECTED")
+            )
+            row["flow"] = label(
+                "flow",
+                "FLOW_ABSTAIN_NOT_EVALUATED"
+                if self.strategy_policy and self.strategy_policy.flow_enabled
+                else "FLOW_DISABLED",
+            )
+            row["regime"] = label(
+                "regime",
+                "REGIME_ABSTAIN_NOT_EVALUATED"
+                if self.strategy_policy and self.strategy_policy.regime_enabled
+                else "REGIME_DISABLED",
+            )
             with self.path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
             self.count += 1

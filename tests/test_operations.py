@@ -223,7 +223,9 @@ def test_journal_and_readonly_telemetry(tmp_path):
     )
     handler.emit(logging.LogRecord("vortex", logging.INFO, "", 0, "ACCEPT BTCUSDT", (), None))
     rows = recent_decisions(tmp_path)
-    assert len(rows) == 1 and "bad votes" in rows[0]["reason"]
+    assert len(rows) == 2 and any("bad votes" in row["reason"] for row in rows)
+    assert all(row["flow"] == "FLOW_DISABLED" and row["regime"] == "REGIME_DISABLED" for row in rows)
+    assert {row["code"] for row in rows} == {"BAD", "SIGNAL_ACCEPTED"}
     broker = PaperBroker(Settings(data_dir=tmp_path, operations=P))
     save_telemetry(broker, {}, NOW, 1)
     state = json.loads((tmp_path / "telemetry.json").read_text())

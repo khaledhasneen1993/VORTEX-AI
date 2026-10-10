@@ -243,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
     from .alerts import detailed_event, notify
     from .operations import DecisionJournal
 
-    decision_journal = DecisionJournal(cfg.data_dir)
+    decision_journal = DecisionJournal(cfg.data_dir, cfg.phase1)
     logging.getLogger("vortex").addHandler(decision_journal)
     logging.getLogger("vortex.votes").setLevel(logging.DEBUG)
     from .derivatives import DerivativesTracker

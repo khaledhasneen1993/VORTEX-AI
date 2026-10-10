@@ -248,6 +248,14 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         if rv:
             votes["reversion"] = rv
     funding = funding_direction(deriv, decision, policy)
+    funding_code = "FUNDING_BASELINE"
+    if policy.funding_flow_confirm:
+        if not funding:
+            funding_code = "FUNDING_ABSTAIN_RULES_OR_DATA"
+        elif flow_sign != funding:
+            funding, funding_code = 0, "FUNDING_ABSTAIN_FLOW_UNCONFIRMED"
+        else:
+            funding_code = "FUNDING_FLOW_ALIGNED"
     if funding:
         votes["funding_fade"] = funding
     for name in (
@@ -361,6 +369,8 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         reason += " spike=" + spike_code
     if policy.liquidity_sweep_enabled:
         reason += " sweep=" + sweep_code
+    if policy.funding_flow_confirm:
+        reason += " funding=" + funding_code
     log.info(
         "ACCEPT %s code=SIGNAL_ACCEPTED %s %s score=%d",
         symbol,

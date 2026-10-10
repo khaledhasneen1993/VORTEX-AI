@@ -160,7 +160,9 @@ class PaperBroker:
         from .phase1_config import StrategyPolicy
 
         policy = StrategyPolicy() if defaults else self.cfg.phase1
-        return {k: v for k, v in asdict(policy).items() if k.startswith("flow_")}
+        return {
+            k: v for k, v in asdict(policy).items() if k.startswith("flow_") or k == "funding_flow_confirm"
+        }
 
     def _regime_policy(self, defaults=False):
         from .phase1_config import StrategyPolicy

@@ -184,6 +184,29 @@ def test_full_signal_symmetry_and_fail_closed(sign):
     assert stale and "FLOW_ABSTAIN_STALE_OR_FUTURE" in stale.reason and "flow_cvd_base" not in stale.features
     voter = with_flow(fresh, replace(flow_policy, flow_mode="voter"))
     assert voter and "order_flow" in voter.votes
+    funding_policy = replace(flow_policy, funding_flow_confirm=True)
+    derivative = Derivatives(-sign * 0.002, 1, now - 100, sign * 0.5, 300000)
+    funded = analyze(
+        "BTCUSDT",
+        small,
+        higher,
+        macro=macro,
+        decision_ms=now,
+        derivatives=derivative,
+        policy=funding_policy,
+        flow=fresh,
+    )
+    assert funded and "funding_fade" in funded.votes and "FUNDING_FLOW_ALIGNED" in funded.reason
+    unfunded = analyze(
+        "BTCUSDT", small, higher, macro=macro, decision_ms=now, derivatives=derivative, policy=funding_policy
+    )
+    assert (
+        unfunded
+        and "funding_fade" not in unfunded.votes
+        and "FUNDING_ABSTAIN_FLOW_UNCONFIRMED" in unfunded.reason
+    )
+    with pytest.raises(ValueError):
+        replace(p, funding_flow_confirm=True)
 
 
 def test_configuration_env_and_no_risk_change(monkeypatch):

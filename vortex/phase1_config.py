@@ -52,6 +52,7 @@ class StrategyPolicy:
     flow_limit: int = 1000
     flow_min_imbalance: float = 0.10
     flow_weight: float = 1.0
+    funding_flow_confirm: bool = False
     regime_enabled: bool = False
     regime_window: int = 20
     regime_dead_percentile: float = 20.0
@@ -107,6 +108,10 @@ class StrategyPolicy:
             and 0 < self.flow_weight <= 2
         ):
             raise ValueError("Invalid bounded flow policy")
+        if not isinstance(self.funding_flow_confirm, bool) or (
+            self.funding_flow_confirm and not self.flow_enabled
+        ):
+            raise ValueError("Funding-flow confirmation requires PHASE1_FLOW_ENABLED=true")
         if not isinstance(self.regime_enabled, bool) or not (
             10 <= self.regime_window <= 100
             and 0 <= self.regime_dead_percentile <= 100

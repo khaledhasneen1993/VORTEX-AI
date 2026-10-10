@@ -49,5 +49,5 @@ def test_cooldown_skips_entries_but_continues_future_completed_bars(monkeypatch)
     )
     assert observed, "Signal checks must resume after a temporary cooldown"
     assert report["metrics"]["closed_trades"] == 0
-    assert len(report["equity_curve"]) >= 100
+    assert len(report["equity_curve"]) == len(bars) - 65 + 1\n    assert report["equity_curve"][-1]["ts"] == bars[-1].close_ts
     assert report["halted"] is False

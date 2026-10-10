@@ -395,3 +395,57 @@ def test_funding_timing_refresh_does_not_reset_oi_vote_interval():
 
     assert tracker.timing(Market(), "BTCUSDT") == (NOW, 0.001, NOW + 600000)
     assert tracker.last["BTCUSDT"] == (NOW - 300000, 100)
+
+
+def experiment_config(path, **kw):
+    from vortex.paper_experiment import PaperExperiment
+    from vortex.phase2 import RiskPolicy
+    return Settings(data_dir=path, starting_equity=20, experiment=PaperExperiment(enabled=True),
+                    operations=P, phase2=RiskPolicy(correlation_filter=False), max_positions=5, **kw)
+
+
+@pytest.mark.parametrize('side', ['LONG', 'SHORT'])
+def test_experiment_full_net_margin_exit_keeps_wide_original_stop(tmp_path, side):
+    from vortex.paper_experiment import net_margin_target
+    cfg = experiment_config(tmp_path)
+    broker = PaperBroker(cfg)
+    sig = Signal('BTCUSDT', side, NOW-300000, 100, 98 if side=='LONG' else 102,
+                 106 if side=='LONG' else 94, 8, 'synthetic', atr_value=1)
+    assert broker.open(sig, 100, 100, F, {}, NOW)[0]
+    p = broker.positions['BTCUSDT']
+    sign = 1 if side == 'LONG' else -1
+    assert (p.entry-p.stop)*sign == pytest.approx(p.entry*0.10)
+    assert broker.mark({'BTCUSDT': (p.entry, p.entry)}, NOW+1) == []
+    assert not p.tp1_done and p.stop == p.initial_stop
+    slip = slippage_bps(cfg.slippage_bps, p.atr_value/p.entry, 0, cfg.operations)/10000
+    target = net_margin_target(p, cfg.fee_rate, slip, cfg.experiment)
+    margin = p.margin
+    event = broker.mark({'BTCUSDT': (target+sign*1e-7, target+sign*1e-7)}, NOW+2)[0]
+    assert event['reason'] == 'experiment_net_margin_target' and event['final']
+    assert event['net_pnl'] == pytest.approx(margin*0.04, abs=1e-6)
+    assert not broker.positions
+
+
+def test_experiment_account_floor_persists_and_uses_initial_bankroll(tmp_path):
+    cfg = experiment_config(tmp_path)
+    broker = PaperBroker(cfg)
+    p = position(); p.qty=0.01; p.entry_fee=0.0005; p.margin=0.2
+    broker.positions['BTCUSDT'] = p
+    broker.wallet = 15.0005
+    # Missing position price freezes detection; never invent a flattening price.
+    assert broker.mark({}, NOW) == [] and not broker.account_floor_halted
+    events = broker.mark({'BTCUSDT': (100, 100)}, NOW+1)
+    assert events[0]['reason'] == 'account_equity_floor'
+    resumed = PaperBroker(cfg)
+    assert resumed.account_floor_halted and resumed.gate.blocked and not resumed.positions
+    resumed.gate.new_day('2026-10-11', 100)
+    resumed.wallet=30
+    assert resumed._account_floor({})
+    with pytest.raises(ValueError, match='permanent'):
+        resumed.reset_halt(True)
+    with pytest.raises(ValueError, match='experiment policy changed'):
+        PaperBroker(replace(cfg, starting_equity=21))
+    with pytest.raises(ValueError):
+        replace(cfg, mode='backtest')
+    with pytest.raises(ValueError):
+        Settings(max_positions=5)

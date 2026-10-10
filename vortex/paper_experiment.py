@@ -46,3 +46,15 @@ class PaperExperiment:
             values[f.name] = value
         return cls(**values)
 
+
+def net_margin_target(p, fee_rate, slip, policy):
+    """Raw executable price yielding requested net PnL / total posted margin.
+
+    Margin already incorporates leverage. Do not multiply returns by leverage
+    again. Entry fees include the one optional add; funding is not simulated.
+    """
+    sign = 1 if p.side == "LONG" else -1
+    cost = p.entry_fee + policy.profit_margin * p.margin - p.accumulated_net
+    fill = (sign * p.entry + cost / p.qty) / (sign - fee_rate)
+    return fill / (1 - sign * slip)
+

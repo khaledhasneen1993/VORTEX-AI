@@ -90,3 +90,11 @@ def test_child_gets_graceful_interrupt_before_forced_kill():
     assert stop_child(child) is True
     assert child.signals == [signal.SIGINT]
     assert child.killed
+
+
+def test_six_hour_session_has_separate_output():
+    args = session_args(["--duration-seconds", "21600", "--starting-equity", "20",
+                         "--output", "runs/capture-six-hours"])
+    assert args.duration_seconds == 6 * 60 * 60
+    assert args.starting_equity == 20
+    assert args.output == Path("runs/capture-six-hours")

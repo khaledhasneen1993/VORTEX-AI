@@ -62,13 +62,20 @@ Stop older PAPER first. In activated `.venv`:
 ```sh
 git pull --ff-only origin main
 python -m pip install -e .
-bash research/run_capture_paper.sh
+bash research/run_capture_paper.sh 21600  # Six hours
 ```
 
-This explicitly enables a new recorded three-hour $20 session with fast scanning,
+This explicitly enables a new recorded six-hour $20 session with fast scanning,
 five-position ceiling and the above defaults, without rewriting `.env`. Other
 custom thresholds/lower caps remain. Count evaluations, accepted signals, entries
 and unique candles separately. There is no guarantee of 400 signals or fills.
 Inspect saved equity, entry/close/add journals, account latch and recorder gaps.
+Omit the duration argument to retain the three-hour launcher default. Timer expiry
+stops and saves the loop; it does not fabricate closes for remaining positions.
+`LIVE_RESILIENCE=true` retries missing held/candidate quotes with limit-5 public
+depth snapshots, checked against exchange transaction time with the same 4s
+freshness bound. Failed recovery still freezes entries/adds. Logs name missing
+symbols and recovered sources; interrupted scans are not retried in the same candle.
+Funding/flow can still abstain when stale or insufficient.
 Revert using `PAPER_EXP_ENABLED=false` in a new isolated session. Never discard
 old exposure or change the policy of a saved wallet to migrate positions.

@@ -231,10 +231,10 @@ Five positions are a ceiling, not a promise. See the
 After updating/installing and stopping older PAPER, run in activated `.venv`:
 
 ```sh
-bash research/run_capture_paper.sh
+bash research/run_capture_paper.sh 21600  # Six hours; omit argument for three hours.
 ```
 
-It creates a fresh three-hour $20 PAPER session with recorder/health and fast scan,
+It creates a fresh $20 PAPER session of the selected duration with recorder/health and fast scan,
 without rewriting `.env`. There is no guarantee of 400 signals or profitability.
 
 - [Strategy](docs/PHASE1_STRATEGY.md): current weighted signal rules.

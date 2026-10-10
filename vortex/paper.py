@@ -69,6 +69,7 @@ class PaperBroker:
                 "min_strong_score": 7,
             },
         )
+        saved_entry.setdefault("fast_scan", {"enabled": False})
         saved_entry.setdefault("flow_policy", self._flow_policy(defaults=True))
         saved_entry.setdefault("regime_policy", self._regime_policy(defaults=True))
         saved_entry.setdefault("volume_spike_policy", self._volume_spike_policy(defaults=True))
@@ -148,6 +149,11 @@ class PaperBroker:
 
     def _opportunity_policy(self):
         return {
+            "fast_scan": (
+                {"enabled": True, "workers": self.cfg.runtime.paper_scan_workers}
+                if self.cfg.runtime.paper_fast_scan
+                else {"enabled": False}
+            ),
             "strict_votes": self.cfg.phase1.strict_votes,
             "allow_single_strong_vote": self.cfg.phase1.allow_single_strong_vote,
             "min_strong_score": self.cfg.min_strong_score,

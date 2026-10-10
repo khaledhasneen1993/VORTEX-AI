@@ -12,10 +12,12 @@ from dotenv import load_dotenv
 from .operations import OperationsPolicy
 from .phase1_config import StrategyPolicy
 from .phase2 import RiskPolicy
+from .runtime_config import RuntimePolicy
 
 
 @dataclass(frozen=True)
 class Settings:
+    runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
     operations: OperationsPolicy = field(default_factory=OperationsPolicy)
     phase1: StrategyPolicy = field(default_factory=StrategyPolicy)
     phase2: RiskPolicy = field(default_factory=RiskPolicy)
@@ -125,6 +127,7 @@ class Settings:
                 "Only the current strategy/risk/operations release is supported; remove disabled PHASE1_ENABLED/PHASE2_ENABLED/OPS_ENABLED settings"
             )
         return cls(
+            runtime=RuntimePolicy.from_env(),
             operations=operations,
             phase1=phase1,
             phase2=phase2,

@@ -237,11 +237,12 @@ class Protection:
 class DecisionJournal(logging.Handler):
     """Append every emitted rejection/skip with original diagnostic explanation."""
 
-    def __init__(self, folder, strategy_policy=None):
+    def __init__(self, folder, strategy_policy=None, decision_hook=None):
         super().__init__(logging.DEBUG)
         self.path = folder / "decisions.jsonl"
         self.count = 0
         self.strategy_policy = strategy_policy
+        self.decision_hook = decision_hook
 
     def emit(self, record):
         message = record.getMessage()
@@ -287,6 +288,11 @@ class DecisionJournal(logging.Handler):
             with self.path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
             self.count += 1
+            if self.decision_hook:
+                try:
+                    self.decision_hook(row)
+                except Exception:
+                    pass  # Optional reporting cannot change execution decisions.
 
 
 def historical_context(observations, symbol, now_ms, policy):

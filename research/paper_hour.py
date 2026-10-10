@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -55,6 +56,68 @@ def diagnostic_counts(text):
         "vote_records": text.count(" DEBUG VOTE "),
         "pyramid_adds": text.count(" INFO PYRAMID: "),
     }
+
+
+def stop_child(process):
+    """Graceful PAPER shutdown first; report any forced termination explicitly."""
+    if process is None or process.poll() is not None:
+        return False
+    try:
+        process.send_signal(signal.SIGINT)
+    except ProcessLookupError:
+        return False
+    try:
+        process.wait(timeout=30)
+        return False
+    except (subprocess.TimeoutExpired, KeyboardInterrupt):
+        process.kill()
+        process.wait()
+        return True
+
+
+def summarize_session(report, folder, process, elapsed, timed_out=False, interrupted=False):
+    """Same evidence fields for timer completion, early failure and Ctrl-C."""
+    report.update(
+        elapsed_seconds=elapsed,
+        ended_utc=utc(),
+        child_returncode=process.returncode if process else None,
+        duration_completed=bool(timed_out and not interrupted),
+    )
+    path = folder / "session.log"
+    text = path.read_text() if path.exists() else ""
+    equities = [float(x) for x in re.findall(r"PAPER equity=([0-9.]+)", text)]
+    report.update(
+        successful_poll_cycles=len(equities),
+        cycle_errors=text.count("Cycle failed closed:"),
+        radar_cycles=text.count("RADAR ranked liquid movers:"),
+        paper_entries=len(re.findall(r"SIGNAL .*accepted=True:", text)),
+        last_observed_marked_equity=equities[-1] if equities else None,
+    )
+    report.update(diagnostic_counts(text))
+    if interrupted:
+        report["status"] = "interrupted"
+    elif "status" not in report:
+        report["status"] = (
+            "completed_duration"
+            if timed_out and equities
+            else "failed_no_successful_cycles"
+            if timed_out
+            else "failed_early"
+        )
+    state = folder / "state" / "paper_state.json"
+    if state.exists():
+        report["final_saved_state"] = json.loads(state.read_text())
+    (folder / "progress.json").write_text(
+        json.dumps(
+            {
+                "utc": report["ended_utc"],
+                "elapsed_seconds": elapsed,
+                "running": False,
+                "status": report["status"],
+            },
+            indent=2,
+        )
+    )
 
 
 def main(argv=None):
@@ -111,6 +174,15 @@ def main(argv=None):
     }
     process = None
     began = None
+    thread = None
+    timed_out = False
+    interrupted = False
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+
+    def request_stop(signum, frame):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, request_stop)
     try:
         market = Market()
         now = market.server_ms()
@@ -132,6 +204,7 @@ def main(argv=None):
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            start_new_session=True,  # Parent handles terminal Ctrl-C and stops child once.
         )
 
         def collect():
@@ -161,40 +234,9 @@ def main(argv=None):
             time.sleep(1)
         elapsed = time.monotonic() - began
         timed_out = elapsed >= duration and process.poll() is None
-        if timed_out:
-            process.terminate()
-            try:
-                process.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
-        thread.join(timeout=10)
-        report.update(
-            elapsed_seconds=elapsed,
-            ended_utc=utc(),
-            child_returncode=process.returncode,
-            duration_completed=timed_out,
-        )
-        text = (folder / "session.log").read_text()
-        equities = [float(x) for x in re.findall(r"PAPER equity=([0-9.]+)", text)]
-        report.update(
-            successful_poll_cycles=len(equities),
-            cycle_errors=text.count("Cycle failed closed:"),
-            radar_cycles=text.count("RADAR ranked liquid movers:"),
-            paper_entries=len(re.findall(r"SIGNAL .*accepted=True:", text)),
-            last_observed_marked_equity=equities[-1] if equities else None,
-        )
-        report.update(diagnostic_counts(text))
-        report["status"] = (
-            "completed_duration"
-            if timed_out and equities
-            else "failed_no_successful_cycles"
-            if timed_out
-            else "failed_early"
-        )
-        state = folder / "state" / "paper_state.json"
-        if state.exists():
-            report["final_saved_state"] = json.loads(state.read_text())
+    except KeyboardInterrupt:
+        interrupted = True
+        report["status"] = "interrupted"
     except Exception:
         report.update(
             status="failed_preflight" if began is None else "failed_runtime",
@@ -203,10 +245,13 @@ def main(argv=None):
             elapsed_seconds=0 if began is None else time.monotonic() - began,
             error=traceback.format_exc(),
         )
-        if process is not None and process.poll() is None:
-            process.terminate()
-            process.wait(timeout=30)
     finally:
+        report["forced_child_stop"] = stop_child(process)
+        if thread:
+            thread.join(timeout=10)
+        elapsed = 0 if began is None else time.monotonic() - began
+        summarize_session(report, folder, process, elapsed, timed_out, interrupted)
+        signal.signal(signal.SIGTERM, previous_sigterm)
         report["artifact_sha256"] = {
             str(p.relative_to(folder)): sha256(p.read_bytes()).hexdigest()
             for p in sorted(folder.rglob("*"))
@@ -214,7 +259,7 @@ def main(argv=None):
         }
         (folder / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps(report, indent=2), flush=True)
-    return 0 if report["status"] == "completed_duration" else 1
+    return 130 if interrupted else 0 if report["status"] == "completed_duration" else 1
 
 
 if __name__ == "__main__":

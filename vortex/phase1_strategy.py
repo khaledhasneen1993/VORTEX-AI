@@ -8,6 +8,7 @@ from .indicators import adx, atr, ema, rsi
 from .market_features import _macd_hist, _std, _vwap
 from .models import Signal
 from .orderflow import flow_direction
+from .regime import classify
 from .reversal import confirm as confirm_1m
 
 log = logging.getLogger("vortex.votes")
@@ -136,7 +137,7 @@ def weighted_selection(votes, weights, macro, strong, policy, *, clear_single=Fa
 
 def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min_score, policy, flow=None):
     flow_code = "FLOW_DISABLED" if not policy.flow_enabled else "FLOW_ABSTAIN_NOT_EVALUATED"
-    regime_code = "REGIME_DISABLED"
+    regime_code = "REGIME_DISABLED" if not policy.regime_enabled else "REGIME_ABSTAIN_NOT_EVALUATED"
 
     def reject(reason):
         log.debug(
@@ -178,7 +179,18 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     if not policy.atr_pct_min <= a / current.close <= policy.atr_pct_max:
         return reject("atr_absolute_limits")
     percentile = atr_percentile(small, policy.atr_lookback)
-    if policy.volatility_filter and (percentile is None or percentile < policy.atr_percentile_min):
+    adx5, adx15 = adx(small), adx(higher)
+    regime = classify(small, percentile, adx5, adx15, policy)
+    regime_code = regime.reason
+    if policy.regime_enabled and regime.name in {"dead", "chop", "unknown"}:
+        return reject("regime_" + regime.name)
+    # A clear completed-price trend may bypass only the optional percentile floor.
+    # Absolute ATR, freshness, sessions, MTF and execution protections remain.
+    if (
+        policy.volatility_filter
+        and not (policy.regime_enabled and regime.name == "trend")
+        and (percentile is None or percentile < policy.atr_percentile_min)
+    ):
         return reject("atr_percentile")
     cvd = cvd_ratio(small, policy.cvd_window)
     closes, hc, mc = [b.close for b in small], [b.close for b in higher], [b.close for b in macro]
@@ -202,13 +214,12 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
             flow_code = "FLOW_ALIGNED"
     if policy.cvd_filter and (cvd is None or cvd * macro_dir < policy.cvd_min):
         return reject("missing_or_opposing_cvd")
-    adx5, adx15 = adx(small), adx(higher)
     mean_vol = sum(b.volume for b in small[-21:-1]) / 20
     relvol = current.volume / mean_vol if mean_vol > 0 else 0
     votes = {}
     if policy.flow_enabled and policy.flow_mode == "voter" and flow_sign:
         votes["order_flow"] = flow_sign
-    if adx15 >= policy.trend_adx:
+    if adx15 >= policy.trend_adx and (not policy.regime_enabled or regime.name == "trend"):
         votes["trend"] = macro_dir
     prior = small[-policy.breakout_lookback - 1 : -1]
     if adx5 >= policy.breakout_adx and relvol >= policy.breakout_volume:
@@ -217,7 +228,12 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         elif current.close < min(b.low for b in prior):
             votes["breakout"] = -1
     # Independent auxiliary vote alongside the primary strategies.
-    if adx5 < policy.range_adx and adx15 < policy.range_adx and policy.reversion_weight > 0:
+    if (
+        adx5 < policy.range_adx
+        and adx15 < policy.range_adx
+        and policy.reversion_weight > 0
+        and (not policy.regime_enabled or regime.name == "range")
+    ):
         rv = reversion_direction(small, minute, relvol)
         if rv:
             votes["reversion"] = rv
@@ -313,6 +329,12 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
                 flow_end_ms=float(flow.end_ms),
                 flow_latest_ms=float(flow.latest_ms),
             )
+    if policy.regime_enabled:
+        features.update(
+            regime_id=float({"trend": 1, "range": 2}[regime.name]),
+            regime_bb_width=regime.bb_width,
+            regime_efficiency=regime.efficiency,
+        )
     reason = "PHASE1 " + ("STRONG" if strong else "NORMAL") + " votes=" + ",".join(approved)
     reason += " flow=" + flow_code + " regime=" + regime_code
     log.info(

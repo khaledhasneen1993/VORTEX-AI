@@ -52,6 +52,11 @@ class StrategyPolicy:
     flow_limit: int = 1000
     flow_min_imbalance: float = 0.10
     flow_weight: float = 1.0
+    regime_enabled: bool = False
+    regime_window: int = 20
+    regime_dead_percentile: float = 20.0
+    regime_min_bb_width: float = 0.004
+    regime_trend_efficiency: float = 0.35
     funding_extreme: float = 0.0015
     funding_oi_min_pct: float = 0.25
     funding_price_min_pct: float = 0.10
@@ -91,6 +96,13 @@ class StrategyPolicy:
             and 0 < self.flow_weight <= 2
         ):
             raise ValueError("Invalid bounded flow policy")
+        if not isinstance(self.regime_enabled, bool) or not (
+            10 <= self.regime_window <= 100
+            and 0 <= self.regime_dead_percentile <= 100
+            and 0 < self.regime_min_bb_width < 0.2
+            and 0 < self.regime_trend_efficiency < 1
+        ):
+            raise ValueError("Invalid bounded regime policy")
         if not 0 <= self.atr_percentile_min <= 100 or not 0 <= self.cvd_min <= 1:
             raise ValueError("Invalid phase1 percentile/CVD threshold")
         if not 0 < self.atr_pct_min < self.atr_pct_max < 1:

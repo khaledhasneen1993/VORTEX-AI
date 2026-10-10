@@ -69,6 +69,7 @@ class PaperBroker:
             },
         )
         saved_entry.setdefault("flow_policy", self._flow_policy(defaults=True))
+        saved_entry.setdefault("regime_policy", self._regime_policy(defaults=True))
         if saved_entry != self._opportunity_policy():
             raise ValueError("Entry policy changed: use a new isolated session")
         self.protection = Protection(self.cfg.operations, raw.get("protection"))
@@ -148,6 +149,7 @@ class PaperBroker:
             "allow_single_strong_vote": self.cfg.phase1.allow_single_strong_vote,
             "min_strong_score": self.cfg.min_strong_score,
             "flow_policy": self._flow_policy(),
+            "regime_policy": self._regime_policy(),
         }
 
     def _flow_policy(self, defaults=False):
@@ -155,6 +157,12 @@ class PaperBroker:
 
         policy = StrategyPolicy() if defaults else self.cfg.phase1
         return {k: v for k, v in asdict(policy).items() if k.startswith("flow_")}
+
+    def _regime_policy(self, defaults=False):
+        from .phase1_config import StrategyPolicy
+
+        policy = StrategyPolicy() if defaults else self.cfg.phase1
+        return {k: v for k, v in asdict(policy).items() if k.startswith("regime_")}
 
     def save(self) -> None:
         obj = {

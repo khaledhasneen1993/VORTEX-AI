@@ -230,6 +230,10 @@ def test_filters_toggle_and_thresholds(monkeypatch):
 
     assert run(base)
     assert run(replace(base, volatility_filter=True, atr_percentile_min=100)) is None
+    improved = replace(base, regime_enabled=True, volatility_filter=True, atr_percentile_min=100)
+    trend = run(improved)
+    assert trend and trend.features["regime_id"] == 1 and "REGIME_TREND_DIRECTIONAL" in trend.reason
+    assert run(replace(improved, regime_dead_percentile=100, regime_min_bb_width=0.19)) is None
     missing = [replace(b, taker_buy_volume=None) for b in small]
     assert run(replace(base, cvd_filter=False), missing)
     assert run(replace(base, session_filter=True, sessions="asia")) is None

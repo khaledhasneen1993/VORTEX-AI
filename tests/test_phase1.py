@@ -160,6 +160,20 @@ def test_full_signal_symmetry_and_fail_closed(sign):
     )
     assert spike and "volume_spike" in spike.votes and "breakout" not in spike.votes
     assert len(spike.votes) == len(sig.votes)
+    swept = list(small)
+    if sign == 1:
+        swept[-1] = replace(swept[-1], low=min(b.low for b in swept[-21:-1]) - 2)
+    else:
+        swept[-1] = replace(swept[-1], high=max(b.high for b in swept[-21:-1]) + 2)
+    sweep = analyze(
+        "BTCUSDT",
+        swept,
+        higher,
+        macro=macro,
+        decision_ms=now,
+        policy=replace(p, liquidity_sweep_enabled=True, sweep_min_atr=0.5),
+    )
+    assert sweep and "liquidity_sweep" in sweep.votes
     from vortex.orderflow import FlowObservation
 
     flow_policy = replace(p, flow_enabled=True, flow_min_trades=2)

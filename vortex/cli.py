@@ -623,6 +623,7 @@ def main(argv: list[str] | None = None) -> int:
         recorder.stop()
         if stream:
             stream.stop()
+        health.update(force=True, status="STOPPED", stage="shutdown_complete", recorder=recorder.status())
         paper_lock.release()
 
 

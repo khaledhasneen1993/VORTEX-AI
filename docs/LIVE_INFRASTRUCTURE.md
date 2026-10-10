@@ -26,6 +26,7 @@ label; missing fields/requests become gap codes. Old readings never become fills
 | `RECORDER_ROTATE_SECONDS` | 3600 | Rotate before next append; 60..86400 |
 | `RECORDER_DEPTH_LEVELS` | 10 | Stored levels per side; 5..20 |
 | `RECORDER_QUEUE_SIZE` | 64 | Maximum queued decisions; 1..1024 |
+| `RECORDER_SHUTDOWN_SECONDS` | 15 | Bounded graceful stop wait; 1..25 |
 | `RECORDER_FLOW` | true | Flow requests only when recorder master enabled |
 | `HEALTH_ENABLED` | false | Best-effort progress/coverage snapshot and health logs |
 | `LIVE_RESILIENCE` | false | PAPER REST/WS/scan improvements below |
@@ -52,8 +53,9 @@ verification reports retained malformed lines and torn suffixes.
 queue entries. Sampling exceptions become per-field gaps. Disk/lock/manifest or
 worker failures set `RECORDER_FAILED`, keep PAPER running, and appear in recorder
 health. It does not retry unknown writes or modify execution journals. A duplicate
-worker cannot replace an active worker's health file. Shutdown waits at most two
-seconds for network work; an interrupted unsealed segment recovers on restart.
+worker cannot replace an active worker's health file. Shutdown waits up to `RECORDER_SHUTDOWN_SECONDS` (15 by default) for network
+work and final queue drain. A timeout reports `STOPPING_TIMEOUT` rather than
+pretending data was sealed; interrupted unsealed segments recover on restart.
 
 Verify stopped recordings (read-only, no market requests):
 

@@ -253,7 +253,13 @@ class DataRecorder:
     def stop(self):
         self.stop_event.set()
         if self.thread:
-            self.thread.join(timeout=2)  # Public requests may still be in timeout/backoff.
+            self.thread.join(timeout=self.policy.recorder_shutdown_seconds)
+            if self.thread.is_alive():
+                self._status(status="STOPPING_TIMEOUT")
+                log.warning(
+                    "RECORDER_STOP_TIMEOUT queued=%d; unsealed data may require recovery",
+                    self.decisions.qsize(),
+                )
 
     def _drain_decisions(self, writer):
         # Bound each drain; sampling cannot monopolize the writer for a whole

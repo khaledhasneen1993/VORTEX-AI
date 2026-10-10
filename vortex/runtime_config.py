@@ -14,6 +14,7 @@ class RuntimePolicy:
     recorder_depth_levels: int = 10
     recorder_queue_size: int = 64
     recorder_flow: bool = True
+    recorder_shutdown_seconds: int = 15
     health_enabled: bool = False
     live_resilience: bool = False
     ws_silence_seconds: int = 30
@@ -27,6 +28,7 @@ class RuntimePolicy:
             "recorder_rotate_seconds": (60, 86400),
             "recorder_depth_levels": (5, 20),
             "recorder_queue_size": (1, 1024),
+            "recorder_shutdown_seconds": (1, 25),
             "ws_silence_seconds": (10, 300),
             "paper_scan_workers": (1, 4),
         }

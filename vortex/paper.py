@@ -48,6 +48,8 @@ class PaperBroker:
         if raw.get("version") != 1 or raw.get("mode") != "paper":
             raise ValueError("Unsupported saved state; refuse to reset balance")
         saved_ops = raw.get("operations_policy")
+        if saved_ops is not None:
+            saved_ops.setdefault("short_loss_cooldown", False)
         if saved_ops != (asdict(self.cfg.operations) if self.cfg.operations.enabled else None):
             raise ValueError("Operations policy changed: use a new isolated session")
         self.protection = Protection(self.cfg.operations, raw.get("protection"))

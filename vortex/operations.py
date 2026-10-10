@@ -34,6 +34,7 @@ class OperationsPolicy:
     streak_start: int = 2
     streak_cooldown_minutes: int = 30
     streak_max_minutes: int = 120
+    short_loss_cooldown: bool = False
     drawdown_1h: float = 0.12
     drawdown_2h: float = 0.18
     daily_warning_fraction: float = 0.75
@@ -76,13 +77,15 @@ class OperationsPolicy:
             raise ValueError("OPS_FOCUS_SYMBOL requires USDT symbol")
 
     @classmethod
-    def from_env(cls):
+    def from_env(cls, defaults=None):
         values = {}
+        defaults = defaults or cls()
         for field in fields(cls):
             raw = os.getenv("OPS_" + field.name.upper())
             if raw is None:
+                values[field.name] = getattr(defaults, field.name)
                 continue
-            default = getattr(cls(), field.name)
+            default = getattr(defaults, field.name)
             if isinstance(default, bool):
                 if raw.lower() not in {"true", "false"}:
                     raise ValueError("OPS boolean must be true or false")
@@ -206,9 +209,13 @@ class Protection:
             return
         self.streak = self.streak + 1 if net < 0 else 0
         if self.streak >= self.policy.streak_start:
+            base = self.policy.streak_cooldown_minutes
+            ceiling = self.policy.streak_max_minutes
+            if self.policy.short_loss_cooldown:
+                base, ceiling = min(base, 10), min(ceiling, 40)
             minutes = min(
-                self.policy.streak_max_minutes,
-                self.policy.streak_cooldown_minutes * (self.streak - self.policy.streak_start + 1),
+                ceiling,
+                base * (self.streak - self.policy.streak_start + 1),
             )
             self.cooldown_until = max(self.cooldown_until, now_ms + minutes * 60000)
 

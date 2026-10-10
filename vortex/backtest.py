@@ -163,8 +163,9 @@ def run(
         allowed, _ = gate.can_open(equity, 1 if position else 0)
         protection.observe(candle.close_ts, equity)
         if gate.blocked or not protection.allow(candle.close_ts)[0]:
-            if position is None:
-                break
+            # A cooldown temporarily vetoes NEW entries, not future history.
+            # Continue simulating ALL subsequent bars (and any open position).
+            # A daily risk halt may also clear at the next UTC date.
             continue
         if position or exited or candle.ts <= cooldown or (i == len(small) - 1):
             continue

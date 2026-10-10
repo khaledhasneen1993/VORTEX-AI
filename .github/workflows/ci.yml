@@ -13,7 +13,6 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   build-and-test:
@@ -37,26 +36,3 @@ jobs:
         run: python -m pytest -q
       - name: Smoke-test PAPER CLI
         run: python -m vortex.cli status
-
-      - name: Prune completed legacy Actions runs (one-time, approved housekeeping)
-        if: >-
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/main' &&
-          github.event.head_commit.message == 'chore: prune legacy Actions runs [one-off]'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t LEGACY_IDS < <(
-            gh api --paginate "repos/$GH_REPO/actions/runs?per_page=100" \
-              --jq '.workflow_runs[] | select(.status == "completed" and (.name == "VORTEX 0.2 quality" or (.name | startswith("Phase 0")))) | .id'
-          )
-          echo "Legacy completed runs marked for cleanup: ${#LEGACY_IDS[@]}"
-          for rid in "${LEGACY_IDS[@]}"; do
-            test "$rid" != "$GITHUB_RUN_ID"
-            gh api --method DELETE "repos/$GH_REPO/actions/runs/$rid" >/dev/null
-            echo "Deleted retired research/build run $rid"
-          done
-          echo "Legacy run removal complete. Current Build & Test run retained." >> "$GITHUB_STEP_SUMMARY"

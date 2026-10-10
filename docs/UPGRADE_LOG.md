@@ -183,3 +183,32 @@ preserved; bounded pagination, strict ordering/range/finite-value checks, no
 inferred marks or prior forecasts. No successful remote download is claimed from
 this environment; software tests use synthetic responses. This does not complete
 Phase 0 or change the existing blocked data evidence.
+
+## 2026-10-10 — Non-execution signal shadow evidence (research only)
+
+After verified 90-day OHLCV source acquisition, the full-guard single and
+portfolio trials remained correctly blocked: source archives have no genuine
+as-of bid/ask, book levels, or contemporaneous funding/OI/mark observations.
+
+- Added `research/phase0_shadow_signals.py`: **explicitly invoked** separate
+  30/90-day signal-only measurement, using the unmodified canonical strategy and
+  verified local 1m/5m/15m/1h candle histories. Outputs every accepted/rejected
+  vote/indicator/veto decision in JSONL, plus later 60-minute observed *market*
+  price movement, never executable PnL, fills or trading performance.
+- Read-ahead only creates descriptive shadow labels **after** the decision; future
+  bars are not supplied to the strategy. Absent as-of funding/OI cannot vote.
+  No attempt is made to invent historical spread, depth or historical filters.
+- Added synthetic-only contract tests under `tests/test_phase0_shadow.py`.
+  Economic acceptance remains false; attribution is descriptive, not causal.
+- Added isolated six-symbol GitHub Actions research workflow (parallel, bounded,
+  real publisher-checksummed archives) at `.github/workflows/phase0-shadow.yml`.
+  Its first run is
+  [38037051647](https://github.com/khaledhasneen1993/VORTEX-AI/actions/runs/38037051647).
+  Results, trade counts, net PnL and profit factor **must not** be assumed in advance.
+- The production PAPER / TESTNET guards, strategy votes, sizing, runtime CLI,
+  `.env.example` defaults and 55% daily breaker have not been modified.
+  PR #12 is not merged; research signal shadow is not Phase 0 economic completion.
+- Genuine full-period L2/order-book quote history requires a compatible real
+  historical data source or fresh forward recording; official aggregated
+  `bookDepth` percent bands cannot be silently promoted to executable levels.
+  A subscription data source would require explicit user approval before purchase.

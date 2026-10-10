@@ -341,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
                 if use_radar:
                     from .radar import discover
 
-                    candidates = discover(market, limit=24)
+                    candidates = discover(market, limit=cfg.radar_limit, fast_ranking=cfg.radar_fast_ranking)
                     symbols = [candidate.symbol for candidate in candidates]
                     log.info("RADAR ranked liquid movers: %s", symbols)
                 for symbol in symbols:

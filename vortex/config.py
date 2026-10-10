@@ -34,6 +34,8 @@ class Settings:
     trailing_atr_mult: float = 0.8
     cooldown_minutes: int = 15
     loop_seconds: int = 20
+    radar_limit: int = 24
+    radar_fast_ranking: bool = False
     fee_rate: float = 0.0005
     slippage_bps: float = 3.0
     data_dir: Path = Path("data")
@@ -85,6 +87,8 @@ class Settings:
             raise ValueError("TRAILING_ATR_MULT must be between 0.5 and 3.0")
         if self.cooldown_minutes < 0 or not 5 <= self.loop_seconds <= 300:
             raise ValueError("Polling/cooldown invalid")
+        if not 1 <= self.radar_limit <= 30 or not isinstance(self.radar_fast_ranking, bool):
+            raise ValueError("Radar limit must be 1..30 with a boolean fast-ranking flag")
         if (
             not isfinite(self.fee_rate)
             or not 0 <= self.fee_rate <= 0.003
@@ -99,6 +103,12 @@ class Settings:
 
         def f(name: str, default: str) -> str:
             return os.getenv(name, default).strip()
+
+        def boolean(name: str, default: str) -> bool:
+            value = f(name, default).lower()
+            if value not in {"true", "false"}:
+                raise ValueError(name + " must be true or false")
+            return value == "true"
 
         phase1 = StrategyPolicy.from_env()
         phase2 = RiskPolicy.from_env()
@@ -130,6 +140,8 @@ class Settings:
             min_score=int(f("MIN_SCORE", "5")),
             cooldown_minutes=int(f("COOLDOWN_MINUTES", "15")),
             loop_seconds=int(f("LOOP_SECONDS", "20")),
+            radar_limit=int(f("RADAR_LIMIT", "24")),
+            radar_fast_ranking=boolean("RADAR_FAST_RANKING", "false"),
             fee_rate=float(f("FEE_RATE", "0.0005")),
             slippage_bps=float(f("SLIPPAGE_BPS", "3")),
             data_dir=Path(f("DATA_DIR", "data")),

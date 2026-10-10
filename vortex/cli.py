@@ -556,6 +556,10 @@ def main(argv: list[str] | None = None) -> int:
                                     continue
                             bid, ask = quotes[symbol]
                             depth = None
+                            if cfg.experiment.enabled and cfg.operations.funding_guard:
+                                # Refresh the execution guard after queue wait. Never
+                                # re-stamp cached observations or bypass freshness.
+                                derivative_tracker.timing(market, symbol)
                             if cfg.operations.enabled and cfg.operations.liquidity_guard:
                                 depth = market.get("/fapi/v1/depth", {"symbol": symbol, "limit": 100})
                                 now = market.server_ms()

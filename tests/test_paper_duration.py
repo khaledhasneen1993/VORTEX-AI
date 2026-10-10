@@ -37,3 +37,56 @@ def test_invalid_bankroll_rejected(equity):
 def test_unsupported_duration_rejected(seconds):
     with pytest.raises(SystemExit):
         session_args(["--duration-seconds", seconds])
+
+
+def test_interrupted_summary_preserves_observed_evidence_and_marks_stopped(tmp_path):
+    import json
+    from research.paper_hour import summarize_session
+
+    (tmp_path / "session.log").write_text(
+        "INFO ANALYZE BTCUSDT\nPAPER equity=20.00\nCycle failed closed: unavailable\n"
+    )
+    (tmp_path / "state").mkdir()
+    (tmp_path / "state" / "paper_state.json").write_text(
+        json.dumps({"wallet": 20, "positions": {}, "closed_count": 0})
+    )
+    report = {}
+    summarize_session(report, tmp_path, None, 123, interrupted=True)
+    assert report["status"] == "interrupted"
+    assert report["duration_completed"] is False
+    assert report["elapsed_seconds"] == 123
+    assert report["successful_poll_cycles"] == 1
+    assert report["cycle_errors"] == 1
+    assert report["paper_entries"] == 0
+    assert report["final_saved_state"]["wallet"] == 20
+    assert json.loads((tmp_path / "progress.json").read_text())["running"] is False
+
+
+def test_child_gets_graceful_interrupt_before_forced_kill():
+    import signal
+    import subprocess
+    from research.paper_hour import stop_child
+
+    class Child:
+        returncode = None
+        signals = []
+        killed = False
+
+        def poll(self):
+            return self.returncode
+
+        def send_signal(self, sig):
+            self.signals.append(sig)
+
+        def wait(self, timeout=None):
+            if not self.killed:
+                raise subprocess.TimeoutExpired("paper", timeout)
+            self.returncode = -9
+
+        def kill(self):
+            self.killed = True
+
+    child = Child()
+    assert stop_child(child) is True
+    assert child.signals == [signal.SIGINT]
+    assert child.killed

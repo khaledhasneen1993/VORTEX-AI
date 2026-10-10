@@ -253,7 +253,31 @@ class DataRecorder:
     def stop(self):
         self.stop_event.set()
         if self.thread:
-            self.thread.join(timeout=2)  # Public requests may still be in timeout/backoff.
+            self.thread.join(timeout=self.policy.recorder_shutdown_seconds)
+            if self.thread.is_alive():
+                self._status(status="STOPPING_TIMEOUT")
+                log.warning(
+                    "RECORDER_STOP_TIMEOUT queued=%d; unsealed data may require recovery",
+                    self.decisions.qsize(),
+                )
+
+    def _drain_decisions(self, writer):
+        # Bound each drain; sampling cannot monopolize the writer for a whole
+        # universe and producers cannot starve market collection indefinitely.
+        count = 0
+        for _ in range(self.policy.recorder_queue_size):
+            try:
+                decision = self.decisions.get_nowait()
+            except queue.Empty:
+                break
+            writer.append({"kind": "decision", "decision": decision})
+            count += 1
+        dropped = self.state["dropped_decisions"]
+        previous = getattr(self, "_reported_drops", 0)
+        if dropped > previous:
+            writer.append({"kind": "gap", "code": "DECISION_QUEUE_OVERFLOW", "dropped": dropped - previous})
+            self._reported_drops = dropped
+        return count
 
     def sample(self, market, writer, symbol):
         row = {"kind": "market", "symbol": symbol, "data": {}, "gaps": []}
@@ -268,6 +292,7 @@ class DataRecorder:
             ("open_interest", "/fapi/v1/openInterest", {}),
         ]
         for key, endpoint, params in endpoints:
+            self._drain_decisions(writer)
             if self.stop_event.is_set():
                 return
             try:
@@ -288,6 +313,7 @@ class DataRecorder:
                     row["gaps"].append(key.upper() + "_STALE_OR_UNTIMESTAMPED")
             except Exception:
                 row["gaps"].append(key.upper() + "_UNAVAILABLE")
+        self._drain_decisions(writer)
         if self.policy.recorder_flow and not self.stop_event.is_set():
             try:
                 end = market.server_ms()
@@ -324,25 +350,12 @@ class DataRecorder:
             market = self.factory()  # Independent session: recording never waits in PAPER thread.
             self._status(status="RUNNING")
             next_sample = 0.0
-            reported_drops = 0
             previous_start = None
             while not self.stop_event.is_set():
-                try:
-                    decision = self.decisions.get(timeout=0.2)
-                    writer.append({"kind": "decision", "decision": decision})
-                except queue.Empty:
-                    pass
-                dropped = self.state["dropped_decisions"]
-                if dropped > reported_drops:
-                    writer.append(
-                        {
-                            "kind": "gap",
-                            "code": "DECISION_QUEUE_OVERFLOW",
-                            "dropped": dropped - reported_drops,
-                        }
-                    )
-                    reported_drops = dropped
+                drained = self._drain_decisions(writer)
                 if time.monotonic() < next_sample:
+                    if not drained:
+                        self.stop_event.wait(min(0.2, max(0, next_sample - time.monotonic())))
                     continue
                 start = time.monotonic()
                 if (
@@ -366,13 +379,18 @@ class DataRecorder:
                 for symbol in symbols:
                     if self.stop_event.is_set():
                         break
+                    self._drain_decisions(writer)
                     row = self.sample(market, writer, symbol)
+                    self._drain_decisions(writer)
                     if row:
                         gaps.extend(f"{symbol}:{code}" for code in row["gaps"])
                         self._status(
                             last_sample_ms=int(time.time() * 1000), gaps=gaps, active_symbols=len(symbols)
                         )
                 next_sample = start + self.policy.recorder_interval_seconds
+            # PAPER removes its logging handler before stop, so this final drain
+            # has a finite producer-free queue. Never retry uncertain writes.
+            self._drain_decisions(writer)
             writer.finish()
             writer = None
             self._status(status="STOPPED")

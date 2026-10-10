@@ -20,16 +20,19 @@ label; missing fields/requests become gap codes. Old readings never become fills
 | Flag | Default | Meaning |
 |---|---:|---|
 | `RECORDER_ENABLED` | false | Background worker, only from PAPER command |
-| `RECORDER_DECISIONS` | false | Nonblocking structured decision queue into recorder |
+| `RECORDER_DECISIONS` | false | Nonblocking structured decision queue, drained between requests |
 | `RECORDER_INTERVAL_SECONDS` | 60 | Target cycle start cadence; 15..3600 |
 | `RECORDER_ROTATE_BYTES` | 8388608 | Rotate before next append; bounded 64KiB..64MiB |
 | `RECORDER_ROTATE_SECONDS` | 3600 | Rotate before next append; 60..86400 |
 | `RECORDER_DEPTH_LEVELS` | 10 | Stored levels per side; 5..20 |
 | `RECORDER_QUEUE_SIZE` | 64 | Maximum queued decisions; 1..1024 |
+| `RECORDER_SHUTDOWN_SECONDS` | 15 | Bounded graceful stop wait; 1..25 |
 | `RECORDER_FLOW` | true | Flow requests only when recorder master enabled |
 | `HEALTH_ENABLED` | false | Best-effort progress/coverage snapshot and health logs |
 | `LIVE_RESILIENCE` | false | PAPER REST/WS/scan improvements below |
 | `WS_SILENCE_SECONDS` | 30 | Reconnect after no valid WS messages; 10..300 |
+| `PAPER_FAST_SCAN` | false | Bounded parallel candidate preparation; new session required |
+| `PAPER_SCAN_WORKERS` | 4 | Public HTTP preparation workers; 1..4 |
 
 Data lives in append-only `*.jsonl.gz` segments. Each JSON line is a separate gzip
 member with its own CRC, `seq`, local `recorded_ms`, and `kind` (resume, gap,
@@ -50,8 +53,9 @@ verification reports retained malformed lines and torn suffixes.
 queue entries. Sampling exceptions become per-field gaps. Disk/lock/manifest or
 worker failures set `RECORDER_FAILED`, keep PAPER running, and appear in recorder
 health. It does not retry unknown writes or modify execution journals. A duplicate
-worker cannot replace an active worker's health file. Shutdown waits at most two
-seconds for network work; an interrupted unsealed segment recovers on restart.
+worker cannot replace an active worker's health file. Shutdown waits up to `RECORDER_SHUTDOWN_SECONDS` (15 by default) for network
+work and final queue drain. A timeout reports `STOPPING_TIMEOUT` rather than
+pretending data was sealed; interrupted unsealed segments recover on restart.
 
 Verify stopped recordings (read-only, no market requests):
 
@@ -166,3 +170,60 @@ or economic validation.
    validation dates fixed in advance; audit funding/depth/flow coverage and costs.
 3. Build a small as-of replay adapter and compare default/aggressive settings on
    identical verified observations, including doubled costs and crash/gap stress.
+
+
+## Corrections after the 10 October device session
+
+The uploaded `VORTEX-stopped-20261010-175611.zip` used commit `ef27451`, virtual
+capital 20 USDT, all aggressive confirmations and 30 Radar symbols. Its log shows
+882 strategy evaluations, zero entry attempts, 405 chop rejections, 321 stale
+signal rejections and eight cycle errors requesting exchange time. For 28 complete
+30-symbol scans, the median first-to-last analysis interval was 101.456 seconds;
+this is observed log timing, not a benchmark for the corrected code. Recorder
+health reported 1617 dropped queued decisions, while the primary decisions.jsonl
+remained available. The three sealed segments matched their SHA256 manifests.
+The interrupted summary lacked final metrics. This evidence does not show that
+capital sizing prevented an entry; no candidate reached that stage.
+
+`PAPER_FAST_SCAN=true` now prepares completed candles, paired derivatives and
+optional flow in at most four concurrent jobs. Each job owns its public HTTP
+session and each symbol owns its derivative history. Metadata is shared read-only.
+The main PAPER thread consumes completed results promptly and alone performs
+strategy analysis, broker writes, sizing and exits. Ready results are processed
+in completion order (Radar order breaks ties), so this option can change which
+candidate gets a position slot. The flag/worker count bind to saved entry policy;
+use a new session, including when changing the worker count.
+
+Jobs are bounded to the active universe and the original candle's remaining
+signal-age window (never above the existing 90 seconds). Late/unavailable jobs
+log explicit skips; pending jobs are cancelled and running read-only requests
+finish without being traded. A still-running job cannot be duplicated for the
+same symbol. Observation/quote clocks are rechecked at analysis/execution; old
+flow still abstains and old funding/quotes/signals still reject. The main thread
+polls protective exits while awaiting results. Default sequential behavior is
+retained with the flag off. No strategy threshold, risk, universe size or
+freshness cap was relaxed. Four workers can still hit shared IP rate limits;
+reduce workers to two if backoff/overruns increase. No live speedup or new entry
+count is claimed before another device session.
+
+The recorder now drains bounded batches of decisions between individual public
+requests, before/after every symbol and during idle periods, then flushes its
+remaining queue on graceful stop. It no longer consumes only one decision before
+a potentially long whole-universe sampling pass. Slow requests/disk can still
+fill its bounded queue; drops remain explicit and the primary journal remains
+independent. No automatic unknown-write retry or fabricated recovery of dropped
+events was added.
+
+The bounded runner handles Ctrl-C/SIGTERM by signalling the PAPER child gracefully,
+waiting at most 30 seconds, then explicitly reporting a forced stop if needed.
+Interrupted sessions now save end time, actual duration, counters, final saved
+state and `running=false` progress, with `status=interrupted` and
+`duration_completed=false`. Timer completion also uses graceful shutdown. Files
+are hashed after child shutdown. The complete-run status never substitutes for
+an early interruption. No historical dropped decision or old missing summary
+is silently reconstructed.
+
+Enable corrected scanning in the README command with
+`PAPER_FAST_SCAN=true PAPER_SCAN_WORKERS=4` and a new directory. The recorder and
+interrupt fixes apply whenever their existing features run. A supervised repeat
+is still needed to measure candidate coverage and recorder gaps on the device.

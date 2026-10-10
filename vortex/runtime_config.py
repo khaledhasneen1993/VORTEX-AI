@@ -14,9 +14,12 @@ class RuntimePolicy:
     recorder_depth_levels: int = 10
     recorder_queue_size: int = 64
     recorder_flow: bool = True
+    recorder_shutdown_seconds: int = 15
     health_enabled: bool = False
     live_resilience: bool = False
     ws_silence_seconds: int = 30
+    paper_fast_scan: bool = False
+    paper_scan_workers: int = 4
 
     def __post_init__(self):
         bounds = {
@@ -25,7 +28,9 @@ class RuntimePolicy:
             "recorder_rotate_seconds": (60, 86400),
             "recorder_depth_levels": (5, 20),
             "recorder_queue_size": (1, 1024),
+            "recorder_shutdown_seconds": (1, 25),
             "ws_silence_seconds": (10, 300),
+            "paper_scan_workers": (1, 4),
         }
         for name, (lo, hi) in bounds.items():
             if not lo <= getattr(self, name) <= hi:

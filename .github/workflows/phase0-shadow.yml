@@ -1,0 +1,75 @@
+name: Phase 0 canonical shadow decisions (NO PnL)
+on:
+  push:
+    branches: [research/phase0-baseline]
+    paths:
+      - '.github/workflows/phase0-shadow.yml'
+      - 'research/phase0_shadow_signals.py'
+      - 'tests/test_phase0_shadow.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vortex-phase0-shadow-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        symbol: [BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT, DOGEUSDT]
+    env:
+      RUN_MODE: backtest
+      VORTEX_EXTENDED_HISTORY: 'true'
+      VORTEX_SIGNAL_AUDIT: 'false'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install exact current research implementation
+        run: python -m pip install -e '.[dev]'
+      - name: Validate shadow non-execution contracts
+        run: |
+          python -m pytest -q tests/test_phase0_shadow.py tests/test_measurement.py
+          python -m ruff check --select E9,F63,F7,F82 research/phase0_shadow_signals.py tests/test_phase0_shadow.py
+      - name: Download real, publisher-verified candle histories
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runs/phase0-shadow/${{ matrix.symbol }}
+          python -m research.download_ohlcv \
+            --symbols ${{ matrix.symbol }} \
+            --intervals 1m 5m 15m 1h \
+            --start 2026-07-01 --end 2026-10-09 \
+            --output data/ohlcv \
+            > runs/phase0-shadow/${{ matrix.symbol }}/download.log 2>&1
+          tail -n 5 runs/phase0-shadow/${{ matrix.symbol }}/download.log
+      - name: Audited canonical signals and forward candle movement (NO trades)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for days in 30 90; do
+            python -m research.phase0_shadow_signals \
+              --ohlcv-dir data/ohlcv \
+              --symbol ${{ matrix.symbol }} \
+              --days "$days" \
+              --end-utc 2026-10-09 \
+              --output "runs/phase0-shadow/${{ matrix.symbol }}/shadow-${days}d.jsonl" \
+              > "runs/phase0-shadow/${{ matrix.symbol }}/shadow-${days}d.stdout.json"
+          done
+      - name: Publish data audit only; no economic acceptance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase0-shadow-${{ matrix.symbol }}
+          path: runs/phase0-shadow/${{ matrix.symbol }}/
+          if-no-files-found: warn
+          retention-days: 21

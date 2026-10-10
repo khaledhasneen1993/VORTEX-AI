@@ -86,14 +86,15 @@ def test_fast_scan_is_off_default_and_bound_to_saved_policy(tmp_path):
 
 
 @pytest.mark.parametrize("experiment", [False, True])
-def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypatch, experiment):
+@pytest.mark.parametrize("resilient", [False, True])
+def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypatch, experiment, resilient):
     from vortex import cli, live_scan
     from vortex.models import Candle, Signal
     from vortex.paper_experiment import PaperExperiment
     from vortex.operations import OperationsPolicy
     from vortex.risk import Filters
 
-    cfg = Settings(symbols=("BTCUSDT",), data_dir=tmp_path, runtime=RuntimePolicy(paper_fast_scan=True))
+    cfg = Settings(symbols=("BTCUSDT",), data_dir=tmp_path, runtime=RuntimePolicy(paper_fast_scan=True, live_resilience=resilient))
     if experiment:
         cfg = replace(
             cfg, experiment=PaperExperiment(enabled=True), operations=OperationsPolicy(liquidity_guard=False)
@@ -115,6 +116,7 @@ def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypat
             return 305010
 
         def quotes(self, **kwargs):
+            state.setdefault("required", []).append(kwargs.get("required_symbols", ()))
             return {"BTCUSDT": (100, 100.01)}
 
         def candles(self, *args):
@@ -158,5 +160,7 @@ def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypat
     assert state["closed"] and state["analyzed"] == 1
     if experiment:
         assert state["funding_refreshed"]
+        if resilient:
+            assert ("BTCUSDT",) in state["required"]
         assert "BTCUSDT" in PaperBroker(cfg).positions
     assert (tmp_path / "paper_state.json").exists()

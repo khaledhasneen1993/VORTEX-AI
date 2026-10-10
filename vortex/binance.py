@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import logging
 from math import isfinite
 
 import requests
@@ -96,7 +97,8 @@ class Market:
             raise MarketError("Non-monotone candles; reject market data")
         return closed
 
-    def quotes(self, *, now_ms: int | None = None, max_age_ms: int = 4000) -> dict[str, tuple[float, float]]:
+    def quotes(self, *, now_ms: int | None = None, max_age_ms: int = 4000,
+               required_symbols=()) -> dict[str, tuple[float, float]]:
         """Return ONLY fresh exchange-timestamped executable REST quotes.
 
         Do not silently accept a stale cached bookTicker from an idle contract.
@@ -105,22 +107,61 @@ class Market:
         if not 500 <= max_age_ms <= 10000:
             raise ValueError("Invalid market data freshness bound")
         now = self.server_ms() if now_ms is None else now_ms
-        raw = self.get("/fapi/v1/ticker/bookTicker")
+        try:
+            raw = self.get("/fapi/v1/ticker/bookTicker")
+        except MarketError:
+            if not self.resilient or not required_symbols:
+                raise
+            raw = []  # Only fresh critical depth snapshots may recover this failure.
+
         if isinstance(raw, dict):
             raw = [raw]
         if self.resilient:
             now = self.server_ms()  # Validate after the quote request, not the old cycle clock.
-        out: dict[str, tuple[float, float]] = {}
+        observed = {}
         for row in raw:
             try:
                 bid, ask = float(row["bidPrice"]), float(row["askPrice"])
                 event_ms = int(row["time"])
                 lag = now - event_ms
                 if isfinite(bid) and isfinite(ask) and 0 < bid <= ask and -1000 <= lag <= max_age_ms:
-                    out[row["symbol"]] = (bid, ask)
+                    observed[row["symbol"]] = (bid, ask, event_ms)
             except (KeyError, ValueError, TypeError):
                 continue
-        return out
+        # Opt-in recovery for held positions / the execution candidate only.
+        # Never re-stamp a cached ticker or use mark/last price as an exit quote.
+        if self.resilient:
+            required = tuple(dict.fromkeys(required_symbols))
+            if len(required) > 6:
+                raise ValueError("At most six critical quote symbols per request")
+            for symbol in required:
+                if symbol in observed:
+                    continue
+                try:
+                    book = self.get("/fapi/v1/depth", {"symbol": symbol, "limit": 5})
+                    bid, bid_qty = map(float, book["bids"][0])
+                    ask, ask_qty = map(float, book["asks"][0])
+                    event_ms = int(book["T"])
+                    now = self.server_ms()
+                    if (all(isfinite(x) for x in (bid, ask, bid_qty, ask_qty))
+                            and 0 < bid <= ask and min(bid_qty, ask_qty) > 0
+                            and -1000 <= now - event_ms <= max_age_ms):
+                        observed[symbol] = (bid, ask, event_ms)
+                        logging.getLogger("vortex.market").info(
+                            "QUOTE_RECOVERED %s source=depth age_ms=%d", symbol, now - event_ms
+                        )
+                    else:
+                        logging.getLogger("vortex.market").warning(
+                            "QUOTE_MISSING %s reason=invalid_or_stale_depth", symbol
+                        )
+                except (MarketError, KeyError, TypeError, ValueError, IndexError):
+                    now = self.server_ms()
+                    logging.getLogger("vortex.market").warning(
+                        "QUOTE_MISSING %s reason=depth_unavailable", symbol
+                    )
+            # Earlier quotes are revalidated against the last post-request clock.
+        return {s: (bid, ask) for s, (bid, ask, ts) in observed.items()
+                if -1000 <= now - ts <= max_age_ms}
 
     def history(self, symbol: str, interval: str, days: int, now_ms: int) -> list[Candle]:
         """Paginate completed candles over 1..45 days with indicator warmup.

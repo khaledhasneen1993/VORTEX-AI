@@ -25,3 +25,19 @@ and `TRAILING_ATR_MULT` in `.env.example`. The current policy is always selected
 runtime configuration; a disabled `PHASE2_ENABLED` flag is refused. Use a new state
 directory when changing the saved policy. Automatic Testnet portfolio entry is not
 implemented; PAPER/BACKTEST are the supported strategy execution engines.
+
+## Phase 1 aggressive strong-risk option
+
+Old defaults remain 8–10% normal and 12–15% strong modeled risk.
+`PHASE2_AGGRESSIVE_STRONG_RISK=true` permits `PHASE2_STRONG_MAX` up to 0.18;
+when the maximum is absent the enabled option supplies 0.18. Without that flag,
+a maximum above 0.15 is rejected. `OPS_PROFILE=aggressive` supplies the flag and
+0.18 unless explicitly overridden. Signal strength still interpolates the budget;
+18% is a ceiling, not a flat allocation. A signal must be strong-qualified and
+meet `MIN_STRONG_SCORE`; normal risk is unchanged. Existing lower base risk,
+actual leverage <=5x, aggregate margin <=25%, per-entry/portfolio limits,
+correlation, reserves and pyramiding protections remain enforced.
+
+No new performance numbers or economic acceptance are asserted. Use a new state
+directory for changed entry/risk/protection policies; matching old default sessions
+can resume with missing opt-in fields interpreted as disabled.

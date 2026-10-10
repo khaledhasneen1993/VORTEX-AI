@@ -49,9 +49,27 @@ class PaperBroker:
             raise ValueError("Unsupported saved state; refuse to reset balance")
         saved_ops = raw.get("operations_policy")
         if saved_ops is not None:
+            legacy_ops = "short_loss_cooldown" not in saved_ops
             saved_ops.setdefault("short_loss_cooldown", False)
+            if (
+                legacy_ops
+                and saved_ops.get("profile") == "aggressive"
+                and self.cfg.operations.profile == "default"
+            ):
+                # The old 'aggressive' label meant unchanged defaults, not this preset.
+                saved_ops["profile"] = "default"
         if saved_ops != (asdict(self.cfg.operations) if self.cfg.operations.enabled else None):
             raise ValueError("Operations policy changed: use a new isolated session")
+        saved_entry = raw.get(
+            "opportunity_policy",
+            {
+                "strict_votes": True,
+                "allow_single_strong_vote": False,
+                "min_strong_score": 7,
+            },
+        )
+        if saved_entry != self._opportunity_policy():
+            raise ValueError("Entry policy changed: use a new isolated session")
         self.protection = Protection(self.cfg.operations, raw.get("protection"))
         saved_policy = raw.get("phase2_policy")
         if saved_policy is not None:
@@ -123,6 +141,13 @@ class PaperBroker:
             else None
         )
 
+    def _opportunity_policy(self):
+        return {
+            "strict_votes": self.cfg.phase1.strict_votes,
+            "allow_single_strong_vote": self.cfg.phase1.allow_single_strong_vote,
+            "min_strong_score": self.cfg.min_strong_score,
+        }
+
     def save(self) -> None:
         obj = {
             "version": 1,
@@ -130,6 +155,7 @@ class PaperBroker:
             "wallet": self.wallet,
             "reserved_profit": self.reserve.reserved,
             "phase2_policy": self._phase2_policy(),
+            "opportunity_policy": self._opportunity_policy(),
             "operations_policy": asdict(self.cfg.operations) if self.cfg.operations.enabled else None,
             "protection": self.protection.state(),
             "positions": {k: asdict(v) for k, v in self.positions.items()},

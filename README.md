@@ -70,10 +70,85 @@ its timer cutoff. An existing output is never overwritten. Avoid running duplica
 sessions. Android battery restrictions may stop a background process.
 
 `OPS_FOCUS_SYMBOL=BTCUSDT` overrides PAPER Radar. `OPS_PROFILE=conservative`
-reduces base risk/positions/day-loss caps; `aggressive` retains the table above.
+reduces base risk/positions/day-loss caps; `default` retains the table above.
+`aggressive` is now an explicit opt-in preset described below.
 Detailed Telegram notices are optional and disabled by default. Public-data manual
 cards remain available as a separate command; they send no Binance orders or account
 protection guarantees. See [manual review](research/MANUAL_REVIEW.md).
+
+## Phase 1 aggressive toggles (opt-in)
+
+With no profile selection, `OPS_PROFILE=default` retains the previous strategy,
+risk bands, cooldowns, 24-candidate Radar and 20-second polling. `conservative`
+keeps its lower account caps. An existing `.env` with `OPS_PROFILE=aggressive`
+now explicitly selects the new preset: review it and use a **new state directory**.
+Explicit settings override preset defaults; the commented values in `.env.example`
+show the old defaults without preventing profile selection.
+
+| Setting | Default / conservative preset | Aggressive preset |
+|---|---|---|
+| `STRICT_VOTES` | `true`: normal weight >=4 | `false`: normal weight >=3 |
+| `ALLOW_SINGLE_STRONG_VOTE` | `false` | `true` |
+| `MIN_STRONG_SCORE` | 7 | 6 |
+| `PHASE2_AGGRESSIVE_STRONG_RISK` | `false` | `true` |
+| `PHASE2_STRONG_MAX` | 0.15 | 0.18 |
+| `OPS_SHORT_LOSS_COOLDOWN` | `false`: 30/60/90/120 min | `true`: 10/20/30/40 min |
+| `RADAR_LIMIT` | 24 | 30 |
+| `RADAR_FAST_RANKING` | `false`: full sort | `true`: bounded top-k selection |
+| `LOOP_SECONDS` | 20 | 10 |
+
+Normal entries still need two agreeing votes and a primary strategy. Relaxing
+weight alone may not add entries when the existing votes already clear weight 4.
+The old strong single-vote exception remains unchanged. The new optional path
+requires one primary vote, no opposing vote, all existing data/MTF/session/ATR/CVD
+gates, 15m ADX >=max(trend threshold, strong threshold minus 5), relative volume
+>=strong volume plus 1, directional body/ATR >=strong body plus 0.2, and score
+>=`MIN_STRONG_SCORE`. At default thresholds these are ADX >=25, volume >=4,
+body/ATR >=0.8 and aggressive score >=6. Disabling `PHASE1_STRONG_ENABLED`
+disables both strong entry exceptions.
+
+Only strong-qualified signals receive the opt-in 12–18% modeled risk band;
+normal signals retain 8–10% with existing lower account budgets respected.
+The 5x leverage, 25% margin, per-entry margin, portfolio stop-risk and liquidity
+caps can make actual size unchanged despite a larger modeled budget.
+Loss-streak cooldown remains progressive and persisted; existing shorter values
+are respected. Per-symbol 15-minute cooldown, drawdown/daily halts, flock,
+journals, uncertain-write protection and stale-quote rejection stay in force.
+
+Radar keeps the same 20M USDT turnover floor and deterministic ordering. Top-k
+avoids sorting the entire eligible universe; no measured speedup is claimed.
+10-second polling can reach a newly completed candle sooner, while ranking and
+entry evaluation remain once per completed 5m candle. No intrabar entries, new
+Order Flow/CVD, strategies, recorder, dependencies or mainnet execution were added.
+Automatic Testnet strategy entry remains unavailable.
+
+Run live public-market PAPER with virtual $20 on the Phase 1 branch (stop the
+older process first; do not overwrite `.env`):
+
+```sh
+cd ~/VORTEX-20M
+git fetch origin
+git switch phase1/aggressive-opportunities
+git pull --ff-only origin phase1/aggressive-opportunities
+python -m pip install -e .
+# Termux only, if available:
+command -v termux-wake-lock >/dev/null && termux-wake-lock
+RUN_MODE=paper STARTING_EQUITY=20 OPS_PROFILE=aggressive \
+STRICT_VOTES=false ALLOW_SINGLE_STRONG_VOTE=true MIN_STRONG_SCORE=6 \
+PHASE2_AGGRESSIVE_STRONG_RISK=true PHASE2_STRONG_MAX=0.18 \
+OPS_SHORT_LOSS_COOLDOWN=true RADAR_LIMIT=30 RADAR_FAST_RANKING=true \
+LOOP_SECONDS=10 USE_RADAR=true USE_WEBSOCKET=false OPS_FOCUS_SYMBOL= \
+OPS_TELEGRAM_ALERTS=false \
+DATA_DIR="data/vortex-phase1-$(date -u +%Y%m%d-%H%M%S)-$$" \
+python -m vortex.cli paper
+```
+
+These overrides take precedence over old `.env` values. Other existing custom
+thresholds and lower financial caps still apply. Later restarts must reuse the
+chosen directory and identical policy to resume that session. To revert, select
+`OPS_PROFILE=default`, unset the aggressive overrides and use a new directory;
+existing positions/journals are never migrated or reset. No market performance
+claim was made or validated by this phase.
 
 ## Documentation and verification
 

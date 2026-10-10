@@ -79,14 +79,30 @@ Telegram credentials to keep PAPER measurement sessions silent.
 
 ## Modes
 
-`OPS_PROFILE=aggressive` retains configured Phase2 budgets/caps; it does not exceed
-5x actual leverage or 25% aggregate margin. `conservative` additionally caps the
-base risk parameter at 8%, positions at two and daily loss at 20%; strong-signal
-budget still follows the Phase2 formula with that lower base. Other policy fields
-are independently configurable. No signal criteria are weakened by the profile.
+`OPS_PROFILE=default` retains the previous policy. `conservative` additionally
+caps base risk at 8%, positions at two and daily loss at 20%. `aggressive` is now
+an explicit preset: relaxed normal weight (`STRICT_VOTES=false`), the clearer
+single-primary path (`ALLOW_SINGLE_STRONG_VOTE=true`), strong score 6, optional
+strong-risk ceiling 18%, shorter progressive loss cooldown, Radar limit 30,
+top-k ranking and 10-second polling. Explicit environment values override preset
+defaults, including false flags and lower caps. No account caps or execution gates
+are relaxed by the preset. Existing `.env` profile values should be reviewed.
+
+`OPS_SHORT_LOSS_COOLDOWN=true` uses the lesser of configured streak base and 10
+minutes, and of configured maximum and 40 minutes. It still starts after the
+configured number of consecutive final losses (default two), progresses with
+additional losses and persists across restarts. It never clears an existing
+scheduled cooldown. Per-symbol cooldown, 1h/2h drawdown latches, daily-loss halt,
+flock, journals, halt-on-uncertain-write and stale-quote rejection are unchanged.
+
+`RADAR_LIMIT` is bounded to 1..30 (default 24); `RADAR_FAST_RANKING=true` selects
+exactly the same ordered top-k candidates using a heap. Turnover floor stays 20M
+USDT. `LOOP_SECONDS=10` reduces polling delay without reevaluating the same 5m
+candle; existing API backoff and WS incompatibility remain. No measured latency
+or opportunity-count improvement is claimed. Use the exact PAPER command in README.
 
 `OPS_FOCUS_SYMBOL=BTCUSDT` makes PAPER scan only BTCUSDT and disables Radar discovery;
-empty value preserves the configured/Radar universe (24 candidates). It does not
+empty value preserves the configured/Radar universe (24 candidates by default, 30 with the aggressive preset). It does not
 change the historical dataset passed explicitly to replay or manual-card scanning.
 
 All policy fields have matching `OPS_<FIELD>` entries in `.env.example`, including

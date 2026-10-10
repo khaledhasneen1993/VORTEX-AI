@@ -12,7 +12,7 @@ from math import isfinite
 @dataclass(frozen=True)
 class OperationsPolicy:
     enabled: bool = True
-    profile: str = "aggressive"
+    profile: str = "default"
     break_even_r: float = 0.8
     tp1_fraction: float = 0.30
     tp2_fraction: float = 0.30
@@ -42,8 +42,10 @@ class OperationsPolicy:
     focus_symbol: str = ""
 
     def __post_init__(self):
-        if self.profile not in {"aggressive", "conservative"}:
-            raise ValueError("OPS_PROFILE must be aggressive or conservative")
+        if self.profile not in {"default", "aggressive", "conservative"}:
+            raise ValueError("OPS_PROFILE must be default, aggressive or conservative")
+        if not isinstance(self.short_loss_cooldown, bool):
+            raise ValueError("OPS_SHORT_LOSS_COOLDOWN must be boolean")
         for field in fields(self):
             value = getattr(self, field.name)
             if isinstance(value, (int, float)) and (not isfinite(value) or value < 0):
@@ -79,7 +81,9 @@ class OperationsPolicy:
     @classmethod
     def from_env(cls, defaults=None):
         values = {}
-        defaults = defaults or cls()
+        if defaults is None:
+            profile = os.getenv("OPS_PROFILE", "default").strip().lower()
+            defaults = cls(profile=profile, short_loss_cooldown=profile == "aggressive")
         for field in fields(cls):
             raw = os.getenv("OPS_" + field.name.upper())
             if raw is None:

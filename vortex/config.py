@@ -110,9 +110,16 @@ class Settings:
                 raise ValueError(name + " must be true or false")
             return value == "true"
 
-        phase1 = StrategyPolicy.from_env()
-        phase2 = RiskPolicy.from_env()
         operations = OperationsPolicy.from_env()
+        aggressive = operations.profile == "aggressive"
+        phase1 = StrategyPolicy.from_env(
+            StrategyPolicy(strict_votes=False, allow_single_strong_vote=True, min_strong_score=6)
+            if aggressive
+            else StrategyPolicy()
+        )
+        phase2 = RiskPolicy.from_env(
+            RiskPolicy(aggressive_strong_risk=True, strong_max=0.18) if aggressive else RiskPolicy()
+        )
         if not all((phase1.enabled, phase2.enabled, operations.enabled)):
             raise ValueError(
                 "Only the current strategy/risk/operations release is supported; remove disabled PHASE1_ENABLED/PHASE2_ENABLED/OPS_ENABLED settings"
@@ -139,9 +146,9 @@ class Settings:
             max_spread_bps=float(f("MAX_SPREAD_BPS", "12")),
             min_score=int(f("MIN_SCORE", "5")),
             cooldown_minutes=int(f("COOLDOWN_MINUTES", "15")),
-            loop_seconds=int(f("LOOP_SECONDS", "20")),
-            radar_limit=int(f("RADAR_LIMIT", "24")),
-            radar_fast_ranking=boolean("RADAR_FAST_RANKING", "false"),
+            loop_seconds=int(f("LOOP_SECONDS", "10" if aggressive else "20")),
+            radar_limit=int(f("RADAR_LIMIT", "30" if aggressive else "24")),
+            radar_fast_ranking=boolean("RADAR_FAST_RANKING", "true" if aggressive else "false"),
             fee_rate=float(f("FEE_RATE", "0.0005")),
             slippage_bps=float(f("SLIPPAGE_BPS", "3")),
             data_dir=Path(f("DATA_DIR", "data")),

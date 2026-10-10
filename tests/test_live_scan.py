@@ -1,4 +1,5 @@
 import threading
+import pytest
 from dataclasses import replace
 
 from vortex.config import Settings
@@ -84,11 +85,19 @@ def test_fast_scan_is_off_default_and_bound_to_saved_policy(tmp_path):
         PaperBroker(fast)
 
 
-def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypatch):
+@pytest.mark.parametrize("experiment", [False, True])
+def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypatch, experiment):
     from vortex import cli, live_scan
-    from vortex.models import Candle
+    from vortex.models import Candle, Signal
+    from vortex.paper_experiment import PaperExperiment
+    from vortex.operations import OperationsPolicy
+    from vortex.risk import Filters
 
     cfg = Settings(symbols=("BTCUSDT",), data_dir=tmp_path, runtime=RuntimePolicy(paper_fast_scan=True))
+    if experiment:
+        cfg = replace(
+            cfg, experiment=PaperExperiment(enabled=True), operations=OperationsPolicy(liquidity_guard=False)
+        )
     monkeypatch.setattr(cli.Settings, "from_env", lambda: cfg)
     monkeypatch.setenv("USE_RADAR", "false")
     monkeypatch.setenv("USE_WEBSOCKET", "false")
@@ -111,6 +120,14 @@ def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypat
         def candles(self, *args):
             raise AssertionError("duplicate main-thread collection")
 
+        def symbol_filters(self, symbol):
+            return Filters(0.001, 0.001, 5, 0.01)
+
+        def get(self, endpoint, params):
+            assert experiment and endpoint == "/fapi/v1/premiumIndex"
+            state["funding_refreshed"] = True
+            return dict(symbol="BTCUSDT", lastFundingRate="0", time=305000, nextFundingTime=900000)
+
     state = {"closed": False, "analyzed": 0}
     bar = Candle(0, 100, 101, 99, 100, 100, close_ts=299999)
 
@@ -127,11 +144,19 @@ def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypat
 
     def analyze(*args, **kwargs):
         state["analyzed"] += 1
+        if experiment:
+            assert kwargs["capture"]
+            return Signal("BTCUSDT", "LONG", 0, 100, 98, 106, 8, "synthetic", atr_value=1)
         return None
 
     monkeypatch.setattr(cli, "Market", Public)
     monkeypatch.setattr(live_scan, "CandidateScanner", Scanner)
     monkeypatch.setattr(cli, "analyze", analyze)
+    if experiment:
+        monkeypatch.setattr("vortex.ml.feature_snapshot", lambda *args: {})
     assert cli.main(["paper", "--once"]) == 0
-    assert state == {"closed": True, "analyzed": 1}
+    assert state["closed"] and state["analyzed"] == 1
+    if experiment:
+        assert state["funding_refreshed"]
+        assert "BTCUSDT" in PaperBroker(cfg).positions
     assert (tmp_path / "paper_state.json").exists()

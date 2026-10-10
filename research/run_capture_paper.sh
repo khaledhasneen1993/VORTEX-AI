@@ -2,6 +2,12 @@
 # Explicit experiment, fresh virtual session; no exchange orders.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+DURATION_SECONDS="${1:-10800}"
+if [ "$#" -gt 1 ]; then echo "Usage: bash research/run_capture_paper.sh [1200|3600|10800|21600]" >&2; exit 2; fi
+case "$DURATION_SECONDS" in
+  1200|3600|10800|21600) ;;
+  *) echo "Unsupported duration: $DURATION_SECONDS" >&2; exit 2 ;;
+esac
 if command -v termux-wake-lock >/dev/null; then termux-wake-lock; fi
 mkdir -p runs
 RUN_DIR="runs/vortex-capture-$(date -u +%Y%m%d-%H%M%S)-$$"
@@ -23,5 +29,5 @@ exec env RUN_MODE=paper TIMEFRAME=5m STARTING_EQUITY=20 \
   RECORDER_FLOW=true RECORDER_SHUTDOWN_SECONDS=15 \
   USE_RADAR=true USE_WEBSOCKET=false USE_AI_MODEL=false USE_CLAUDE=false \
   USE_MICROSTRUCTURE=false OPS_FOCUS_SYMBOL= OPS_TELEGRAM_ALERTS=false \
-  python -m research.paper_hour --duration-seconds 10800 --starting-equity 20 \
+  python -m research.paper_hour --duration-seconds "$DURATION_SECONDS" --starting-equity 20 \
     --diagnostics --output "$RUN_DIR"

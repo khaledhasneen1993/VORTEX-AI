@@ -175,7 +175,10 @@ compressed JSONL, rotation, SHA256 seals, flock and conservative crash recovery.
 `RECORDER_DECISIONS=true` adds bounded decision records. `HEALTH_ENABLED=true`
 exposes missing flow/funding, stale progress and recorder failures in logs and the
 read-only dashboard. `LIVE_RESILIENCE=true` rechecks REST freshness, reconnects
-silent WS feeds and manages fresh PAPER exits during long Radar scans. All four
+silent WS feeds and manages fresh PAPER exits during long Radar scans. Missing
+held/candidate REST quotes get a small depth snapshot retry, subject to the same
+4-second exchange timestamp bound. Logs name missing symbols; an interrupted scan
+is not restarted in the same candle. All four
 switches remain off by default, including under the aggressive preset.
 
 `PAPER_FAST_SCAN=true` optionally prepares public candidate data in at most four
@@ -228,10 +231,10 @@ Five positions are a ceiling, not a promise. See the
 After updating/installing and stopping older PAPER, run in activated `.venv`:
 
 ```sh
-bash research/run_capture_paper.sh
+bash research/run_capture_paper.sh 21600  # Six hours; omit argument for three hours.
 ```
 
-It creates a fresh three-hour $20 PAPER session with recorder/health and fast scan,
+It creates a fresh $20 PAPER session of the selected duration with recorder/health and fast scan,
 without rewriting `.env`. There is no guarantee of 400 signals or profitability.
 
 - [Strategy](docs/PHASE1_STRATEGY.md): current weighted signal rules.

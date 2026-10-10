@@ -238,7 +238,7 @@ class PaperBroker:
         unrealized = 0.0
         for symbol, p in self.positions.items():
             if symbol not in quotes:
-                raise ValueError("Missing quote for open position: freeze new trades")
+                raise ValueError(f"Missing quote for open position {symbol}: freeze new trades")
             bid, ask = quotes[symbol]
             px = bid if p.side == "LONG" else ask
             sign = 1 if p.side == "LONG" else -1

@@ -82,3 +82,56 @@ def test_fast_scan_is_off_default_and_bound_to_saved_policy(tmp_path):
 
     with pytest.raises(ValueError, match="Entry policy changed"):
         PaperBroker(fast)
+
+
+def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypatch):
+    from vortex import cli, live_scan
+    from vortex.models import Candle
+
+    cfg = Settings(symbols=("BTCUSDT",), data_dir=tmp_path, runtime=RuntimePolicy(paper_fast_scan=True))
+    monkeypatch.setattr(cli.Settings, "from_env", lambda: cfg)
+    monkeypatch.setenv("USE_RADAR", "false")
+    monkeypatch.setenv("USE_WEBSOCKET", "false")
+    monkeypatch.setenv("USE_AI_MODEL", "false")
+    monkeypatch.setenv("USE_CLAUDE", "false")
+
+    class Public:
+        def __init__(self, **kwargs):
+            pass
+
+        def metadata(self):
+            return {"BTCUSDT": {}}
+
+        def server_ms(self):
+            return 300010
+
+        def quotes(self, **kwargs):
+            return {"BTCUSDT": (100, 100.01)}
+
+        def candles(self, *args):
+            raise AssertionError("duplicate main-thread collection")
+
+    state = {"closed": False, "analyzed": 0}
+    bar = Candle(0, 100, 101, 99, 100, 100, close_ts=299999)
+
+    class Scanner:
+        def __init__(self, *args):
+            pass
+
+        def results(self, symbols, now, on_wait):
+            on_wait()
+            yield "BTCUSDT", Prepared([bar], [bar], [bar], [bar], None, None, None, 300010)
+
+        def close(self):
+            state["closed"] = True
+
+    def analyze(*args, **kwargs):
+        state["analyzed"] += 1
+        return None
+
+    monkeypatch.setattr(cli, "Market", Public)
+    monkeypatch.setattr(live_scan, "CandidateScanner", Scanner)
+    monkeypatch.setattr(cli, "analyze", analyze)
+    assert cli.main(["paper", "--once"]) == 0
+    assert state == {"closed": True, "analyzed": 1}
+    assert (tmp_path / "paper_state.json").exists()

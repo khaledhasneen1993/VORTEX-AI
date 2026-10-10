@@ -86,3 +86,4 @@ class Position:
     total_entry_qty: float = 0.0
     pyramid_count: int = 0
     last_pyramid_ms: int = 0
+    average_count: int = 0

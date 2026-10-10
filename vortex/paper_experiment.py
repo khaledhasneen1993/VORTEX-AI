@@ -58,3 +58,51 @@ def net_margin_target(p, fee_rate, slip, policy):
     fill = (sign * p.entry + cost / p.qty) / (sign - fee_rate)
     return fill / (1 - sign * slip)
 
+
+def average_plan(p, price, now_ms, cfg, filters, capital, committed_margin, portfolio_risk):
+    """One adverse add, never widen the immutable original stop or risk caps."""
+    from .models import Signal
+    from .phase2 import stop_exposure
+    from .risk import floor_step, size_trade
+
+    policy = cfg.experiment
+    sign = 1 if p.side == "LONG" else -1
+    if (
+        not policy.enabled
+        or not policy.average_enabled
+        or p.average_count
+        or now_ms - p.opened_ts < 60000
+        or (price - p.anchor_entry) * sign > -policy.average_trigger * p.anchor_entry
+        or (price - p.stop) * sign <= 0
+        or capital <= 0
+    ):
+        return None
+    budget = min(capital * cfg.phase2.pyramid_risk_fraction, p.trade_risk_cap - stop_exposure(p, cfg))
+    if budget <= 0:
+        return None
+    signal = Signal(
+        p.symbol,
+        p.side,
+        now_ms,
+        price,
+        p.stop,
+        p.target,
+        10,
+        "adverse_average",
+        {"strong_signal": float(p.features.get("strong_signal", 0))},
+    )
+    sized = size_trade(
+        signal,
+        capital,
+        cfg,
+        filters,
+        committed_margin,
+        committed_risk=portfolio_risk,
+        risk_fraction_override=budget / capital,
+    )
+    if sized is None:
+        return None
+    qty = floor_step(min(sized[0], p.initial_qty * policy.average_fraction), filters.step)
+    if qty < filters.min_qty or price * qty < filters.min_notional:
+        return None
+    return qty, qty * price / min(cfg.max_leverage, 5), qty * price * cfg.fee_rate

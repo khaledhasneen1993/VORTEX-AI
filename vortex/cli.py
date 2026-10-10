@@ -327,9 +327,18 @@ def main(argv: list[str] | None = None) -> int:
                     for sym in list(broker.positions):
                         p = broker.positions[sym]
                         if (
-                            not cfg.phase2.pyramiding
-                            or not p.tp2_done
-                            or p.pyramid_count >= cfg.phase2.pyramid_max_adds
+                            (
+                                not cfg.experiment.enabled
+                                and (
+                                    not cfg.phase2.pyramiding
+                                    or not p.tp2_done
+                                    or p.pyramid_count >= cfg.phase2.pyramid_max_adds
+                                )
+                            )
+                            or (
+                                cfg.experiment.enabled
+                                and (not cfg.experiment.average_enabled or p.average_count)
+                            )
                             or (not broker.protection.allow(now)[0])
                             or broker.gate.blocked
                         ):

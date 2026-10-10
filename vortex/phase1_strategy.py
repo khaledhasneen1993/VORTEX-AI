@@ -137,7 +137,9 @@ def weighted_selection(votes, weights, macro, strong, policy, *, clear_single=Fa
     )
 
 
-def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min_score, policy, flow=None, capture=False):
+def phase1_vote(
+    symbol, small, higher, *, macro, deriv, decision_ms, minute, min_score, policy, flow=None, capture=False
+):
     flow_code = "FLOW_DISABLED" if not policy.flow_enabled else "FLOW_ABSTAIN_NOT_EVALUATED"
     regime_code = "REGIME_DISABLED" if not policy.regime_enabled else "REGIME_ABSTAIN_NOT_EVALUATED"
     spike_code = (
@@ -199,7 +201,10 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     if (
         policy.volatility_filter
         and not (policy.regime_enabled and regime.name == "trend")
-        and (percentile is None or percentile < (min(20.0, policy.atr_percentile_min) if capture else policy.atr_percentile_min))
+        and (
+            percentile is None
+            or percentile < (min(20.0, policy.atr_percentile_min) if capture else policy.atr_percentile_min)
+        )
     ):
         return reject("atr_percentile")
     cvd = cvd_ratio(small, policy.cvd_window)
@@ -237,7 +242,9 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         votes["order_flow"] = flow_sign
     if capture and cvd is not None and abs(cvd) >= policy.cvd_min:
         votes["kline_cvd"] = 1 if cvd > 0 else -1
-    if (adx15 >= policy.trend_adx or (capture and max(adx5, adx15) >= 18 and relvol >= 0.8)) and (not policy.regime_enabled or regime.name == "trend"):
+    if (adx15 >= policy.trend_adx or (capture and max(adx5, adx15) >= 18 and relvol >= 0.8)) and (
+        not policy.regime_enabled or regime.name == "trend"
+    ):
         votes["trend"] = macro_dir
     prior = small[-policy.breakout_lookback - 1 : -1]
     if adx5 >= policy.breakout_adx and relvol >= policy.breakout_volume:

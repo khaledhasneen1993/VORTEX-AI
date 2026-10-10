@@ -383,7 +383,7 @@ class PaperBroker:
         self._finish_pending()
         return (
             True,
-            f"{signal.side} quantity={qty:g} entry={entry:.6g} SL={adjusted.stop:.6g} TP={adjusted.target:.6g}",
+            f"{signal.side} quantity={qty:g} entry={entry:.6g} SL={adjusted.stop:.6g} TP={self.positions[signal.symbol].target:.6g}",
         )
 
     def mark(
@@ -403,23 +403,32 @@ class PaperBroker:
                 continue
             bid, ask = quotes[symbol]
             raw = bid if p.side == "LONG" else ask
-            action = None if self.cfg.experiment.enabled else decide_tick(
-                p,
-                raw,
-                atr_value=(atr_by_symbol or {}).get(symbol),
-                trailing_atr_mult=self.cfg.trailing_atr_mult,
-                policy=self.cfg.operations,
-                now_ms=now_ms,
+            action = (
+                None
+                if self.cfg.experiment.enabled
+                else decide_tick(
+                    p,
+                    raw,
+                    atr_value=(atr_by_symbol or {}).get(symbol),
+                    trailing_atr_mult=self.cfg.trailing_atr_mult,
+                    policy=self.cfg.operations,
+                    now_ms=now_ms,
+                )
             )
             if self.cfg.experiment.enabled:
                 from .exits import ExitStep
                 from .paper_experiment import net_margin_target
 
                 sign = 1 if p.side == "LONG" else -1
-                modeled_slip = slippage_bps(
-                    self.cfg.slippage_bps, p.atr_value / p.entry,
-                    (ask - bid) / ((ask + bid) / 2) * 10000, self.cfg.operations,
-                ) / 10000
+                modeled_slip = (
+                    slippage_bps(
+                        self.cfg.slippage_bps,
+                        p.atr_value / p.entry,
+                        (ask - bid) / ((ask + bid) / 2) * 10000,
+                        self.cfg.operations,
+                    )
+                    / 10000
+                )
                 p.target = net_margin_target(p, self.cfg.fee_rate, modeled_slip, self.cfg.experiment)
                 if floor_halted:
                     action = ExitStep(p.qty, raw, "account_equity_floor", True)
@@ -552,17 +561,42 @@ class PaperBroker:
         from dataclasses import replace
 
         cost_cfg = replace(self.cfg, slippage_bps=slip * 10000)
-        plan = pyramid_plan(
-            p,
-            price,
-            now_ms,
-            cost_cfg,
-            filters,
-            self.reserve.capital(self.wallet, equity),
-            sum(x.margin for x in self.positions.values()),
-            sum(stop_exposure(x, self.cfg) for x in self.positions.values()),
-            observed,
-        )
+        if self.cfg.experiment.enabled:
+            from .paper_experiment import average_plan
+
+            plan = average_plan(
+                p,
+                price,
+                now_ms,
+                cost_cfg,
+                filters,
+                self.reserve.capital(self.wallet, equity),
+                sum(x.margin for x in self.positions.values()),
+                sum(stop_exposure(x, self.cfg) for x in self.positions.values()),
+            )
+            sign = 1 if p.side == "LONG" else -1
+            if (
+                plan is None
+                and not p.average_count
+                and (price - p.anchor_entry) * sign <= -self.cfg.experiment.average_trigger * p.anchor_entry
+            ):
+                import logging
+
+                logging.getLogger("vortex").info(
+                    "ENTRY_SKIP %s reason=average_minimum_or_risk_capacity", symbol
+                )
+        else:
+            plan = pyramid_plan(
+                p,
+                price,
+                now_ms,
+                cost_cfg,
+                filters,
+                self.reserve.capital(self.wallet, equity),
+                sum(x.margin for x in self.positions.values()),
+                sum(stop_exposure(x, self.cfg) for x in self.positions.values()),
+                observed,
+            )
         if plan is None:
             return None
         qty, margin, fee = plan
@@ -570,6 +604,11 @@ class PaperBroker:
             return None
         old_stop = p.stop
         apply_pyramid(p, price, qty, margin, fee, now_ms)
+        if self.cfg.experiment.enabled:
+            from .paper_experiment import net_margin_target
+
+            p.average_count += 1
+            p.target = net_margin_target(p, self.cfg.fee_rate, slip, self.cfg.experiment)
         self.wallet -= fee
         event = dict(
             kind="pyramid",
@@ -587,6 +626,8 @@ class PaperBroker:
             weighted_entry=p.entry,
             pyramid_count=p.pyramid_count,
             source="paper",
+            add_type="adverse_average" if self.cfg.experiment.enabled else "profitable_pyramid",
+            average_count=p.average_count,
         )
         self.pending_journal = event
         self.save()
@@ -600,7 +641,9 @@ class PaperBroker:
         if not acknowledge or self.positions:
             raise ValueError("Risk reset needs operator acknowledgement and zero open positions")
         if self.account_floor_halted:
-            raise ValueError("Experiment account floor is permanent for this session; use a new isolated session")
+            raise ValueError(
+                "Experiment account floor is permanent for this session; use a new isolated session"
+            )
         self.protection = Protection(self.cfg.operations)
         self.gate.blocked = False
         self.gate.consecutive_losses = 0

@@ -1,0 +1,90 @@
+name: Phase 0 one-minute R barrier-touch analysis (research only)
+
+on:
+  push:
+    branches: [research/phase0-baseline]
+    paths:
+      - '.github/workflows/phase0-exit-paths.yml'
+      - 'research/phase0_exit_paths.py'
+      - 'tests/test_phase0_exit_paths.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: vortex-phase0-touch-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        symbol: [BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT, DOGEUSDT]
+    env:
+      RUN_MODE: backtest
+      VORTEX_SIGNAL_AUDIT: 'false'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install minimum local Python dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Run synthetic no-fill/touch contract tests
+        run: |
+          python -m pytest -q tests/test_phase0_exit_paths.py
+          python -m ruff check --select E9,F63,F7,F82 research/phase0_exit_paths.py tests/test_phase0_exit_paths.py
+      - name: Retrieve immutable original 30/90-day canonical shadow audit
+        uses: actions/download-artifact@v4
+        with:
+          name: phase0-shadow-${{ matrix.symbol }}
+          run-id: 38037051647
+          github-token: ${{ github.token }}
+          path: input/shadow
+      - name: Download checksum-verified official 1m candles (not level-2 books)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runs/touch/${{ matrix.symbol }}
+          python -m research.download_ohlcv \
+            --symbols ${{ matrix.symbol }} --intervals 1m \
+            --start 2026-07-11 --end 2026-10-09 --output data/ohlcv \
+            > runs/touch/${{ matrix.symbol }}/download.log 2>&1
+          tail -n 3 runs/touch/${{ matrix.symbol }}/download.log
+      - name: Analyse original signals independently, no executable PnL
+        shell: bash
+        run: |
+          set -euo pipefail
+          for days in 30 90; do
+            python -m research.phase0_exit_paths \
+              --ohlcv-dir data/ohlcv \
+              --signals "input/shadow/shadow-${days}d.jsonl" \
+              --signals-summary "input/shadow/shadow-${days}d.summary.json" \
+              --symbol ${{ matrix.symbol }} \
+              --days "$days" --end-utc 2026-10-09 \
+              --output "runs/touch/${{ matrix.symbol }}/touch-${days}d.jsonl" \
+              > "runs/touch/${{ matrix.symbol }}/touch-${days}d.stdout.json"
+          done
+          python - <<'PY'
+          import json,pathlib
+          base=pathlib.Path("runs/touch/${{ matrix.symbol }}")
+          for d in (30,90):
+            r=json.loads((base/f"touch-{d}d.summary.json").read_text())
+            print({"symbol":r["symbol"],"days":d,"signals":r["signal_count"],"eligible":r["modeled_entries_from_next_1m_open"],"first_touch_1R":r["price_touch_counts"]["1.0"],"economic_baseline_complete":r["economic_baseline_complete"]})
+          PY
+      - name: Upload raw descriptive study and checksums (no profit claims)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase0-touch-${{ matrix.symbol }}
+          path: runs/touch/${{ matrix.symbol }}/
+          if-no-files-found: warn
+          retention-days: 30

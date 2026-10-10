@@ -9,6 +9,7 @@ from .market_features import _macd_hist, _std, _vwap
 from .models import Signal
 from .orderflow import flow_direction
 from .regime import classify
+from .extra_voters import volume_spike
 from .reversal import confirm as confirm_1m
 
 log = logging.getLogger("vortex.votes")
@@ -111,7 +112,8 @@ def weighted_selection(votes, weights, macro, strong, policy, *, clear_single=Fa
     totals = {d: sum(weights[k] for k, v in votes.items() if v == d) for d in (1, -1)}
     direction = 1 if totals[1] > totals[-1] else -1 if totals[-1] > totals[1] else 0
     approved = tuple(sorted(k for k, v in votes.items() if v == direction))
-    primary = any(k in approved for k in ("trend", "breakout"))
+    primary_names = ("trend", "breakout") + (("volume_spike",) if policy.volume_spike_enabled else ())
+    primary = any(k in approved for k in primary_names)
     normal_weight = policy.normal_weight if policy.strict_votes else min(policy.normal_weight, 3.0)
     normal = len(approved) >= policy.normal_votes and totals.get(direction, 0) >= normal_weight
     exceptional = (
@@ -227,6 +229,11 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
             votes["breakout"] = 1
         elif current.close < min(b.low for b in prior):
             votes["breakout"] = -1
+    spike_sign, spike_code = volume_spike(small, a, relvol, adx5, adx15, policy)
+    if spike_sign:
+        # Same price/volume evidence: replace the breakout vote, never double it.
+        votes.pop("breakout", None)
+        votes["volume_spike"] = spike_sign
     # Independent auxiliary vote alongside the primary strategies.
     if (
         adx5 < policy.range_adx
@@ -240,7 +247,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     funding = funding_direction(deriv, decision, policy)
     if funding:
         votes["funding_fade"] = funding
-    for name in ("trend", "breakout", "reversion", "funding_fade"):
+    for name in ("trend", "breakout", "reversion", "funding_fade", "volume_spike", "order_flow"):
         value = votes.get(name, 0)
         log.debug(
             "VOTE %s %s=%s reason=phase1 regime_adx=%.1f funding_freshness_and_price_required",
@@ -256,6 +263,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         reversion=policy.reversion_weight,
         funding_fade=policy.funding_weight,
         order_flow=policy.flow_weight,
+        volume_spike=policy.volume_spike_weight + boost,
     )
     strong = (
         adx15 >= policy.strong_adx
@@ -337,6 +345,8 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         )
     reason = "PHASE1 " + ("STRONG" if strong else "NORMAL") + " votes=" + ",".join(approved)
     reason += " flow=" + flow_code + " regime=" + regime_code
+    if policy.volume_spike_enabled:
+        reason += " spike=" + spike_code
     log.info(
         "ACCEPT %s code=SIGNAL_ACCEPTED %s %s score=%d",
         symbol,

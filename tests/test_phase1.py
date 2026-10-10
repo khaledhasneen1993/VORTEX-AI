@@ -150,6 +150,16 @@ def test_full_signal_symmetry_and_fail_closed(sign):
     assert run(m=None) is None
     assert run(s=small + [replace(small[-1], ts=now, close_ts=now + 300000)]) is None
     assert analyze("BTCUSDT", small, higher, macro=macro, decision_ms=now, policy=p) == sig
+    spike = analyze(
+        "BTCUSDT",
+        small,
+        higher,
+        macro=macro,
+        decision_ms=now,
+        policy=replace(p, volume_spike_enabled=True, volume_spike_close_fraction=0.5),
+    )
+    assert spike and "volume_spike" in spike.votes and "breakout" not in spike.votes
+    assert len(spike.votes) == len(sig.votes)
     from vortex.orderflow import FlowObservation
 
     flow_policy = replace(p, flow_enabled=True, flow_min_trades=2)

@@ -57,6 +57,11 @@ class StrategyPolicy:
     regime_dead_percentile: float = 20.0
     regime_min_bb_width: float = 0.004
     regime_trend_efficiency: float = 0.35
+    volume_spike_enabled: bool = False
+    volume_spike_min_volume: float = 3.0
+    volume_spike_min_body_atr: float = 0.6
+    volume_spike_close_fraction: float = 0.75
+    volume_spike_weight: float = 2.0
     funding_extreme: float = 0.0015
     funding_oi_min_pct: float = 0.25
     funding_price_min_pct: float = 0.10
@@ -103,6 +108,13 @@ class StrategyPolicy:
             and 0 < self.regime_trend_efficiency < 1
         ):
             raise ValueError("Invalid bounded regime policy")
+        if not isinstance(self.volume_spike_enabled, bool) or not (
+            1 <= self.volume_spike_min_volume <= 20
+            and 0 < self.volume_spike_min_body_atr <= 3
+            and 0.5 <= self.volume_spike_close_fraction <= 1
+            and 0 < self.volume_spike_weight <= 3
+        ):
+            raise ValueError("Invalid volume-spike voter policy")
         if not 0 <= self.atr_percentile_min <= 100 or not 0 <= self.cvd_min <= 1:
             raise ValueError("Invalid phase1 percentile/CVD threshold")
         if not 0 < self.atr_pct_min < self.atr_pct_max < 1:

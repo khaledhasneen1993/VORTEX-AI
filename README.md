@@ -28,8 +28,9 @@ Missing or future observations never count as affirmative votes.
 
 Actual size is constrained by margin, exchange minimums, modeled stop costs,
 reserved profits and exposure correlation; risk budget is not margin allocation.
-Pyramiding only adds to a sufficiently profitable trade with bounded risk. No
-averaging down or martingale. Progressive loss cooldown and 1h/2h drawdown latches
+By default, pyramiding only adds to a sufficiently profitable trade with bounded
+risk. Adverse averaging is confined to the explicit PAPER experiment below.
+Progressive loss cooldown and 1h/2h drawdown latches
 persist across restarts. Protective exits continue when new entries are halted.
 
 Fresh funding timing, spread and near-price depth gates protect entry/adds.
@@ -214,6 +215,24 @@ loop; do not delete open positions or reset their wallet to change policy. A
 supervised device soak and seven-day forward PAPER validation are still pending.
 
 ## Documentation and verification
+
+`PAPER_EXP_ENABLED=true` is a separate opt-in PAPER capture experiment: relaxed
+entry capture, up to five positions, full exit at 3–5% net return on total margin
+(4% default), original-entry 10% price stop and one capped adverse add after a
+5% price move. Initial-bankroll equity loss of 25% latches liquidation ($20 -> $15),
+using fresh prices and including floating losses. Ordinary staged exits remain
+the default; leverage, aggregate margin and execution protections remain.
+With $20 and a $5 exchange minimum, a half-size add cannot fit the per-entry cap.
+Five positions are a ceiling, not a promise. See the
+[experiment definitions and limits](docs/PAPER_CAPTURE_EXPERIMENT.md).
+After updating/installing and stopping older PAPER, run in activated `.venv`:
+
+```sh
+bash research/run_capture_paper.sh
+```
+
+It creates a fresh three-hour $20 PAPER session with recorder/health and fast scan,
+without rewriting `.env`. There is no guarantee of 400 signals or profitability.
 
 - [Strategy](docs/PHASE1_STRATEGY.md): current weighted signal rules.
 - [Optional flow/regime layers](docs/ORDERFLOW_REGIME.md): switches, semantics and PAPER commands.

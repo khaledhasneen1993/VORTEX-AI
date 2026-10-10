@@ -212,3 +212,31 @@ as-of bid/ask, book levels, or contemporaneous funding/OI/mark observations.
   historical data source or fresh forward recording; official aggregated
   `bookDepth` percent bands cannot be silently promoted to executable levels.
   A subscription data source would require explicit user approval before purchase.
+
+## 2026-10-10 — verified one-minute exit-barrier *research* (not broker PnL)
+
+- New opt-in, no-execution `research/phase0_exit_paths.py` plus six synthetic
+  safety tests and six-symbol Actions workflow `.github/workflows/phase0-exit-paths.yml`.
+  Existing strategy, financial risk, exit implementation, liquidity/funding
+  guards and PAPER/TESTNET execution remain **unchanged**.
+- First tests exposed an uninitialized per-window summary field; corrected
+  initialization in commit `4e5a28c` and reran quality checks. The corrected
+  CI suite passed. The immutable source run (90 real calendar days of 1m
+  Binance Vision candles) and all six symbol jobs completed:
+  [#38038196755](https://github.com/khaledhasneen1993/VORTEX-AI/actions/runs/38038196755).
+- Strict source JSONL SHA256 and each daily publisher-verified archive SHA256
+  were checked. Candidate future OHLC was used **only to label** touches
+  of static +1R/+1.5R/+2R/+3R before the initial -1R level in a 4h window,
+  not as a prediction or execution input. Same-minute ambiguous touches
+  are conservatively tagged stop-first. All 532 90-day candidate windows
+  observed a full 240-minute 1m path; none failed the old 0.35R gap check.
+- 90-day research *candidate touch* counts: +1R favorable-first 291 / stop-first
+  240 / no-touch 1; +2R favorable-first 179 / stop-first 335 / no-touch 18.
+  30-day nested subsample +1R: 96 / 86 / 0, +2R: 59 / 119 / 4.
+  Full counts for all levels by symbol and evidence links are in
+  [TOUCH_STUDY_RESULTS](../research/baselines/phase0-20261010/TOUCH_STUDY_RESULTS.md).
+- These are **not trades, actual fills, net PnL, win rates, complete exits,
+  risk-managed portfolio performance, economic validation or an independent
+  out-of-sample test**. Missing as-of L2/bookTicker/funding/OI and settlement
+  marks continue to block the full Phase 0 broker baseline. No strategy
+  tuning, no main merge, and no Phase 1–5 promotion.

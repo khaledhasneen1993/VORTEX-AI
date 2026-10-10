@@ -619,10 +619,10 @@ def main(argv: list[str] | None = None) -> int:
         if scanner:
             scanner.close()
         health.update(force=True, status="STOPPED", stage="shutdown")
+        logging.getLogger("vortex").removeHandler(decision_journal)
         recorder.stop()
         if stream:
             stream.stop()
-        logging.getLogger("vortex").removeHandler(decision_journal)
         paper_lock.release()
 
 

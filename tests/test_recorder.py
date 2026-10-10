@@ -125,3 +125,39 @@ def test_sample_public_payloads_and_real_flow_formula(tmp_path):
     assert row["data"]["flow"]["cvd_base"] == 40
     assert row["data"]["flow"]["reason"] == "FLOW_VALID"
     writer.finish()
+
+
+def test_decisions_drain_between_slow_public_requests_and_at_shutdown(tmp_path):
+    cfg = Settings(
+        data_dir=tmp_path,
+        runtime=RuntimePolicy(recorder_enabled=True, recorder_decisions=True, recorder_queue_size=4),
+    )
+    worker = DataRecorder(cfg, cfg.symbols)
+
+    class Public:
+        def metadata(self):
+            return {"BTCUSDT": {"filters": []}}
+
+        def server_ms(self):
+            return 100000
+
+        def get(self, path, params):
+            # Simulates PAPER emitting decisions during every sampling request.
+            for i in range(4):
+                worker.enqueue_decision({"code": path, "i": i})
+            if path.endswith("aggTrades"):
+                return []
+            if path.endswith("depth"):
+                return {"T": 99999, "bids": [], "asks": []}
+            return {"time": 99999}
+
+    writer = SegmentWriter(tmp_path / "recorder", cfg.runtime)
+    worker.sample(Public(), writer, "BTCUSDT")
+    worker._drain_decisions(writer)  # Shutdown/next iteration flushes last request's events.
+    writer.finish()
+    rows = []
+    for path in (tmp_path / "recorder").glob("*.jsonl.gz"):
+        rows.extend(json.loads(line) for line in gzip.decompress(path.read_bytes()).splitlines())
+    assert sum(r["kind"] == "decision" for r in rows) == 20
+    assert worker.status()["dropped_decisions"] == 0
+    assert worker.status()["queued_decisions"] == 0

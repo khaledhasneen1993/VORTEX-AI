@@ -16,6 +16,7 @@ class RiskPolicy:
     normal_max: float = 0.10
     strong_min: float = 0.12
     strong_max: float = 0.15
+    aggressive_strong_risk: bool = False
     portfolio_stop_risk: float = 0.30
     entry_margin_fraction: float = 0.0625
     compounding_fraction: float = 0.50
@@ -37,8 +38,11 @@ class RiskPolicy:
                 raise ValueError("Invalid PHASE2_" + f.name.upper())
         if not 0.08 <= self.normal_min <= self.normal_max <= 0.10:
             raise ValueError("Normal risk must be 8–10%")
-        if not 0.12 <= self.strong_min <= self.strong_max <= 0.15:
-            raise ValueError("Strong risk must be 12–15%")
+        if not isinstance(self.aggressive_strong_risk, bool):
+            raise ValueError("PHASE2_AGGRESSIVE_STRONG_RISK must be boolean")
+        ceiling = 0.18 if self.aggressive_strong_risk else 0.15
+        if not 0.12 <= self.strong_min <= self.strong_max <= ceiling:
+            raise ValueError("Strong risk must be 12–15%, or up to 18% with explicit opt-in")
         if not 0 < self.entry_margin_fraction <= 0.25:
             raise ValueError("Invalid per-entry margin cap")
         if not 0 < self.portfolio_stop_risk <= 0.60 or not 0 <= self.compounding_fraction <= 1:
@@ -53,11 +57,16 @@ class RiskPolicy:
             raise ValueError("Invalid correlation bounds")
 
     @classmethod
-    def from_env(cls):
-        defaults, values = cls(), {}
+    def from_env(cls, defaults=None):
+        defaults, values = defaults or cls(), {}
+        raw_flag = os.getenv("PHASE2_AGGRESSIVE_STRONG_RISK")
+        enabled = defaults.aggressive_strong_risk if raw_flag is None else raw_flag.strip().lower() == "true"
         for f in fields(cls):
             raw = os.getenv("PHASE2_" + f.name.upper())
             if raw is None:
+                values[f.name] = getattr(defaults, f.name)
+                if f.name == "strong_max":
+                    values[f.name] = 0.18 if enabled else min(defaults.strong_max, 0.15)
                 continue
             v = getattr(defaults, f.name)
             if isinstance(v, bool):

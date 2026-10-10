@@ -52,6 +52,9 @@ class PaperBroker:
             raise ValueError("Operations policy changed: use a new isolated session")
         self.protection = Protection(self.cfg.operations, raw.get("protection"))
         saved_policy = raw.get("phase2_policy")
+        if saved_policy is not None:
+            # Existing default sessions predate the opt-in; absent means disabled.
+            saved_policy["policy"].setdefault("aggressive_strong_risk", False)
         if saved_policy is not None and saved_policy != self._phase2_policy():
             raise ValueError("Phase2 policy changed: use a new isolated session")
         if saved_policy is None and self.cfg.phase2.enabled and raw["positions"]:

@@ -491,6 +491,7 @@ def main(argv: list[str] | None = None) -> int:
                                 minute=minute,
                                 policy=cfg.phase1,
                                 flow=flow,
+                                capture=cfg.experiment.enabled and cfg.experiment.capture_enabled,
                             )
                             if signal is None:
                                 log.info("ENTRY_SKIP %s reason=strategy_filters_not_satisfied", symbol)

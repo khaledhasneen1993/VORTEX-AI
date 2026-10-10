@@ -48,6 +48,9 @@ class PaperBroker:
         raw = json.loads(self.state_file.read_text(encoding="utf-8"))
         if raw.get("version") != 1 or raw.get("mode") != "paper":
             raise ValueError("Unsupported saved state; refuse to reset balance")
+        saved_experiment = raw.get("experiment_policy", {"enabled": False})
+        if saved_experiment != self._experiment_policy():
+            raise ValueError("PAPER experiment policy changed: use a new isolated session")
         saved_ops = raw.get("operations_policy")
         if saved_ops is not None:
             legacy_ops = "short_loss_cooldown" not in saved_ops
@@ -147,6 +150,11 @@ class PaperBroker:
             else None
         )
 
+    def _experiment_policy(self):
+        if not self.cfg.experiment.enabled:
+            return {"enabled": False}
+        return {**asdict(self.cfg.experiment), "starting_equity": self.cfg.starting_equity}
+
     def _opportunity_policy(self):
         return {
             "fast_scan": (
@@ -197,6 +205,7 @@ class PaperBroker:
         obj = {
             "version": 1,
             "mode": "paper",
+            "experiment_policy": self._experiment_policy(),
             "wallet": self.wallet,
             "reserved_profit": self.reserve.reserved,
             "phase2_policy": self._phase2_policy(),

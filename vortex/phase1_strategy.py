@@ -137,7 +137,7 @@ def weighted_selection(votes, weights, macro, strong, policy, *, clear_single=Fa
     )
 
 
-def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min_score, policy, flow=None):
+def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min_score, policy, flow=None, capture=False):
     flow_code = "FLOW_DISABLED" if not policy.flow_enabled else "FLOW_ABSTAIN_NOT_EVALUATED"
     regime_code = "REGIME_DISABLED" if not policy.regime_enabled else "REGIME_ABSTAIN_NOT_EVALUATED"
     spike_code = (
@@ -199,7 +199,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     if (
         policy.volatility_filter
         and not (policy.regime_enabled and regime.name == "trend")
-        and (percentile is None or percentile < policy.atr_percentile_min)
+        and (percentile is None or percentile < (min(20.0, policy.atr_percentile_min) if capture else policy.atr_percentile_min))
     ):
         return reject("atr_percentile")
     cvd = cvd_ratio(small, policy.cvd_window)
@@ -212,9 +212,15 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     mid_dir = direction(ema(hc, 9), ema(hc, 21))
     short_dir = direction(ema(closes, 9), ema(closes, 21))
     hist = _macd_hist(hc)
-    if not macro_dir or not macro_dir == mid_dir == short_dir or hist * macro_dir <= 0:
+    if capture:
+        directions = (macro_dir, mid_dir, short_dir)
+        agreement = 1 if directions.count(1) >= 2 else -1 if directions.count(-1) >= 2 else 0
+        if not agreement:
+            return reject("capture_mtf_disagreement")
+        macro_dir = agreement
+    elif not macro_dir or not macro_dir == mid_dir == short_dir or hist * macro_dir <= 0:
         return reject("mtf_disagreement")
-    if policy.flow_enabled and policy.flow_mode == "confirm":
+    if policy.flow_enabled and policy.flow_mode == "confirm" and not capture:
         if flow_code == "FLOW_NEUTRAL":
             return reject("flow_neutral")
         if flow_sign and flow_sign != macro_dir:
@@ -222,14 +228,16 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
             return reject("flow_opposed")
         if flow_sign == macro_dir:
             flow_code = "FLOW_ALIGNED"
-    if policy.cvd_filter and (cvd is None or cvd * macro_dir < policy.cvd_min):
+    if policy.cvd_filter and not capture and (cvd is None or cvd * macro_dir < policy.cvd_min):
         return reject("missing_or_opposing_cvd")
     mean_vol = sum(b.volume for b in small[-21:-1]) / 20
     relvol = current.volume / mean_vol if mean_vol > 0 else 0
     votes = {}
-    if policy.flow_enabled and policy.flow_mode == "voter" and flow_sign:
+    if policy.flow_enabled and (policy.flow_mode == "voter" or capture) and flow_sign:
         votes["order_flow"] = flow_sign
-    if adx15 >= policy.trend_adx and (not policy.regime_enabled or regime.name == "trend"):
+    if capture and cvd is not None and abs(cvd) >= policy.cvd_min:
+        votes["kline_cvd"] = 1 if cvd > 0 else -1
+    if (adx15 >= policy.trend_adx or (capture and max(adx5, adx15) >= 18 and relvol >= 0.8)) and (not policy.regime_enabled or regime.name == "trend"):
         votes["trend"] = macro_dir
     prior = small[-policy.breakout_lookback - 1 : -1]
     if adx5 >= policy.breakout_adx and relvol >= policy.breakout_volume:
@@ -290,6 +298,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         reversion=policy.reversion_weight,
         funding_fade=policy.funding_weight,
         order_flow=policy.flow_weight,
+        kline_cvd=1.0,
         volume_spike=policy.volume_spike_weight + boost,
         liquidity_sweep=policy.sweep_weight,
     )
@@ -310,6 +319,11 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     sign, approved, totals = weighted_selection(
         votes, weights, macro_dir, strong, policy, clear_single=clear_single
     )
+    if capture:
+        # One observed primary suffices; auxiliary flow/CVD never invent an entry.
+        primary = any(votes.get(k) == macro_dir for k in ("trend", "breakout", "volume_spike"))
+        sign = macro_dir if primary else 0
+        approved = tuple(k for k, v in votes.items() if v == sign) if sign else ()
     log.debug(
         "PHASE1_VOTES %s votes=%s weights=%s totals=%s strong=%s atr_percentile=%.1f cvd=%s",
         symbol,
@@ -330,7 +344,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     single_override = (
         clear_single and len(approved) == 1 and not (strong and totals[sign] >= policy.strong_weight)
     )
-    if single_override and score < policy.min_strong_score:
+    if single_override and not capture and score < policy.min_strong_score:
         return reject("single_strong_score")
     strong = strong or single_override
     features = dict(
@@ -372,6 +386,8 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
             regime_efficiency=regime.efficiency,
         )
     reason = "PHASE1 " + ("STRONG" if strong else "NORMAL") + " votes=" + ",".join(approved)
+    if capture:
+        reason += " capture=CAPTURE_RELAXED"
     reason += " flow=" + flow_code + " regime=" + regime_code
     if policy.volume_spike_enabled:
         reason += " spike=" + spike_code

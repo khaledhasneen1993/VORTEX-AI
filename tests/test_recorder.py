@@ -90,3 +90,38 @@ def test_three_hour_virtual_rotation_and_resume(tmp_path):
     writer = SegmentWriter(tmp_path, policy, clock=lambda: clock[0])
     assert writer.seq == seq + 2
     writer.finish()
+
+
+def test_sample_public_payloads_and_real_flow_formula(tmp_path):
+    class Public:
+        def metadata(self):
+            return {"BTCUSDT": {"filters": [{"filterType": "LOT_SIZE", "stepSize": "0.1"}]}}
+
+        def server_ms(self):
+            return 100000
+
+        def get(self, path, params):
+            if path.endswith("aggTrades"):
+                return [{"T": 99999, "a": i, "p": "100", "q": "2", "m": False} for i in range(20)]
+            if path.endswith("depth"):
+                return {"T": 99999, "bids": [["100", "1"]] * 20, "asks": [["101", "1"]] * 20}
+            return {
+                "time": 99999,
+                "symbol": "BTCUSDT",
+                "markPrice": "100",
+                "lastFundingRate": "0.0001",
+                "nextFundingTime": 200000,
+                "openInterest": "1000",
+                "bidPrice": "100",
+                "askPrice": "101",
+            }
+
+    cfg = Settings(data_dir=tmp_path, runtime=RuntimePolicy(recorder_enabled=True))
+    worker = DataRecorder(cfg, cfg.symbols)
+    writer = SegmentWriter(tmp_path / "recorder", cfg.runtime)
+    row = worker.sample(Public(), writer, "BTCUSDT")
+    assert row["gaps"] == []
+    assert len(row["data"]["depth"]["raw"]["bids"]) == 10
+    assert row["data"]["flow"]["cvd_base"] == 40
+    assert row["data"]["flow"]["reason"] == "FLOW_VALID"
+    writer.finish()

@@ -269,6 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         while True:
             try:
+                cycle_degraded = False
                 health.update(stage="quotes", status="RUNNING")
                 recorder.update_symbols([*broker.positions, *symbols])
                 now = market.server_ms()
@@ -446,6 +447,7 @@ def main(argv: list[str] | None = None) -> int:
                         except (MarketError, KeyError, ValueError) as exc:
                             if not cfg.runtime.live_resilience:
                                 raise
+                            cycle_degraded = True
                             health.update(
                                 force=True, status="DEGRADED", current_symbol=symbol, error=type(exc).__name__
                             )
@@ -533,7 +535,7 @@ def main(argv: list[str] | None = None) -> int:
                     last_bucket = bucket
                 health.update(
                     force=True,
-                    status="RUNNING",
+                    status="DEGRADED" if cycle_degraded else "RUNNING",
                     stage="cycle_complete",
                     cycle_complete_ms=int(time.time() * 1000),
                     recorder=recorder.status(),

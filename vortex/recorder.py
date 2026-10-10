@@ -312,6 +312,7 @@ class DataRecorder:
             market = self.factory()  # Independent session: recording never waits in PAPER thread.
             self._status(status="RUNNING")
             next_sample = 0.0
+            reported_drops = 0
             previous_start = None
             while not self.stop_event.is_set():
                 try:
@@ -319,6 +320,16 @@ class DataRecorder:
                     writer.append({"kind": "decision", "decision": decision})
                 except queue.Empty:
                     pass
+                dropped = self.state["dropped_decisions"]
+                if dropped > reported_drops:
+                    writer.append(
+                        {
+                            "kind": "gap",
+                            "code": "DECISION_QUEUE_OVERFLOW",
+                            "dropped": dropped - reported_drops,
+                        }
+                    )
+                    reported_drops = dropped
                 if time.monotonic() < next_sample:
                     continue
                 start = time.monotonic()

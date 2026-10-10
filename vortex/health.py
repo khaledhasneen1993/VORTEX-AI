@@ -57,7 +57,10 @@ def read_health(folder, max_age_ms=30000, now_ms=None):
             row = json.loads(path.read_text())
             stamp = row.get("progress_ms", row.get("updated_ms", 0))
             row["age_ms"] = now - stamp
-            if not 0 <= now - stamp <= max_age_ms:
+            threshold = max_age_ms
+            if name == "recorder/health":
+                threshold = max(threshold, row.get("expected_interval_seconds", 60) * 1500)
+            if not 0 <= now - stamp <= threshold:
                 row["status"] = "STALE_OR_STOPPED"
             if name == "recorder/health" and row.get("last_sample_ms") is not None:
                 row["sample_age_ms"] = now - row["last_sample_ms"]

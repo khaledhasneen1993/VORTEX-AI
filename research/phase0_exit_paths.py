@@ -78,6 +78,9 @@ def new_event(signal):
     event["mfe_r_60m"] = event["mae_r_60m"] = 0.0
     event["mfe_r_240m"] = event["mae_r_240m"] = 0.0
     event["observed_minutes"] = 0
+    event["full_60m_observed"] = False
+    event["full_240m_observed"] = False
+    event["horizon_censored"] = True
     return event
 
 

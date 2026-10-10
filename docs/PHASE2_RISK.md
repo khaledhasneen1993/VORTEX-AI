@@ -41,3 +41,11 @@ correlation, reserves and pyramiding protections remain enforced.
 No new performance numbers or economic acceptance are asserted. Use a new state
 directory for changed entry/risk/protection policies; matching old default sessions
 can resume with missing opt-in fields interpreted as disabled.
+
+## Shared original R
+
+`vortex/r_units.py` is the common definition for initial stop distance, immutable
+exit anchor and cumulative net R reporting in PAPER and both replay engines.
+Fees affect net PnL, not R; pyramids keep the original exposure denominator.
+See [LIVE_INFRASTRUCTURE.md](LIVE_INFRASTRUCTURE.md) for formulas, all three preset
+budgets, legacy missing-value handling and live limitations.

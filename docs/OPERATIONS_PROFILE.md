@@ -57,7 +57,7 @@ and warning day survive restart. Flat-only explicit `reset-paper-halt --ack-risk
 resets OPS protection; it does not reset wallet/reserved profits/daily loss floor.
 Changing policy on a saved session is refused; use a new directory.
 
-`decisions.jsonl` appends emitted rejection/skip diagnostics with timestamps and
+`decisions.jsonl` appends emitted acceptance/rejection/skip diagnostics with timestamps and
 full reasons. Several filter diagnostics can belong to one candidate; counts are
 records, not unique trades. `entries.jsonl`, partial/final exit journals and
 pyramids preserve actual simulated decisions and fees. Entry/exit event delivery
@@ -67,7 +67,7 @@ uses existing crash-recoverable pending-journal semantics.
 unrealized PnL, wallet, margin, reserve, trading capital, daily loss and OPS state.
 Run `python -m vortex.cli dashboard` to view localhost:8765. The read-only dashboard
 refreshes every five seconds and shows the last exchange observation timestamp,
-latest rejection reasons and risk state. An unchanged timestamp means a stopped
+latest accepted/rejected reasons and risk state. An unchanged timestamp means a stopped
 or stale feed; the page cannot observe the market itself.
 
 Telegram entry, partial/final exit, pyramid and daily-loss warning notices are
@@ -152,3 +152,11 @@ validation trades, maximum drawdown <=20%, positive net with doubled costs, then
 at least seven days forward PAPER. September/observed October remain development.
 More aggressive budgets and more exits can increase costs, premature stop-outs
 and drawdown. Technical tests and CI cannot establish edge or future profitability.
+
+## Opt-in continuous-operation infrastructure
+
+Recorder, live health and REST/WS scan resilience are disabled by default under
+all presets. [LIVE_INFRASTRUCTURE.md](LIVE_INFRASTRUCTURE.md) defines their flags,
+append-only recovery, shared R, coverage limitations and supervised soak steps.
+Existing execution locks/journals, uncertain-write handling, stale-quote rejection
+and financial protection remain authoritative.

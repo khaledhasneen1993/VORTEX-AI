@@ -9,7 +9,8 @@ financial performance approval. No production execution exists.
 - One completed-data weighted strategy: trend and volume breakout primary,
   range-only reversion, observed funding/OI/price divergence, MTF/session/ATR/CVD.
 - Dynamic 8–10% / 12–15% modeled risk, 5x leverage ceiling, four positions,
-  25% aggregate margin, 55% daily-loss halt, 0.8 ATR trailing.
+  25% aggregate margin, 55% daily-loss halt, 0.8 ATR trailing. Optional aggressive
+  strong-signal budget reaches 18%; normal and execution caps remain unchanged.
 - Bounded profitable pyramiding, partial profit reserve and exposure correlation.
 - +0.8R price break-even, 30/30/trailing runner, stagnation exit, conservative
   stop-first OHLC/gap handling with no retroactive tightened-stop fills.
@@ -21,6 +22,10 @@ financial performance approval. No production execution exists.
   historical execution-model labeling when funding/depth observations are missing.
 - Default/current configuration tests plus safety, no-lookahead, restart, cost,
   canonical replay, public-data and Testnet-boundary tests.
+
+- Optional public-trade flow/regime/spike/sweep confirmations, all default off.
+- Optional sampled crash-recoverable recorder, integrity manifests, bounded
+  decision hooks, live health and resilient PAPER scanning. Shared original R.
 
 ## Not accepted as a profitable system
 

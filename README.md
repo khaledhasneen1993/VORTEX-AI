@@ -1,7 +1,7 @@
 # VORTEX-AI 0.2.0
 
-Current maintained release: aggressive Binance USDT-M **PAPER/BACKTEST** engine.
-There is one strategy implementation and one current risk/operations profile.
+Current maintained release: configurable Binance USDT-M **PAPER/BACKTEST** engine.
+There is one strategy implementation with default, conservative and aggressive presets.
 No production trading route, wallet connection or Binance production keys are used.
 Profitability is **not guaranteed or economically validated**.
 
@@ -122,14 +122,14 @@ entry evaluation remain once per completed 5m candle. No intrabar entries, new
 Order Flow/CVD, strategies, recorder, dependencies or mainnet execution were added.
 Automatic Testnet strategy entry remains unavailable.
 
-Run live public-market PAPER with virtual $20 on the Phase 1 branch (stop the
+Run live public-market PAPER with virtual $20 on the final main branch (stop the
 older process first; do not overwrite `.env`):
 
 ```sh
 cd ~/VORTEX-20M
 git fetch origin
-git switch phase1/aggressive-opportunities
-git pull --ff-only origin phase1/aggressive-opportunities
+git switch main
+git pull --ff-only origin main
 python -m pip install -e .
 # Termux only, if available:
 command -v termux-wake-lock >/dev/null && termux-wake-lock
@@ -167,10 +167,50 @@ Existing safety/risk limits and kline-CVD behavior remain. Decision journals now
 include accepted/rejected reason codes for flow and regime. No new dependencies,
 mainnet execution, heavy ML or tick recorder were added.
 
+## Phase 3 live operation (opt-in)
+
+`RECORDER_ENABLED=true` adds independent sampled public-data recording with
+compressed JSONL, rotation, SHA256 seals, flock and conservative crash recovery.
+`RECORDER_DECISIONS=true` adds bounded decision records. `HEALTH_ENABLED=true`
+exposes missing flow/funding, stale progress and recorder failures in logs and the
+read-only dashboard. `LIVE_RESILIENCE=true` rechecks REST freshness, reconnects
+silent WS feeds and manages fresh PAPER exits during long Radar scans. All four
+switches remain off by default, including under the aggressive preset.
+
+Original R is shared across signals/sizing, staged exits and reports; no financial
+caps were raised in Phase 3. Sampling does not supply a complete trade tape or
+continuous depth. See [architecture, integrity checks and remaining gaps](docs/LIVE_INFRASTRUCTURE.md).
+
+After pulling final `main` and installing the project, run with virtual $20:
+
+```sh
+SESSION="data/vortex-final-$(date -u +%Y%m%d-%H%M%S)-$$"
+RUN_MODE=paper STARTING_EQUITY=20 OPS_PROFILE=aggressive \
+STRICT_VOTES=false ALLOW_SINGLE_STRONG_VOTE=true MIN_STRONG_SCORE=6 \
+PHASE2_AGGRESSIVE_STRONG_RISK=true PHASE2_STRONG_MAX=0.18 \
+OPS_SHORT_LOSS_COOLDOWN=true RADAR_LIMIT=30 RADAR_FAST_RANKING=true LOOP_SECONDS=10 \
+PHASE1_FLOW_ENABLED=true PHASE1_FLOW_MODE=confirm PHASE1_REGIME_ENABLED=true \
+PHASE1_VOLUME_SPIKE_ENABLED=true PHASE1_LIQUIDITY_SWEEP_ENABLED=true \
+PHASE1_FUNDING_FLOW_CONFIRM=true RECORDER_ENABLED=true RECORDER_DECISIONS=true \
+HEALTH_ENABLED=true LIVE_RESILIENCE=true RECORDER_INTERVAL_SECONDS=60 RECORDER_FLOW=true \
+USE_RADAR=true USE_WEBSOCKET=false OPS_FOCUS_SYMBOL= OPS_TELEGRAM_ALERTS=false \
+DATA_DIR="$SESSION" python -m vortex.cli paper
+# Another shell: substitute the same SESSION path; dashboard is read-only.
+DATA_DIR="$SESSION" python -m vortex.cli dashboard
+# After stopping, inspect hashes/gaps; subsequent resumes reuse SESSION and policy.
+python -m vortex.recorder "$SESSION/recorder"
+```
+
+Environment overrides beat old `.env` settings; other custom thresholds/lower
+caps still apply. Record the selected SESSION path for restart. Ctrl-C stops the
+loop; do not delete open positions or reset their wallet to change policy. A
+supervised device soak and seven-day forward PAPER validation are still pending.
+
 ## Documentation and verification
 
 - [Strategy](docs/PHASE1_STRATEGY.md): current weighted signal rules.
 - [Optional flow/regime layers](docs/ORDERFLOW_REGIME.md): switches, semantics and PAPER commands.
+- [Live infrastructure](docs/LIVE_INFRASTRUCTURE.md): recorder, R, health and data gaps.
 - [Risk](docs/PHASE2_RISK.md): budgets, reserves, correlation and pyramiding.
 - [Operations](docs/OPERATIONS_PROFILE.md): exits, execution gates, monitoring,
   historical observation requirements and offline stress/version comparisons.

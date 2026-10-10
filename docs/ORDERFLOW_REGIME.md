@@ -98,7 +98,8 @@ with `code`, `flow` and `regime` fields. Strategy reasons include plugin/funding
 codes when enabled. Not-evaluated and disabled labels are explicit; missing values
 are never logged as a confirmed zero CVD. Candidate decisions and execution skips
 can create multiple records; record counts are not trade counts. Entry/exit journals
-keep selected votes and observed features. No Data Recorder was added.
+keep selected votes and observed features. This strategy phase does not record raw ticks; the optional Phase 3 sampled
+recorder is documented in [LIVE_INFRASTRUCTURE.md](LIVE_INFRASTRUCTURE.md).
 
 New policy settings are bound to saved PAPER sessions. Changing them requires a
 new state directory; old sessions with absent switches are interpreted as disabled.
@@ -109,7 +110,7 @@ performance claim; synthetic tests verify semantics and boundaries only.
 
 ## Enable or disable for live public-market PAPER
 
-Follow the Phase 1 branch/install steps in README. Stop any older process first.
+Follow the final main branch/install steps in README. Stop any older process first.
 To enable the new layers explicitly, use a new virtual session:
 
 ```sh

@@ -15,6 +15,7 @@ from math import isclose, isfinite
 from .config import Settings
 from .exits import levels_for_bar
 from .indicators import atr
+from .r_units import net_r, signal_r
 from .models import Candle, FundingEvent, Position, Signal
 from .operations import Protection, historical_context, require_history, slippage_bps
 from .phase2 import (
@@ -222,7 +223,7 @@ def run_portfolio(
             b = bar[sym]
             sign = 1 if sig.side == "LONG" else -1
             px = b.open * (1 + slip if sign == 1 else 1 - slip)
-            gap = abs(sig.entry - sig.stop)
+            gap = signal_r(sig)
             if abs(px - sig.entry) > gap * 0.35 or gap <= 0:
                 del pending[sym]
                 continue
@@ -423,9 +424,7 @@ def run_portfolio(
                                 "entry": round(p.entry, 8),
                                 "exit": round(px, 8),
                                 "net_pnl": round(final_net, 8),
-                                "r_multiple": round(final_net / (p.initial_qty * p.initial_risk), 6)
-                                if p.initial_qty * p.initial_risk > 0
-                                else None,
+                                "r_multiple": net_r(p, final_net),
                                 "votes": list(p.votes),
                                 "pyramid_count": p.pyramid_count,
                                 "risk_fraction": p.risk_fraction,

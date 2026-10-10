@@ -41,6 +41,34 @@ class StrategyPolicy:
     strong_volume: float = 3.0
     strong_body_atr: float = 0.6
     strong_weight: float = 3.0
+    strict_votes: bool = True
+    allow_single_strong_vote: bool = False
+    min_strong_score: int = 7
+    flow_enabled: bool = False
+    flow_mode: str = "confirm"
+    flow_window_ms: int = 15000
+    flow_max_age_ms: int = 5000
+    flow_min_trades: int = 20
+    flow_limit: int = 1000
+    flow_min_imbalance: float = 0.10
+    flow_weight: float = 1.0
+    funding_flow_confirm: bool = False
+    regime_enabled: bool = False
+    regime_window: int = 20
+    regime_dead_percentile: float = 20.0
+    regime_min_bb_width: float = 0.004
+    regime_trend_efficiency: float = 0.35
+    volume_spike_enabled: bool = False
+    volume_spike_min_volume: float = 3.0
+    volume_spike_min_body_atr: float = 0.6
+    volume_spike_close_fraction: float = 0.75
+    volume_spike_weight: float = 2.0
+    liquidity_sweep_enabled: bool = False
+    sweep_lookback: int = 20
+    sweep_min_volume: float = 1.5
+    sweep_min_atr: float = 0.1
+    sweep_min_wick_fraction: float = 0.5
+    sweep_weight: float = 1.0
     funding_extreme: float = 0.0015
     funding_oi_min_pct: float = 0.25
     funding_price_min_pct: float = 0.10
@@ -66,6 +94,46 @@ class StrategyPolicy:
             raise ValueError("Invalid phase1 lookback")
         if not 2 <= self.breakout_lookback <= 100 or not 2 <= self.normal_votes <= 4:
             raise ValueError("Invalid phase1 vote/window bounds")
+        if not 3 <= self.min_strong_score <= 10:
+            raise ValueError("MIN_STRONG_SCORE must be 3..10")
+        if not isinstance(self.strict_votes, bool) or not isinstance(self.allow_single_strong_vote, bool):
+            raise ValueError("Vote flags must be boolean")
+        if not isinstance(self.flow_enabled, bool) or self.flow_mode not in {"confirm", "voter"}:
+            raise ValueError("Flow requires a boolean flag and confirm/voter mode")
+        if not (
+            1000 <= self.flow_window_ms <= 60000
+            and 1 <= self.flow_max_age_ms <= min(15000, self.flow_window_ms)
+            and 1 <= self.flow_min_trades < self.flow_limit <= 1000
+            and 0 < self.flow_min_imbalance <= 1
+            and 0 < self.flow_weight <= 2
+        ):
+            raise ValueError("Invalid bounded flow policy")
+        if not isinstance(self.funding_flow_confirm, bool) or (
+            self.funding_flow_confirm and not self.flow_enabled
+        ):
+            raise ValueError("Funding-flow confirmation requires PHASE1_FLOW_ENABLED=true")
+        if not isinstance(self.regime_enabled, bool) or not (
+            10 <= self.regime_window <= 100
+            and 0 <= self.regime_dead_percentile <= 100
+            and 0 < self.regime_min_bb_width < 0.2
+            and 0 < self.regime_trend_efficiency < 1
+        ):
+            raise ValueError("Invalid bounded regime policy")
+        if not isinstance(self.volume_spike_enabled, bool) or not (
+            1 <= self.volume_spike_min_volume <= 20
+            and 0 < self.volume_spike_min_body_atr <= 3
+            and 0.5 <= self.volume_spike_close_fraction <= 1
+            and 0 < self.volume_spike_weight <= 3
+        ):
+            raise ValueError("Invalid volume-spike voter policy")
+        if not isinstance(self.liquidity_sweep_enabled, bool) or not (
+            5 <= self.sweep_lookback <= 100
+            and 1 <= self.sweep_min_volume <= 20
+            and 0 < self.sweep_min_atr <= 1
+            and 0.25 <= self.sweep_min_wick_fraction <= 1
+            and 0 < self.sweep_weight <= 2
+        ):
+            raise ValueError("Invalid liquidity-sweep voter policy")
         if not 0 <= self.atr_percentile_min <= 100 or not 0 <= self.cvd_min <= 1:
             raise ValueError("Invalid phase1 percentile/CVD threshold")
         if not 0 < self.atr_pct_min < self.atr_pct_max < 1:
@@ -88,12 +156,19 @@ class StrategyPolicy:
             raise ValueError("Primary weights/thresholds must be positive")
 
     @classmethod
-    def from_env(cls):
+    def from_env(cls, defaults=None):
         values = {}
-        defaults = cls()
+        defaults = defaults or cls()
+        aliases = {
+            "strict_votes": "STRICT_VOTES",
+            "allow_single_strong_vote": "ALLOW_SINGLE_STRONG_VOTE",
+            "min_strong_score": "MIN_STRONG_SCORE",
+        }
         for f in fields(cls):
-            raw = os.getenv("PHASE1_" + f.name.upper())
+            name = "PHASE1_" + f.name.upper()
+            raw = os.getenv(aliases.get(f.name, name), os.getenv(name))
             if raw is None:
+                values[f.name] = getattr(defaults, f.name)
                 continue
             default = getattr(defaults, f.name)
             if isinstance(default, bool):

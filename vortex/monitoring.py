@@ -19,7 +19,7 @@ def save_telemetry(broker, quotes, now_ms, rejection_count):
         "daily_loss_fraction": max(0.0, 1 - equity / broker.gate.day_start_equity),
         "daily_loss_limit": broker.cfg.max_daily_loss,
         "margin": sum(p.margin for p in broker.positions.values()),
-        "current_process_rejections": rejection_count,
+        "current_process_decision_records": rejection_count,
         "protection": broker.protection.state(),
     }
     path = broker.folder / "telemetry.json"
@@ -28,20 +28,37 @@ def save_telemetry(broker, quotes, now_ms, rejection_count):
     temp.replace(path)
 
 
-def recent_decisions(folder, limit=100):
-    path = folder / "decisions.jsonl"
+def recent_jsonl(path, limit=100, max_bytes=262144):
+    """Bound dashboard I/O as append-only journals grow; tolerate torn last line."""
     rows = []
-    if path.exists():
-        from collections import deque
-
-        with path.open(encoding="utf-8") as f:
-            for line in deque(f, maxlen=limit):
-                try:
-                    rows.append(json.loads(line))
-                except ValueError:
-                    continue  # Concurrent incomplete final append is retried on refresh.
+    try:
+        with path.open("rb") as fp:
+            fp.seek(0, 2)
+            start = max(0, fp.tell() - max_bytes)
+            fp.seek(start)
+            data = fp.read(max_bytes)
+        lines = data.splitlines()
+        if start:
+            lines = lines[1:]  # First line may have been cut by the byte window.
+        for line in lines[-limit:]:
+            try:
+                rows.append(json.loads(line))
+            except ValueError:
+                continue
+    except OSError:
+        pass
     return rows
 
 
+def recent_decisions(folder, limit=100):
+    return recent_jsonl(folder / "decisions.jsonl", limit)
+
+
 def rejection_counts(rows):
-    return dict(Counter(row["reason"].split("reason=", 1)[-1] for row in rows))
+    return dict(
+        Counter(
+            row["reason"].split("reason=", 1)[-1]
+            for row in rows
+            if row.get("code") not in {"SIGNAL_ACCEPTED", "ENTRY_ACCEPTED"}
+        )
+    )

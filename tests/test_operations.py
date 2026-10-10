@@ -155,6 +155,20 @@ def test_2h_window_and_progressive_cooldown():
     guard.closed(-1, NOW + 2)
     assert guard.cooldown_until > first
     assert Protection(P, guard.state()).cooldown_until == guard.cooldown_until
+    fast = Protection(replace(P, short_loss_cooldown=True))
+    fast.closed(-1, NOW)
+    fast.closed(-1, NOW)
+    assert fast.cooldown_until == NOW + 10 * 60000
+    assert not fast.allow(NOW + 9 * 60000)[0]
+    assert fast.allow(NOW + 10 * 60000)[0]
+    for _ in range(8):
+        fast.closed(-1, NOW)
+    assert fast.cooldown_until == NOW + 40 * 60000
+    restored = Protection(fast.policy, fast.state())
+    assert restored.cooldown_until == fast.cooldown_until
+    restored.observe(NOW, 100)
+    restored.observe(NOW + 1, 87)
+    assert not restored.allow(NOW + 3 * 3600000)[0]
 
 
 def test_same_clock_keeps_peak_for_drawdown():
@@ -209,7 +223,9 @@ def test_journal_and_readonly_telemetry(tmp_path):
     )
     handler.emit(logging.LogRecord("vortex", logging.INFO, "", 0, "ACCEPT BTCUSDT", (), None))
     rows = recent_decisions(tmp_path)
-    assert len(rows) == 1 and "bad votes" in rows[0]["reason"]
+    assert len(rows) == 2 and any("bad votes" in row["reason"] for row in rows)
+    assert all(row["flow"] == "FLOW_DISABLED" and row["regime"] == "REGIME_DISABLED" for row in rows)
+    assert {row["code"] for row in rows} == {"BAD", "SIGNAL_ACCEPTED"}
     broker = PaperBroker(Settings(data_dir=tmp_path, operations=P))
     save_telemetry(broker, {}, NOW, 1)
     state = json.loads((tmp_path / "telemetry.json").read_text())

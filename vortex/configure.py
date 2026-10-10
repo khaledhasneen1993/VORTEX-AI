@@ -16,7 +16,6 @@ def configure(path: Path, equity: float | None = None):
     if equity is not None and (not isfinite(equity) or equity <= 0):
         raise ValueError("Virtual equity must be positive and finite")
     values = dict(dotenv_values(path)) if path.exists() else {}
-    values.pop("STRICT_VOTES", None)
     values.update(
         RUN_MODE="paper",
         PHASE1_ENABLED="true",

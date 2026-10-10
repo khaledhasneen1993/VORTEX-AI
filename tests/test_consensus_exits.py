@@ -116,6 +116,10 @@ def test_radar_only_liquid_exchanged_contracts():
         {"symbol": "SCAMUSDT", "quoteVolume": "1e12", "priceChangePercent": "3000"},
     ]
     ranked = rank({"BTCUSDT": {}, "ETHUSDT": {}}, data)
+    assert rank({"BTCUSDT": {}, "ETHUSDT": {}}, data, fast_ranking=True) == ranked
+    universe = {f"COIN{i}USDT": {} for i in range(50)}
+    movers = [dict(symbol=s, quoteVolume=30_000_000 + i * 100, priceChangePercent=i % 7) for i, s in enumerate(universe)]
+    assert rank(universe, movers, limit=30, fast_ranking=True) == rank(universe, movers, limit=30)
     assert [r.symbol for r in ranked] == ["ETHUSDT", "BTCUSDT"]
 
 

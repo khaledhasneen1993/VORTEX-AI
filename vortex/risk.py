@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from decimal import ROUND_DOWN, Decimal
 
 from .config import Settings
+from .r_units import signal_r
 from .models import Signal
 
 
@@ -50,7 +51,7 @@ def size_trade(
     committed_risk: float = 0,
     risk_fraction_override: float | None = None,
 ) -> tuple[float, float] | None:
-    stop_gap = abs(signal.entry - signal.stop)
+    stop_gap = signal_r(signal)
     if equity <= 0 or stop_gap <= 0 or not math.isfinite(stop_gap):
         return None
     # Fee and slippage across entry AND exit are charged against the risk budget.

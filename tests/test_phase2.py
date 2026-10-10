@@ -93,6 +93,14 @@ def test_dynamic_risk_and_cap():
     assert risk_fraction(signal(score=7), c) == 0.12
     assert risk_fraction(signal(score=10), c) == 0.15
     assert risk_fraction(signal(score=10), replace(c, risk_per_trade=0.15)) == 0.15
+    aggressive = replace(c, phase2=replace(c.phase2, aggressive_strong_risk=True, strong_max=0.18))
+    assert risk_fraction(signal(score=10), aggressive) == 0.18
+    assert risk_fraction(signal(score=10, strong=False), aggressive) == 0.10
+    assert risk_fraction(signal(score=7), aggressive) == 0.12
+    sized = size_trade(signal(score=10), 1000, aggressive, F)
+    assert sized and sized[1] <= 1000 * aggressive.phase2.entry_margin_fraction
+    assert sized[0] * 100 / sized[1] <= 5
+    assert size_trade(signal(score=10), 1000, aggressive, F, committed_margin=250) is None
     assert risk_fraction(signal(score=4), c) == 0
     assert risk_fraction(signal(score=10, strong=False), replace(c, risk_per_trade=0.09)) == 0.09
     assert size_trade(signal(score=4), 1000, c, F) is None

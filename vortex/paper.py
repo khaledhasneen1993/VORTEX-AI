@@ -7,6 +7,7 @@ import os
 from dataclasses import asdict
 
 from .config import Settings
+from .r_units import net_r, signal_r
 from .models import Position, Signal
 from .operations import Protection, depth_capacity, funding_gate, slippage_bps
 from .phase2 import (
@@ -48,10 +49,37 @@ class PaperBroker:
         if raw.get("version") != 1 or raw.get("mode") != "paper":
             raise ValueError("Unsupported saved state; refuse to reset balance")
         saved_ops = raw.get("operations_policy")
+        if saved_ops is not None:
+            legacy_ops = "short_loss_cooldown" not in saved_ops
+            saved_ops.setdefault("short_loss_cooldown", False)
+            if (
+                legacy_ops
+                and saved_ops.get("profile") == "aggressive"
+                and self.cfg.operations.profile == "default"
+            ):
+                # The old 'aggressive' label meant unchanged defaults, not this preset.
+                saved_ops["profile"] = "default"
         if saved_ops != (asdict(self.cfg.operations) if self.cfg.operations.enabled else None):
             raise ValueError("Operations policy changed: use a new isolated session")
+        saved_entry = raw.get(
+            "opportunity_policy",
+            {
+                "strict_votes": True,
+                "allow_single_strong_vote": False,
+                "min_strong_score": 7,
+            },
+        )
+        saved_entry.setdefault("flow_policy", self._flow_policy(defaults=True))
+        saved_entry.setdefault("regime_policy", self._regime_policy(defaults=True))
+        saved_entry.setdefault("volume_spike_policy", self._volume_spike_policy(defaults=True))
+        saved_entry.setdefault("sweep_policy", self._sweep_policy(defaults=True))
+        if saved_entry != self._opportunity_policy():
+            raise ValueError("Entry policy changed: use a new isolated session")
         self.protection = Protection(self.cfg.operations, raw.get("protection"))
         saved_policy = raw.get("phase2_policy")
+        if saved_policy is not None:
+            # Existing default sessions predate the opt-in; absent means disabled.
+            saved_policy["policy"].setdefault("aggressive_strong_risk", False)
         if saved_policy is not None and saved_policy != self._phase2_policy():
             raise ValueError("Phase2 policy changed: use a new isolated session")
         if saved_policy is None and self.cfg.phase2.enabled and raw["positions"]:
@@ -118,6 +146,47 @@ class PaperBroker:
             else None
         )
 
+    def _opportunity_policy(self):
+        return {
+            "strict_votes": self.cfg.phase1.strict_votes,
+            "allow_single_strong_vote": self.cfg.phase1.allow_single_strong_vote,
+            "min_strong_score": self.cfg.min_strong_score,
+            "flow_policy": self._flow_policy(),
+            "regime_policy": self._regime_policy(),
+            "volume_spike_policy": self._volume_spike_policy(),
+            "sweep_policy": self._sweep_policy(),
+        }
+
+    def _flow_policy(self, defaults=False):
+        from .phase1_config import StrategyPolicy
+
+        policy = StrategyPolicy() if defaults else self.cfg.phase1
+        return {
+            k: v for k, v in asdict(policy).items() if k.startswith("flow_") or k == "funding_flow_confirm"
+        }
+
+    def _regime_policy(self, defaults=False):
+        from .phase1_config import StrategyPolicy
+
+        policy = StrategyPolicy() if defaults else self.cfg.phase1
+        return {k: v for k, v in asdict(policy).items() if k.startswith("regime_")}
+
+    def _volume_spike_policy(self, defaults=False):
+        from .phase1_config import StrategyPolicy
+
+        policy = StrategyPolicy() if defaults else self.cfg.phase1
+        return {k: v for k, v in asdict(policy).items() if k.startswith("volume_spike_")}
+
+    def _sweep_policy(self, defaults=False):
+        from .phase1_config import StrategyPolicy
+
+        policy = StrategyPolicy() if defaults else self.cfg.phase1
+        return {
+            k: v
+            for k, v in asdict(policy).items()
+            if k.startswith("sweep_") or k == "liquidity_sweep_enabled"
+        }
+
     def save(self) -> None:
         obj = {
             "version": 1,
@@ -125,6 +194,7 @@ class PaperBroker:
             "wallet": self.wallet,
             "reserved_profit": self.reserve.reserved,
             "phase2_policy": self._phase2_policy(),
+            "opportunity_policy": self._opportunity_policy(),
             "operations_policy": asdict(self.cfg.operations) if self.cfg.operations.enabled else None,
             "protection": self.protection.state(),
             "positions": {k: asdict(v) for k, v in self.positions.items()},
@@ -204,7 +274,7 @@ class PaperBroker:
         )
         slip = modeled_slip / 10000
         entry = ask * (1 + slip) if signal.side == "LONG" else bid * (1 - slip)
-        stop_gap = abs(signal.entry - signal.stop)
+        stop_gap = signal_r(signal)
         target_gap = abs(signal.target - signal.entry)
         if stop_gap <= 0 or abs(entry - signal.entry) > stop_gap * 0.35:
             return False, "price ran too far from signal"
@@ -360,9 +430,7 @@ class PaperBroker:
                 "approved_votes": list(p.votes),
                 "initial_stop": p.initial_stop or p.entry - (1 if p.side == "LONG" else -1) * p.initial_risk,
                 "initial_target": p.initial_target or p.target,
-                "r_multiple": round(all_net / ((p.initial_qty or qty) * p.initial_risk), 6)
-                if p.initial_risk > 0
-                else None,
+                "r_multiple": net_r(p, all_net),
                 "source": "paper",
                 "pyramid_count": p.pyramid_count,
                 "total_entry_qty": p.total_entry_qty or p.initial_qty,

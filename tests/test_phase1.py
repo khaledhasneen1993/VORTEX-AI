@@ -111,6 +111,22 @@ def test_weighted_normal_strong_primary_and_tie():
     assert weighted_selection({"trend": 1, "breakout": -1}, w, 1, True, p)[0] == 0
     assert weighted_selection({"funding_fade": 1, "reversion": 1}, w, 1, True, p)[0] == 0
     assert weighted_selection({"trend": 1}, w, 1, True, replace(p, strong_enabled=False))[0] == 0
+    weak_weights = dict(w, trend=2)
+    mixed = {"trend": 1, "funding_fade": 1}
+    assert weighted_selection(mixed, weak_weights, 1, False, p)[0] == 0
+    assert weighted_selection(mixed, weak_weights, 1, False, replace(p, strict_votes=False))[0] == 1
+    opt = replace(p, allow_single_strong_vote=True)
+    assert weighted_selection({"trend": 1}, weak_weights, 1, False, opt)[0] == 0
+    assert weighted_selection({"trend": 1}, weak_weights, 1, False, opt, clear_single=True)[0] == 1
+    assert weighted_selection({"trend": 1}, weak_weights, 1, False, p, clear_single=True)[0] == 0
+    assert (
+        weighted_selection({"trend": 1, "funding_fade": -1}, weak_weights, 1, False, opt, clear_single=True)[
+            0
+        ]
+        == 0
+    )
+    assert weighted_selection({"funding_fade": 1}, w, 1, False, opt, clear_single=True)[0] == 0
+    assert weighted_selection({"trend": 1}, weak_weights, -1, False, opt, clear_single=True)[0] == 0
 
 
 @pytest.mark.parametrize("sign", [1, -1])
@@ -134,6 +150,77 @@ def test_full_signal_symmetry_and_fail_closed(sign):
     assert run(m=None) is None
     assert run(s=small + [replace(small[-1], ts=now, close_ts=now + 300000)]) is None
     assert analyze("BTCUSDT", small, higher, macro=macro, decision_ms=now, policy=p) == sig
+    spike = analyze(
+        "BTCUSDT",
+        small,
+        higher,
+        macro=macro,
+        decision_ms=now,
+        policy=replace(p, volume_spike_enabled=True, volume_spike_close_fraction=0.5),
+    )
+    assert spike and "volume_spike" in spike.votes and "breakout" not in spike.votes
+    assert len(spike.votes) == len(sig.votes)
+    swept = list(small)
+    if sign == 1:
+        swept[-1] = replace(swept[-1], low=min(b.low for b in swept[-21:-1]) - 2)
+    else:
+        swept[-1] = replace(swept[-1], high=max(b.high for b in swept[-21:-1]) + 2)
+    sweep = analyze(
+        "BTCUSDT",
+        swept,
+        higher,
+        macro=macro,
+        decision_ms=now,
+        policy=replace(p, liquidity_sweep_enabled=True, sweep_min_atr=0.5),
+    )
+    assert sweep and "liquidity_sweep" in sweep.votes
+    from vortex.orderflow import FlowObservation
+
+    flow_policy = replace(p, flow_enabled=True, flow_min_trades=2)
+    fresh = FlowObservation("BTCUSDT", now, now, 2, sign * 2, sign * 0.5, sign * 0.5, "FLOW_VALID")
+
+    def with_flow(observation, policy=flow_policy):
+        return analyze(
+            "BTCUSDT", small, higher, macro=macro, decision_ms=now, policy=policy, flow=observation
+        )
+
+    confirmed = with_flow(fresh)
+    assert confirmed and "FLOW_ALIGNED" in confirmed.reason
+    assert confirmed.features["flow_cvd_base"] == sign * 2
+    assert (
+        with_flow(replace(fresh, cvd_base=-sign * 2, base_imbalance=-sign * 0.5, aggression=-sign * 0.5))
+        is None
+    )
+    assert with_flow(replace(fresh, cvd_base=0, base_imbalance=0, aggression=0)) is None
+    missing_flow = with_flow(None)
+    assert missing_flow and missing_flow.features["flow_available"] == 0
+    stale = with_flow(replace(fresh, end_ms=now - 16000, latest_ms=now - 16000))
+    assert stale and "FLOW_ABSTAIN_STALE_OR_FUTURE" in stale.reason and "flow_cvd_base" not in stale.features
+    voter = with_flow(fresh, replace(flow_policy, flow_mode="voter"))
+    assert voter and "order_flow" in voter.votes
+    funding_policy = replace(flow_policy, funding_flow_confirm=True)
+    derivative = Derivatives(-sign * 0.002, 1, now - 100, sign * 0.5, 300000)
+    funded = analyze(
+        "BTCUSDT",
+        small,
+        higher,
+        macro=macro,
+        decision_ms=now,
+        derivatives=derivative,
+        policy=funding_policy,
+        flow=fresh,
+    )
+    assert funded and "funding_fade" in funded.votes and "FUNDING_FLOW_ALIGNED" in funded.reason
+    unfunded = analyze(
+        "BTCUSDT", small, higher, macro=macro, decision_ms=now, derivatives=derivative, policy=funding_policy
+    )
+    assert (
+        unfunded
+        and "funding_fade" not in unfunded.votes
+        and "FUNDING_ABSTAIN_FLOW_UNCONFIRMED" in unfunded.reason
+    )
+    with pytest.raises(ValueError):
+        replace(p, funding_flow_confirm=True)
 
 
 def test_configuration_env_and_no_risk_change(monkeypatch):
@@ -190,6 +277,10 @@ def test_filters_toggle_and_thresholds(monkeypatch):
 
     assert run(base)
     assert run(replace(base, volatility_filter=True, atr_percentile_min=100)) is None
+    improved = replace(base, regime_enabled=True, volatility_filter=True, atr_percentile_min=100)
+    trend = run(improved)
+    assert trend and trend.features["regime_id"] == 1 and "REGIME_TREND_DIRECTIONAL" in trend.reason
+    assert run(replace(improved, regime_dead_percentile=100, regime_min_bb_width=0.19)) is None
     missing = [replace(b, taker_buy_volume=None) for b in small]
     assert run(replace(base, cvd_filter=False), missing)
     assert run(replace(base, session_filter=True, sessions="asia")) is None
@@ -201,6 +292,21 @@ def test_filters_toggle_and_thresholds(monkeypatch):
             timeframe="15m",
             operations=OperationsPolicy(funding_guard=False, liquidity_guard=False, terminal_target=True),
         )
+    # Actual pipeline: only trend votes; the new volume/body path needs opt-in.
+    monkeypatch.setattr(mod, "adx", lambda bars: 25)
+    monkeypatch.setattr(mod, "atr", lambda bars: 0.2)
+    single = replace(base, breakout_adx=100, min_strong_score=6)
+    assert run(single) is None
+    opt = replace(single, allow_single_strong_vote=True)
+    sig = run(opt)
+    assert sig and sig.score == 6 and sig.votes == ("trend",)
+    assert sig.features["strong_signal"] == 1
+    assert run(replace(opt, min_strong_score=7)) is None
+    assert run(opt, small[:-1] + [replace(small[-1], volume=390)]) is None
+    assert run(opt, small[:-1] + [replace(small[-1], open=small[-1].close - 0.15)]) is None
+    assert run(opt, missing) is None
+    monkeypatch.setattr(mod, "adx", lambda bars: 24)
+    assert run(opt) is None
 
 
 def test_range_reversion_gate(monkeypatch):

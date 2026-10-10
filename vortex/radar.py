@@ -7,6 +7,7 @@ discovery stage, not a trading signal and not a claim of whale detection.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from heapq import nsmallest
 from math import isfinite, log10
 
 
@@ -19,7 +20,8 @@ class Candidate:
 
 
 def rank(
-    exchange: dict, rows: list[dict], *, limit: int = 12, min_turnover_usdt: float = 20_000_000
+    exchange: dict, rows: list[dict], *, limit: int = 12, min_turnover_usdt: float = 20_000_000,
+    fast_ranking: bool = False,
 ) -> list[Candidate]:
     if not 1 <= limit <= 30:
         raise ValueError("Radar limit outside audited quota")
@@ -38,15 +40,18 @@ def rank(
             results.append(Candidate(sym, score, volume, change))
         except (KeyError, TypeError, ValueError):
             continue
-    results.sort(key=lambda c: (-c.score, -c.turnover_usdt, c.symbol))
+    key = lambda c: (-c.score, -c.turnover_usdt, c.symbol)
+    if fast_ranking:
+        return nsmallest(limit, results, key=key)
+    results.sort(key=key)
     return results[:limit]
 
 
-def discover(market, *, limit: int = 12) -> list[Candidate]:
+def discover(market, *, limit: int = 12, fast_ranking: bool = False) -> list[Candidate]:
     rows = market.get("/fapi/v1/ticker/24hr")
     if not isinstance(rows, list):
         raise ValueError("Binance all-tickers response missing")
-    ranked = rank(market.metadata(), rows, limit=limit)
+    ranked = rank(market.metadata(), rows, limit=limit, fast_ranking=fast_ranking)
     if not ranked:
         raise ValueError("No liquid market candidates: refuse blind entries")
     return ranked

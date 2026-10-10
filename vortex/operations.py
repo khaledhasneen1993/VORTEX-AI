@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, fields
 from math import isfinite
 
@@ -12,7 +13,7 @@ from math import isfinite
 @dataclass(frozen=True)
 class OperationsPolicy:
     enabled: bool = True
-    profile: str = "aggressive"
+    profile: str = "default"
     break_even_r: float = 0.8
     tp1_fraction: float = 0.30
     tp2_fraction: float = 0.30
@@ -34,6 +35,7 @@ class OperationsPolicy:
     streak_start: int = 2
     streak_cooldown_minutes: int = 30
     streak_max_minutes: int = 120
+    short_loss_cooldown: bool = False
     drawdown_1h: float = 0.12
     drawdown_2h: float = 0.18
     daily_warning_fraction: float = 0.75
@@ -41,8 +43,10 @@ class OperationsPolicy:
     focus_symbol: str = ""
 
     def __post_init__(self):
-        if self.profile not in {"aggressive", "conservative"}:
-            raise ValueError("OPS_PROFILE must be aggressive or conservative")
+        if self.profile not in {"default", "aggressive", "conservative"}:
+            raise ValueError("OPS_PROFILE must be default, aggressive or conservative")
+        if not isinstance(self.short_loss_cooldown, bool):
+            raise ValueError("OPS_SHORT_LOSS_COOLDOWN must be boolean")
         for field in fields(self):
             value = getattr(self, field.name)
             if isinstance(value, (int, float)) and (not isfinite(value) or value < 0):
@@ -76,13 +80,17 @@ class OperationsPolicy:
             raise ValueError("OPS_FOCUS_SYMBOL requires USDT symbol")
 
     @classmethod
-    def from_env(cls):
+    def from_env(cls, defaults=None):
         values = {}
+        if defaults is None:
+            profile = os.getenv("OPS_PROFILE", "default").strip().lower()
+            defaults = cls(profile=profile, short_loss_cooldown=profile == "aggressive")
         for field in fields(cls):
             raw = os.getenv("OPS_" + field.name.upper())
             if raw is None:
+                values[field.name] = getattr(defaults, field.name)
                 continue
-            default = getattr(cls(), field.name)
+            default = getattr(defaults, field.name)
             if isinstance(default, bool):
                 if raw.lower() not in {"true", "false"}:
                     raise ValueError("OPS boolean must be true or false")
@@ -206,9 +214,13 @@ class Protection:
             return
         self.streak = self.streak + 1 if net < 0 else 0
         if self.streak >= self.policy.streak_start:
+            base = self.policy.streak_cooldown_minutes
+            ceiling = self.policy.streak_max_minutes
+            if self.policy.short_loss_cooldown:
+                base, ceiling = min(base, 10), min(ceiling, 40)
             minutes = min(
-                self.policy.streak_max_minutes,
-                self.policy.streak_cooldown_minutes * (self.streak - self.policy.streak_start + 1),
+                ceiling,
+                base * (self.streak - self.policy.streak_start + 1),
             )
             self.cooldown_until = max(self.cooldown_until, now_ms + minutes * 60000)
 
@@ -225,10 +237,12 @@ class Protection:
 class DecisionJournal(logging.Handler):
     """Append every emitted rejection/skip with original diagnostic explanation."""
 
-    def __init__(self, folder):
+    def __init__(self, folder, strategy_policy=None, decision_hook=None):
         super().__init__(logging.DEBUG)
         self.path = folder / "decisions.jsonl"
         self.count = 0
+        self.strategy_policy = strategy_policy
+        self.decision_hook = decision_hook
 
     def emit(self, record):
         message = record.getMessage()
@@ -236,8 +250,10 @@ class DecisionJournal(logging.Handler):
             tag in message
             for tag in (
                 "REJECT",
+                "ACCEPT",
                 "ENTRY_SKIP",
                 "accepted=False",
+                "accepted=True",
                 "CARD_SKIP",
                 "FILTER",
                 "rejected",
@@ -250,9 +266,38 @@ class DecisionJournal(logging.Handler):
                 "logger": record.name,
                 "reason": message,
             }
+
+            def label(name, fallback):
+                match = re.search(r"\b" + name + r"=([A-Za-z0-9_]+)", message)
+                return match.group(1).upper() if match else fallback
+
+            row["code"] = label(
+                "code", label("reason", "SIGNAL_ACCEPTED" if "ACCEPT" in message else "DECISION_REJECTED")
+            )
+            if "accepted=True" in message:
+                row["code"] = "ENTRY_ACCEPTED"
+            elif "accepted=False" in message:
+                row["code"] = "ENTRY_REJECTED"
+            row["flow"] = label(
+                "flow",
+                "FLOW_ABSTAIN_NOT_EVALUATED"
+                if self.strategy_policy and self.strategy_policy.flow_enabled
+                else "FLOW_DISABLED",
+            )
+            row["regime"] = label(
+                "regime",
+                "REGIME_ABSTAIN_NOT_EVALUATED"
+                if self.strategy_policy and self.strategy_policy.regime_enabled
+                else "REGIME_DISABLED",
+            )
             with self.path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
             self.count += 1
+            if self.decision_hook:
+                try:
+                    self.decision_hook(row)
+                except Exception:
+                    pass  # Optional reporting cannot change execution decisions.
 
 
 def historical_context(observations, symbol, now_ms, policy):

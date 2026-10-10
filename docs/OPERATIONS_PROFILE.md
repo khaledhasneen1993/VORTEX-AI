@@ -57,7 +57,7 @@ and warning day survive restart. Flat-only explicit `reset-paper-halt --ack-risk
 resets OPS protection; it does not reset wallet/reserved profits/daily loss floor.
 Changing policy on a saved session is refused; use a new directory.
 
-`decisions.jsonl` appends emitted rejection/skip diagnostics with timestamps and
+`decisions.jsonl` appends emitted acceptance/rejection/skip diagnostics with timestamps and
 full reasons. Several filter diagnostics can belong to one candidate; counts are
 records, not unique trades. `entries.jsonl`, partial/final exit journals and
 pyramids preserve actual simulated decisions and fees. Entry/exit event delivery
@@ -67,7 +67,7 @@ uses existing crash-recoverable pending-journal semantics.
 unrealized PnL, wallet, margin, reserve, trading capital, daily loss and OPS state.
 Run `python -m vortex.cli dashboard` to view localhost:8765. The read-only dashboard
 refreshes every five seconds and shows the last exchange observation timestamp,
-latest rejection reasons and risk state. An unchanged timestamp means a stopped
+latest accepted/rejected reasons and risk state. An unchanged timestamp means a stopped
 or stale feed; the page cannot observe the market itself.
 
 Telegram entry, partial/final exit, pyramid and daily-loss warning notices are
@@ -79,14 +79,30 @@ Telegram credentials to keep PAPER measurement sessions silent.
 
 ## Modes
 
-`OPS_PROFILE=aggressive` retains configured Phase2 budgets/caps; it does not exceed
-5x actual leverage or 25% aggregate margin. `conservative` additionally caps the
-base risk parameter at 8%, positions at two and daily loss at 20%; strong-signal
-budget still follows the Phase2 formula with that lower base. Other policy fields
-are independently configurable. No signal criteria are weakened by the profile.
+`OPS_PROFILE=default` retains the previous policy. `conservative` additionally
+caps base risk at 8%, positions at two and daily loss at 20%. `aggressive` is now
+an explicit preset: relaxed normal weight (`STRICT_VOTES=false`), the clearer
+single-primary path (`ALLOW_SINGLE_STRONG_VOTE=true`), strong score 6, optional
+strong-risk ceiling 18%, shorter progressive loss cooldown, Radar limit 30,
+top-k ranking and 10-second polling. Explicit environment values override preset
+defaults, including false flags and lower caps. No account caps or execution gates
+are relaxed by the preset. Existing `.env` profile values should be reviewed.
+
+`OPS_SHORT_LOSS_COOLDOWN=true` uses the lesser of configured streak base and 10
+minutes, and of configured maximum and 40 minutes. It still starts after the
+configured number of consecutive final losses (default two), progresses with
+additional losses and persists across restarts. It never clears an existing
+scheduled cooldown. Per-symbol cooldown, 1h/2h drawdown latches, daily-loss halt,
+flock, journals, halt-on-uncertain-write and stale-quote rejection are unchanged.
+
+`RADAR_LIMIT` is bounded to 1..30 (default 24); `RADAR_FAST_RANKING=true` selects
+exactly the same ordered top-k candidates using a heap. Turnover floor stays 20M
+USDT. `LOOP_SECONDS=10` reduces polling delay without reevaluating the same 5m
+candle; existing API backoff and WS incompatibility remain. No measured latency
+or opportunity-count improvement is claimed. Use the exact PAPER command in README.
 
 `OPS_FOCUS_SYMBOL=BTCUSDT` makes PAPER scan only BTCUSDT and disables Radar discovery;
-empty value preserves the configured/Radar universe (24 candidates). It does not
+empty value preserves the configured/Radar universe (24 candidates by default, 30 with the aggressive preset). It does not
 change the historical dataset passed explicitly to replay or manual-card scanning.
 
 All policy fields have matching `OPS_<FIELD>` entries in `.env.example`, including
@@ -136,3 +152,11 @@ validation trades, maximum drawdown <=20%, positive net with doubled costs, then
 at least seven days forward PAPER. September/observed October remain development.
 More aggressive budgets and more exits can increase costs, premature stop-outs
 and drawdown. Technical tests and CI cannot establish edge or future profitability.
+
+## Opt-in continuous-operation infrastructure
+
+Recorder, live health and REST/WS scan resilience are disabled by default under
+all presets. [LIVE_INFRASTRUCTURE.md](LIVE_INFRASTRUCTURE.md) defines their flags,
+append-only recovery, shared R, coverage limitations and supervised soak steps.
+Existing execution locks/journals, uncertain-write handling, stale-quote rejection
+and financial protection remain authoritative.

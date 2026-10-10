@@ -148,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             print(json.dumps(observed, indent=2))
             time.sleep(10)
-    market = Market()
+    market = Market(resilient=cfg.runtime.live_resilience and args.command == "paper")
 
     def output_report(report: dict, kind: str, label: str) -> None:
         path = save_report(cfg.data_dir, kind, report, symbol=label)
@@ -238,12 +238,14 @@ def main(argv: list[str] | None = None) -> int:
     if use_stream:
         from .stream import QuoteStream
 
-        stream = QuoteStream(cfg.symbols)
+        stream = QuoteStream(
+            cfg.symbols, resilient=cfg.runtime.live_resilience, silence_seconds=cfg.runtime.ws_silence_seconds
+        )
         stream.start()
     from .alerts import detailed_event, notify
     from .operations import DecisionJournal
 
-    decision_journal = DecisionJournal(cfg.data_dir)
+    decision_journal = DecisionJournal(cfg.data_dir, cfg.phase1)
     logging.getLogger("vortex").addHandler(decision_journal)
     logging.getLogger("vortex.votes").setLevel(logging.DEBUG)
     from .derivatives import DerivativesTracker
@@ -255,241 +257,321 @@ def main(argv: list[str] | None = None) -> int:
     last_bucket = -1
     step = 300000 if cfg.timeframe == "5m" else 900000
     log.info("PAPER ONLY: no authentication, Binance orders, wallets, or API secrets")
-    while True:
-        try:
-            now = market.server_ms()
-            quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
-            refresh_open_position_atr(
-                market, broker.positions, cfg.timeframe, now, latest_atr, atr_refresh_bucket
-            )
-            was_halted = broker.gate.blocked or broker.protection.blocked
-            for closed in broker.mark(quotes, now, latest_atr):
-                log.info("CLOSED: %s", json.dumps(closed))
-                if not cfg.operations.enabled or cfg.operations.telegram_alerts:
-                    notify(detailed_event("EXIT", closed))
-            equity = broker.equity(quotes)
-            today = datetime.fromtimestamp(now / 1000, timezone.utc).date().isoformat()
-            broker.gate.new_day(today, equity)
-            broker.gate.can_open(equity, len(broker.positions))
-            broker.protection.observe(now, equity)
-            broker.save()
-            daily_loss = max(0.0, 1 - equity / broker.gate.day_start_equity)
-            if (
-                cfg.operations.enabled
-                and cfg.operations.telegram_alerts
-                and (daily_loss >= cfg.max_daily_loss * cfg.operations.daily_warning_fraction)
-                and (broker.protection.warning_day != today)
-            ):
-                notify(
-                    f"PAPER daily loss warning: {daily_loss:.1%}; limit={cfg.max_daily_loss:.1%}; equity={equity:.2f}"
+    from .recorder import DataRecorder
+
+    recorder = DataRecorder(cfg, [*broker.positions, *symbols])
+    decision_journal.decision_hook = recorder.enqueue_decision
+    recorder.start()
+    from .health import LiveHealth
+
+    health = LiveHealth(cfg)
+    health.update(force=True, stage="startup")
+    try:
+        while True:
+            try:
+                cycle_degraded = False
+                health.update(stage="quotes", status="RUNNING")
+                recorder.update_symbols([*broker.positions, *symbols])
+                now = market.server_ms()
+                quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+                health.update(
+                    quotes_checked_ms=now,
+                    missing_quotes=[s for s in [*broker.positions, *symbols] if s not in quotes],
+                    recorder=recorder.status(),
+                    stream=stream.health() if stream else None,
                 )
-                broker.protection.warning_day = today
+                refresh_open_position_atr(
+                    market, broker.positions, cfg.timeframe, now, latest_atr, atr_refresh_bucket
+                )
+                was_halted = broker.gate.blocked or broker.protection.blocked
+                for closed in broker.mark(quotes, now, latest_atr):
+                    log.info("CLOSED: %s", json.dumps(closed))
+                    if not cfg.operations.enabled or cfg.operations.telegram_alerts:
+                        notify(detailed_event("EXIT", closed))
+                equity = broker.equity(quotes)
+                today = datetime.fromtimestamp(now / 1000, timezone.utc).date().isoformat()
+                broker.gate.new_day(today, equity)
+                broker.gate.can_open(equity, len(broker.positions))
+                broker.protection.observe(now, equity)
                 broker.save()
-            if (broker.gate.blocked or broker.protection.blocked) and (not was_halted):
-                if not cfg.operations.enabled or cfg.operations.telegram_alerts:
+                daily_loss = max(0.0, 1 - equity / broker.gate.day_start_equity)
+                if (
+                    cfg.operations.enabled
+                    and cfg.operations.telegram_alerts
+                    and (daily_loss >= cfg.max_daily_loss * cfg.operations.daily_warning_fraction)
+                    and (broker.protection.warning_day != today)
+                ):
                     notify(
-                        f"RISK HALT: paper equity={equity:.2f}, consecutive_losses={broker.gate.consecutive_losses}"
+                        f"PAPER daily loss warning: {daily_loss:.1%}; limit={cfg.max_daily_loss:.1%}; equity={equity:.2f}"
                     )
-                log.error("Risk circuit breaker active: no new entries")
-            if cfg.phase2.enabled:
-                for sym in broker.positions:
-                    old = histories.get(sym, [])
-                    if not old or old[-1].close_ts // 300000 != now // 300000 - 1:
-                        histories[sym] = market.candles(
-                            sym, "5m", max(70, cfg.phase2.correlation_lookback + 1), now
+                    broker.protection.warning_day = today
+                    broker.save()
+                if (broker.gate.blocked or broker.protection.blocked) and (not was_halted):
+                    if not cfg.operations.enabled or cfg.operations.telegram_alerts:
+                        notify(
+                            f"RISK HALT: paper equity={equity:.2f}, consecutive_losses={broker.gate.consecutive_losses}"
                         )
-                for sym in list(broker.positions):
-                    p = broker.positions[sym]
-                    if (
-                        not cfg.phase2.pyramiding
-                        or not p.tp2_done
-                        or p.pyramid_count >= cfg.phase2.pyramid_max_adds
-                        or (not broker.protection.allow(now)[0])
-                        or broker.gate.blocked
-                    ):
-                        continue
-                    if sym in quotes:
-                        bid, ask = quotes[sym]
-                        depth = None
-                        funding = None
-                        if cfg.operations.enabled:
-                            funding = derivative_tracker.timing(market, sym)
-                            depth = market.get("/fapi/v1/depth", {"symbol": sym, "limit": 100})
-                            now = market.server_ms()
-                            quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
-                            if sym not in quotes:
-                                log.info("ENTRY_SKIP %s reason=missing_fresh_pyramid_quote", sym)
-                                continue
-                            bid, ask = quotes[sym]
-                        event = broker.pyramid(
-                            sym,
-                            bid,
-                            ask,
-                            market.symbol_filters(sym),
-                            quotes,
-                            now,
-                            histories,
-                            funding=funding,
-                            depth=depth,
-                        )
-                        if event:
-                            log.info("PYRAMID: %s", json.dumps(event))
-                            if cfg.operations.enabled and cfg.operations.telegram_alerts:
-                                notify(detailed_event("PYRAMID", event))
-            bucket = now // step
-            if bucket != last_bucket and now % step >= 5000:
-                if use_radar:
-                    from .radar import discover
-
-                    candidates = discover(market, limit=24)
-                    symbols = [candidate.symbol for candidate in candidates]
-                    log.info("RADAR ranked liquid movers: %s", symbols)
-                for symbol in symbols:
-                    data = market.candles(symbol, cfg.timeframe, 220, now)
-                    histories[symbol] = data
-                    upper = market.candles(symbol, "15m", 120, now)
-                    macro = market.candles(symbol, "1h", 260, now)
-                    minute = market.candles(symbol, "1m", 120, now)
-                    if not data or not upper or (not macro):
-                        log.info(
-                            "ENTRY_SKIP %s reason=empty_candle_history counts=%d,%d,%d",
-                            symbol,
-                            len(data),
-                            len(upper),
-                            len(macro),
-                        )
-                        continue
-                    from .indicators import atr
-
-                    if len(data) >= 16:
-                        latest_atr[symbol] = atr(data)
-                    try:
-                        deriv = derivative_tracker.sample(market, symbol, now)
-                    except (MarketError, KeyError, ValueError) as exc:
-                        log.warning("Unavailable derivative snapshot for %s: %s", symbol, exc)
-                        deriv = None
-                    decision_ms = derivative_tracker.checked_ms
-                    if decision_ms is None:
-                        decision_ms = market.server_ms()
-                    log.info(
-                        "ANALYZE %s decision_ms=%d bars=%d,%d,%d,%d",
-                        symbol,
-                        decision_ms,
-                        len(data),
-                        len(upper),
-                        len(macro),
-                        len(minute),
-                    )
-                    signal = analyze(
-                        symbol,
-                        data,
-                        upper,
-                        cfg.min_score,
-                        macro=macro,
-                        derivatives=deriv,
-                        decision_ms=decision_ms,
-                        minute=minute,
-                        policy=cfg.phase1,
-                    )
-                    if signal is None:
-                        log.info("ENTRY_SKIP %s reason=strategy_filters_not_satisfied", symbol)
-                    if signal and symbol in quotes:
-                        from .ml import evaluate, feature_snapshot
-
-                        features = feature_snapshot(data, signal)
-                        signal = replace(signal, features={**signal.features, **features})
-                        if use_ai:
-                            probability = evaluate(ai_model, features)
-                            if probability is None or probability < 0.56:
-                                log.info("ML REJECT %s probability=%s", symbol, probability)
-                                continue
-                        if decision_ms - data[-1].close_ts > 90000:
-                            log.info(
-                                "ENTRY_SKIP %s reason=stale_signal age_ms=%d",
-                                symbol,
-                                decision_ms - data[-1].close_ts,
+                    log.error("Risk circuit breaker active: no new entries")
+                if cfg.phase2.enabled:
+                    for sym in broker.positions:
+                        old = histories.get(sym, [])
+                        if not old or old[-1].close_ts // 300000 != now // 300000 - 1:
+                            histories[sym] = market.candles(
+                                sym, "5m", max(70, cfg.phase2.correlation_lookback + 1), now
                             )
+                    for sym in list(broker.positions):
+                        p = broker.positions[sym]
+                        if (
+                            not cfg.phase2.pyramiding
+                            or not p.tp2_done
+                            or p.pyramid_count >= cfg.phase2.pyramid_max_adds
+                            or (not broker.protection.allow(now)[0])
+                            or broker.gate.blocked
+                        ):
                             continue
-                        if use_claude:
-                            from .claude_review import ReviewUnavailable, confirm
+                        if sym in quotes:
+                            bid, ask = quotes[sym]
+                            depth = None
+                            funding = None
+                            if cfg.operations.enabled:
+                                funding = derivative_tracker.timing(market, sym)
+                                depth = market.get("/fapi/v1/depth", {"symbol": sym, "limit": 100})
+                                now = market.server_ms()
+                                quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+                                if sym not in quotes:
+                                    log.info("ENTRY_SKIP %s reason=missing_fresh_pyramid_quote", sym)
+                                    continue
+                                bid, ask = quotes[sym]
+                            event = broker.pyramid(
+                                sym,
+                                bid,
+                                ask,
+                                market.symbol_filters(sym),
+                                quotes,
+                                now,
+                                histories,
+                                funding=funding,
+                                depth=depth,
+                            )
+                            if event:
+                                log.info("PYRAMID: %s", json.dumps(event))
+                                if cfg.operations.enabled and cfg.operations.telegram_alerts:
+                                    notify(detailed_event("PYRAMID", event))
+                bucket = now // step
+                if bucket != last_bucket and now % step >= 5000:
+                    if use_radar:
+                        from .radar import discover
 
-                            try:
-                                approved, confidence, explanation = confirm(signal)
-                            except ReviewUnavailable as exc:
-                                log.error("AI review unavailable: %s; skip candidate", exc)
-                                continue
-                            if not approved:
-                                log.info("Claude rejected %s (%s): %s", symbol, confidence, explanation)
-                                continue
-                        if use_micro:
-                            from .microstructure import collect_micro
-
-                            micro = collect_micro(market, symbol, signal.side, now)
-                            if not micro.accepted:
-                                log.info("MICRO FILTER %s: %s", symbol, micro.reason)
-                                continue
-                        if cfg.phase2.enabled or cfg.operations.enabled:
-                            now = market.server_ms()
-                            quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
-                            if symbol not in quotes or now - data[-1].close_ts > 90000:
-                                log.info("ENTRY_SKIP %s reason=stale_book_or_signal_after_scan", symbol)
-                                continue
-                        bid, ask = quotes[symbol]
-                        depth = None
-                        if cfg.operations.enabled and cfg.operations.liquidity_guard:
-                            depth = market.get("/fapi/v1/depth", {"symbol": symbol, "limit": 100})
-                            now = market.server_ms()
-                            quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
-                            if symbol not in quotes or now - data[-1].close_ts > 90000:
-                                log.info("ENTRY_SKIP %s reason=stale_after_depth_request", symbol)
-                                continue
-                            bid, ask = quotes[symbol]
-                        ok, reason = broker.open(
-                            signal,
-                            bid,
-                            ask,
-                            market.symbol_filters(symbol),
-                            quotes,
-                            now,
-                            histories=histories,
-                            funding=derivative_tracker.funding_timing.get(symbol),
-                            depth=depth,
+                        candidates = discover(
+                            market, limit=cfg.radar_limit, fast_ranking=cfg.radar_fast_ranking
                         )
-                        log.info(
-                            "SIGNAL %s score=%s accepted=%s: %s (%s)",
-                            symbol,
-                            signal.score,
-                            ok,
-                            reason,
-                            signal.reason,
-                        )
-                        if ok:
-                            if not cfg.operations.enabled or cfg.operations.telegram_alerts:
-                                notify(
-                                    detailed_event(
-                                        "ENTRY", {**vars(broker.positions[symbol]), "score": signal.score}
-                                    )
+                        symbols = [candidate.symbol for candidate in candidates]
+                        recorder.update_symbols([*broker.positions, *symbols])
+                        log.info("RADAR ranked liquid movers: %s", symbols)
+                    health.row["symbols"] = {s: v for s, v in health.row["symbols"].items() if s in symbols}
+                    for symbol in symbols:
+                        health.update(stage="scan", current_symbol=symbol)
+                        if cfg.runtime.live_resilience and broker.positions:
+                            exit_now = market.server_ms()
+                            exit_quotes = stream.snapshot() if stream else market.quotes(now_ms=exit_now)
+                            for closed in broker.mark(exit_quotes, exit_now, latest_atr):
+                                log.info("CLOSED: %s", json.dumps(closed))
+                                if cfg.operations.telegram_alerts:
+                                    notify(detailed_event("EXIT", closed))
+                            # Missing another position freezes new entries; fresh exits already ran.
+                            broker.equity(exit_quotes)
+                            quotes = exit_quotes
+                        try:
+                            data = market.candles(symbol, cfg.timeframe, 220, now)
+                            histories[symbol] = data
+                            upper = market.candles(symbol, "15m", 120, now)
+                            macro = market.candles(symbol, "1h", 260, now)
+                            minute = market.candles(symbol, "1m", 120, now)
+                            if not data or not upper or (not macro):
+                                log.info(
+                                    "ENTRY_SKIP %s reason=empty_candle_history counts=%d,%d,%d",
+                                    symbol,
+                                    len(data),
+                                    len(upper),
+                                    len(macro),
                                 )
-                    elif signal:
-                        log.info("ENTRY_SKIP %s reason=missing_fresh_quote", symbol)
-                last_bucket = bucket
-            broker.save()
-            from .monitoring import save_telemetry
+                                continue
+                            from .indicators import atr
 
-            save_telemetry(broker, quotes, now, decision_journal.count)
-            log.info(
-                "PAPER equity=%.2f USDT positions=%d risk_halted=%s",
-                broker.equity(quotes),
-                len(broker.positions),
-                broker.gate.blocked,
-            )
-        except (MarketError, ValueError, KeyError, OSError) as exc:
-            log.error("Cycle failed closed: %s", exc)
+                            if len(data) >= 16:
+                                latest_atr[symbol] = atr(data)
+                            try:
+                                deriv = derivative_tracker.sample(market, symbol, now)
+                            except (MarketError, KeyError, ValueError) as exc:
+                                log.warning("Unavailable derivative snapshot for %s: %s", symbol, exc)
+                                deriv = None
+                            decision_ms = derivative_tracker.checked_ms
+                            if decision_ms is None:
+                                decision_ms = market.server_ms()
+                            flow = None
+                            if cfg.phase1.flow_enabled:
+                                from .orderflow import collect_flow
+
+                                flow = collect_flow(market, symbol, decision_ms, cfg.phase1)
+                                decision_ms = market.server_ms()
+                            health.observe(
+                                symbol,
+                                decision_ms,
+                                derivative_tracker.funding_timing.get(symbol),
+                                flow,
+                                cfg.phase1,
+                            )
+                            log.info(
+                                "ANALYZE %s decision_ms=%d bars=%d,%d,%d,%d",
+                                symbol,
+                                decision_ms,
+                                len(data),
+                                len(upper),
+                                len(macro),
+                                len(minute),
+                            )
+                            signal = analyze(
+                                symbol,
+                                data,
+                                upper,
+                                cfg.min_score,
+                                macro=macro,
+                                derivatives=deriv,
+                                decision_ms=decision_ms,
+                                minute=minute,
+                                policy=cfg.phase1,
+                                flow=flow,
+                            )
+                            if signal is None:
+                                log.info("ENTRY_SKIP %s reason=strategy_filters_not_satisfied", symbol)
+                        except (MarketError, KeyError, ValueError) as exc:
+                            if not cfg.runtime.live_resilience:
+                                raise
+                            cycle_degraded = True
+                            health.update(
+                                force=True, status="DEGRADED", current_symbol=symbol, error=type(exc).__name__
+                            )
+                            log.warning("ENTRY_SKIP %s reason=candidate_data_unavailable", symbol)
+                            continue
+                        if signal and symbol in quotes:
+                            from .ml import evaluate, feature_snapshot
+
+                            features = feature_snapshot(data, signal)
+                            signal = replace(signal, features={**signal.features, **features})
+                            if use_ai:
+                                probability = evaluate(ai_model, features)
+                                if probability is None or probability < 0.56:
+                                    log.info("ML REJECT %s probability=%s", symbol, probability)
+                                    continue
+                            if decision_ms - data[-1].close_ts > 90000:
+                                log.info(
+                                    "ENTRY_SKIP %s reason=stale_signal age_ms=%d",
+                                    symbol,
+                                    decision_ms - data[-1].close_ts,
+                                )
+                                continue
+                            if use_claude:
+                                from .claude_review import ReviewUnavailable, confirm
+
+                                try:
+                                    approved, confidence, explanation = confirm(signal)
+                                except ReviewUnavailable as exc:
+                                    log.error("AI review unavailable: %s; skip candidate", exc)
+                                    continue
+                                if not approved:
+                                    log.info("Claude rejected %s (%s): %s", symbol, confidence, explanation)
+                                    continue
+                            if use_micro:
+                                from .microstructure import collect_micro
+
+                                micro = collect_micro(market, symbol, signal.side, now)
+                                if not micro.accepted:
+                                    log.info("MICRO FILTER %s: %s", symbol, micro.reason)
+                                    continue
+                            if cfg.phase2.enabled or cfg.operations.enabled:
+                                now = market.server_ms()
+                                quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+                                if symbol not in quotes or now - data[-1].close_ts > 90000:
+                                    log.info("ENTRY_SKIP %s reason=stale_book_or_signal_after_scan", symbol)
+                                    continue
+                            bid, ask = quotes[symbol]
+                            depth = None
+                            if cfg.operations.enabled and cfg.operations.liquidity_guard:
+                                depth = market.get("/fapi/v1/depth", {"symbol": symbol, "limit": 100})
+                                now = market.server_ms()
+                                quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+                                if symbol not in quotes or now - data[-1].close_ts > 90000:
+                                    log.info("ENTRY_SKIP %s reason=stale_after_depth_request", symbol)
+                                    continue
+                                bid, ask = quotes[symbol]
+                            ok, reason = broker.open(
+                                signal,
+                                bid,
+                                ask,
+                                market.symbol_filters(symbol),
+                                quotes,
+                                now,
+                                histories=histories,
+                                funding=derivative_tracker.funding_timing.get(symbol),
+                                depth=depth,
+                            )
+                            log.info(
+                                "SIGNAL %s score=%s accepted=%s: %s (%s)",
+                                symbol,
+                                signal.score,
+                                ok,
+                                reason,
+                                signal.reason,
+                            )
+                            if ok:
+                                if not cfg.operations.enabled or cfg.operations.telegram_alerts:
+                                    notify(
+                                        detailed_event(
+                                            "ENTRY", {**vars(broker.positions[symbol]), "score": signal.score}
+                                        )
+                                    )
+                        elif signal:
+                            log.info("ENTRY_SKIP %s reason=missing_fresh_quote", symbol)
+                    last_bucket = bucket
+                health.update(
+                    force=True,
+                    status="DEGRADED" if cycle_degraded else "RUNNING",
+                    stage="cycle_complete",
+                    cycle_complete_ms=int(time.time() * 1000),
+                    recorder=recorder.status(),
+                )
+                broker.save()
+                from .monitoring import save_telemetry
+
+                save_telemetry(broker, quotes, now, decision_journal.count)
+                log.info(
+                    "PAPER equity=%.2f USDT positions=%d risk_halted=%s",
+                    broker.equity(quotes),
+                    len(broker.positions),
+                    broker.gate.blocked,
+                )
+            except (MarketError, ValueError, KeyError, OSError) as exc:
+                health.update(
+                    force=True,
+                    status="DEGRADED",
+                    stage="cycle_failed",
+                    error=type(exc).__name__,
+                    recorder=recorder.status(),
+                )
+                log.error("Cycle failed closed: %s", exc)
+                if args.once:
+                    return 2
             if args.once:
-                return 2
-        if args.once:
-            return 0
-        time.sleep(cfg.loop_seconds)
+                return 0
+            time.sleep(cfg.loop_seconds)
+
+    finally:
+        health.update(force=True, status="STOPPED", stage="shutdown")
+        recorder.stop()
+        if stream:
+            stream.stop()
+        logging.getLogger("vortex").removeHandler(decision_journal)
+        paper_lock.release()
 
 
 if __name__ == "__main__":

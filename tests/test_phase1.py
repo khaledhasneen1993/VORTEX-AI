@@ -150,6 +150,30 @@ def test_full_signal_symmetry_and_fail_closed(sign):
     assert run(m=None) is None
     assert run(s=small + [replace(small[-1], ts=now, close_ts=now + 300000)]) is None
     assert analyze("BTCUSDT", small, higher, macro=macro, decision_ms=now, policy=p) == sig
+    from vortex.orderflow import FlowObservation
+
+    flow_policy = replace(p, flow_enabled=True, flow_min_trades=2)
+    fresh = FlowObservation("BTCUSDT", now, now, 2, sign * 2, sign * 0.5, sign * 0.5, "FLOW_VALID")
+
+    def with_flow(observation, policy=flow_policy):
+        return analyze(
+            "BTCUSDT", small, higher, macro=macro, decision_ms=now, policy=policy, flow=observation
+        )
+
+    confirmed = with_flow(fresh)
+    assert confirmed and "FLOW_ALIGNED" in confirmed.reason
+    assert confirmed.features["flow_cvd_base"] == sign * 2
+    assert (
+        with_flow(replace(fresh, cvd_base=-sign * 2, base_imbalance=-sign * 0.5, aggression=-sign * 0.5))
+        is None
+    )
+    assert with_flow(replace(fresh, cvd_base=0, base_imbalance=0, aggression=0)) is None
+    missing_flow = with_flow(None)
+    assert missing_flow and missing_flow.features["flow_available"] == 0
+    stale = with_flow(replace(fresh, end_ms=now - 16000, latest_ms=now - 16000))
+    assert stale and "FLOW_ABSTAIN_STALE_OR_FUTURE" in stale.reason and "flow_cvd_base" not in stale.features
+    voter = with_flow(fresh, replace(flow_policy, flow_mode="voter"))
+    assert voter and "order_flow" in voter.votes
 
 
 def test_configuration_env_and_no_risk_change(monkeypatch):

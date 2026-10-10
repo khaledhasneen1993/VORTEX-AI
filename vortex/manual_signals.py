@@ -154,6 +154,12 @@ def main(argv=None):
                             log.warning("Derivative unavailable %s: %s", symbol, exc)
                             derivative = None
                         decision = tracker.checked_ms or market.server_ms()
+                        flow = None
+                        if cfg.phase1.flow_enabled:
+                            from .orderflow import collect_flow
+
+                            flow = collect_flow(market, symbol, decision, cfg.phase1)
+                            decision = market.server_ms()
                         signal = analyze(
                             symbol,
                             bars[0],
@@ -164,6 +170,7 @@ def main(argv=None):
                             derivatives=derivative,
                             decision_ms=decision,
                             policy=cfg.phase1,
+                            flow=flow,
                         )
                         if signal:
                             quoted_at = market.server_ms()

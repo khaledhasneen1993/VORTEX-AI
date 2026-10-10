@@ -15,6 +15,7 @@ def analyze(
     decision_ms=None,
     minute=None,
     policy=None,
+    flow=None,
 ):
     return phase1_vote(
         symbol,
@@ -26,4 +27,5 @@ def analyze(
         minute=minute,
         min_score=min_score,
         policy=policy or StrategyPolicy(),
+        flow=flow,
     )

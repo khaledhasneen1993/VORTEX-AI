@@ -371,6 +371,12 @@ def main(argv: list[str] | None = None) -> int:
                     decision_ms = derivative_tracker.checked_ms
                     if decision_ms is None:
                         decision_ms = market.server_ms()
+                    flow = None
+                    if cfg.phase1.flow_enabled:
+                        from .orderflow import collect_flow
+
+                        flow = collect_flow(market, symbol, decision_ms, cfg.phase1)
+                        decision_ms = market.server_ms()
                     log.info(
                         "ANALYZE %s decision_ms=%d bars=%d,%d,%d,%d",
                         symbol,
@@ -390,6 +396,7 @@ def main(argv: list[str] | None = None) -> int:
                         decision_ms=decision_ms,
                         minute=minute,
                         policy=cfg.phase1,
+                        flow=flow,
                     )
                     if signal is None:
                         log.info("ENTRY_SKIP %s reason=strategy_filters_not_satisfied", symbol)

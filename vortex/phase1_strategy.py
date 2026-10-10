@@ -7,6 +7,7 @@ from math import isfinite
 from .indicators import adx, atr, ema, rsi
 from .market_features import _macd_hist, _std, _vwap
 from .models import Signal
+from .orderflow import flow_direction
 from .reversal import confirm as confirm_1m
 
 log = logging.getLogger("vortex.votes")
@@ -133,14 +134,25 @@ def weighted_selection(votes, weights, macro, strong, policy, *, clear_single=Fa
     )
 
 
-def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min_score, policy):
+def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min_score, policy, flow=None):
+    flow_code = "FLOW_DISABLED" if not policy.flow_enabled else "FLOW_ABSTAIN_NOT_EVALUATED"
+    regime_code = "REGIME_DISABLED"
+
     def reject(reason):
-        log.debug("REJECT %s phase1=%s", symbol, reason)
+        log.debug(
+            "REJECT %s code=%s phase1=%s flow=%s regime=%s",
+            symbol,
+            reason.upper(),
+            reason,
+            flow_code,
+            regime_code,
+        )
         return None
 
     if len(small) < max(70, policy.atr_lookback + 15) or len(higher) < 70 or not macro or len(macro) < 210:
         return reject("insufficient_history")
     decision = decision_ms if decision_ms is not None else small[-1].close_ts
+    flow_sign, flow_code = flow_direction(flow, symbol, decision, policy)
     for bars, duration in ((small, 300000), (higher, 900000), (macro, 3600000)):
         # Reject future, missing, duplicate, unordered and stale completed histories.
         if any(
@@ -180,12 +192,22 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     hist = _macd_hist(hc)
     if not macro_dir or not macro_dir == mid_dir == short_dir or hist * macro_dir <= 0:
         return reject("mtf_disagreement")
+    if policy.flow_enabled and policy.flow_mode == "confirm":
+        if flow_code == "FLOW_NEUTRAL":
+            return reject("flow_neutral")
+        if flow_sign and flow_sign != macro_dir:
+            flow_code = "FLOW_OPPOSED"
+            return reject("flow_opposed")
+        if flow_sign == macro_dir:
+            flow_code = "FLOW_ALIGNED"
     if policy.cvd_filter and (cvd is None or cvd * macro_dir < policy.cvd_min):
         return reject("missing_or_opposing_cvd")
     adx5, adx15 = adx(small), adx(higher)
     mean_vol = sum(b.volume for b in small[-21:-1]) / 20
     relvol = current.volume / mean_vol if mean_vol > 0 else 0
     votes = {}
+    if policy.flow_enabled and policy.flow_mode == "voter" and flow_sign:
+        votes["order_flow"] = flow_sign
     if adx15 >= policy.trend_adx:
         votes["trend"] = macro_dir
     prior = small[-policy.breakout_lookback - 1 : -1]
@@ -217,6 +239,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         breakout=policy.breakout_weight + boost,
         reversion=policy.reversion_weight,
         funding_fade=policy.funding_weight,
+        order_flow=policy.flow_weight,
     )
     strong = (
         adx15 >= policy.strong_adx
@@ -253,9 +276,7 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     if score < min_score:
         return reject("score")
     single_override = (
-        clear_single
-        and len(approved) == 1
-        and not (strong and totals[sign] >= policy.strong_weight)
+        clear_single and len(approved) == 1 and not (strong and totals[sign] >= policy.strong_weight)
     )
     if single_override and score < policy.min_strong_score:
         return reject("single_strong_score")
@@ -280,8 +301,27 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         signal_body_atr=abs(current.close - current.open) / a,
         ema9_distance_atr=abs(current.close - ema(closes, 9)) / a,
     )
+    if policy.flow_enabled:
+        valid_flow = flow_code in {"FLOW_BUY", "FLOW_SELL", "FLOW_ALIGNED", "FLOW_NEUTRAL"}
+        features["flow_available"] = float(valid_flow)
+        if valid_flow:
+            features.update(
+                flow_cvd_base=flow.cvd_base,
+                flow_base_imbalance=flow.base_imbalance,
+                flow_aggression=flow.aggression,
+                flow_trade_count=float(flow.trade_count),
+                flow_end_ms=float(flow.end_ms),
+                flow_latest_ms=float(flow.latest_ms),
+            )
     reason = "PHASE1 " + ("STRONG" if strong else "NORMAL") + " votes=" + ",".join(approved)
-    log.info("ACCEPT %s %s %s score=%d", symbol, reason, "LONG" if sign == 1 else "SHORT", score)
+    reason += " flow=" + flow_code + " regime=" + regime_code
+    log.info(
+        "ACCEPT %s code=SIGNAL_ACCEPTED %s %s score=%d",
+        symbol,
+        reason,
+        "LONG" if sign == 1 else "SHORT",
+        score,
+    )
     return Signal(
         symbol,
         "LONG" if sign == 1 else "SHORT",

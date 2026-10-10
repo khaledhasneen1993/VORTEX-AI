@@ -44,6 +44,14 @@ class StrategyPolicy:
     strict_votes: bool = True
     allow_single_strong_vote: bool = False
     min_strong_score: int = 7
+    flow_enabled: bool = False
+    flow_mode: str = "confirm"
+    flow_window_ms: int = 15000
+    flow_max_age_ms: int = 5000
+    flow_min_trades: int = 20
+    flow_limit: int = 1000
+    flow_min_imbalance: float = 0.10
+    flow_weight: float = 1.0
     funding_extreme: float = 0.0015
     funding_oi_min_pct: float = 0.25
     funding_price_min_pct: float = 0.10
@@ -73,6 +81,16 @@ class StrategyPolicy:
             raise ValueError("MIN_STRONG_SCORE must be 3..10")
         if not isinstance(self.strict_votes, bool) or not isinstance(self.allow_single_strong_vote, bool):
             raise ValueError("Vote flags must be boolean")
+        if not isinstance(self.flow_enabled, bool) or self.flow_mode not in {"confirm", "voter"}:
+            raise ValueError("Flow requires a boolean flag and confirm/voter mode")
+        if not (
+            1000 <= self.flow_window_ms <= 60000
+            and 1 <= self.flow_max_age_ms <= min(15000, self.flow_window_ms)
+            and 1 <= self.flow_min_trades < self.flow_limit <= 1000
+            and 0 < self.flow_min_imbalance <= 1
+            and 0 < self.flow_weight <= 2
+        ):
+            raise ValueError("Invalid bounded flow policy")
         if not 0 <= self.atr_percentile_min <= 100 or not 0 <= self.cvd_min <= 1:
             raise ValueError("Invalid phase1 percentile/CVD threshold")
         if not 0 < self.atr_pct_min < self.atr_pct_max < 1:

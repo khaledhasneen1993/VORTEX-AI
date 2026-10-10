@@ -40,3 +40,13 @@ unchanged. Unprefixed vote/score variables override their `PHASE1_*` aliases.
 are absent. `default` and `conservative` supply true/false/7. Explicit overrides
 win. The lower strong score also changes eligibility for strong sizing on existing
 signals; it does not bypass quote, liquidity or portfolio limits.
+
+## Phase 2 confirmations and regime voters
+
+Optional bounded public-trade CVD/taker aggression, completed-price regime labels,
+volume-spike breakout and sweep/reclaim voters are documented in
+[ORDERFLOW_REGIME.md](ORDERFLOW_REGIME.md). All new switches default off, even under
+the aggressive profile. Primary/macro alignment, safety and financial caps remain.
+Volume-spike replaces an overlapping breakout vote to avoid double-counting;
+sweep, flow and funding remain auxiliary. Decision logs now include flow/regime
+reason codes for accepted and rejected candidates.

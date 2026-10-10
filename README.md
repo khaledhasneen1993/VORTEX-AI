@@ -150,9 +150,27 @@ chosen directory and identical policy to resume that session. To revert, select
 existing positions/journals are never migrated or reset. No market performance
 claim was made or validated by this phase.
 
+## Phase 2 confirmations (all off by default)
+
+`PHASE1_FLOW_ENABLED` adds bounded public-trade CVD and taker aggression, with
+`PHASE1_FLOW_MODE=confirm` or `voter`. Missing/stale/truncated observations abstain.
+`PHASE1_REGIME_ENABLED` rejects dead/chop conditions while preserving clear-trend
+opportunities. `PHASE1_VOLUME_SPIKE_ENABLED` strengthens breakout evidence without
+double-counting it; `PHASE1_LIQUIDITY_SWEEP_ENABLED` adds a swing-reclaim auxiliary
+vote. `PHASE1_FUNDING_FLOW_CONFIRM` optionally requires flow alignment for the
+existing funding/OI vote and requires flow enabled. These are configuration
+hypotheses, not demonstrated trading improvements.
+
+All five switches stay **false** under both default and aggressive profiles.
+See [Phase 2 rules, limitations and exact enable/disable PAPER commands](docs/ORDERFLOW_REGIME.md).
+Existing safety/risk limits and kline-CVD behavior remain. Decision journals now
+include accepted/rejected reason codes for flow and regime. No new dependencies,
+mainnet execution, heavy ML or tick recorder were added.
+
 ## Documentation and verification
 
 - [Strategy](docs/PHASE1_STRATEGY.md): current weighted signal rules.
+- [Optional flow/regime layers](docs/ORDERFLOW_REGIME.md): switches, semantics and PAPER commands.
 - [Risk](docs/PHASE2_RISK.md): budgets, reserves, correlation and pyramiding.
 - [Operations](docs/OPERATIONS_PROFILE.md): exits, execution gates, monitoring,
   historical observation requirements and offline stress/version comparisons.

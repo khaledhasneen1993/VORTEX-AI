@@ -148,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             print(json.dumps(observed, indent=2))
             time.sleep(10)
-    market = Market()
+    market = Market(resilient=cfg.runtime.live_resilience and args.command == "paper")
 
     def output_report(report: dict, kind: str, label: str) -> None:
         path = save_report(cfg.data_dir, kind, report, symbol=label)
@@ -238,7 +238,9 @@ def main(argv: list[str] | None = None) -> int:
     if use_stream:
         from .stream import QuoteStream
 
-        stream = QuoteStream(cfg.symbols)
+        stream = QuoteStream(
+            cfg.symbols, resilient=cfg.runtime.live_resilience, silence_seconds=cfg.runtime.ws_silence_seconds
+        )
         stream.start()
     from .alerts import detailed_event, notify
     from .operations import DecisionJournal
@@ -260,12 +262,23 @@ def main(argv: list[str] | None = None) -> int:
     recorder = DataRecorder(cfg, [*broker.positions, *symbols])
     decision_journal.decision_hook = recorder.enqueue_decision
     recorder.start()
+    from .health import LiveHealth
+
+    health = LiveHealth(cfg)
+    health.update(force=True, stage="startup")
     try:
         while True:
             try:
+                health.update(stage="quotes", status="RUNNING")
                 recorder.update_symbols([*broker.positions, *symbols])
                 now = market.server_ms()
                 quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+                health.update(
+                    quotes_checked_ms=now,
+                    missing_quotes=[s for s in [*broker.positions, *symbols] if s not in quotes],
+                    recorder=recorder.status(),
+                    stream=stream.health() if stream else None,
+                )
                 refresh_open_position_atr(
                     market, broker.positions, cfg.timeframe, now, latest_atr, atr_refresh_bucket
                 )
@@ -354,62 +367,90 @@ def main(argv: list[str] | None = None) -> int:
                         symbols = [candidate.symbol for candidate in candidates]
                         recorder.update_symbols([*broker.positions, *symbols])
                         log.info("RADAR ranked liquid movers: %s", symbols)
+                    health.row["symbols"] = {s: v for s, v in health.row["symbols"].items() if s in symbols}
                     for symbol in symbols:
-                        data = market.candles(symbol, cfg.timeframe, 220, now)
-                        histories[symbol] = data
-                        upper = market.candles(symbol, "15m", 120, now)
-                        macro = market.candles(symbol, "1h", 260, now)
-                        minute = market.candles(symbol, "1m", 120, now)
-                        if not data or not upper or (not macro):
-                            log.info(
-                                "ENTRY_SKIP %s reason=empty_candle_history counts=%d,%d,%d",
+                        health.update(stage="scan", current_symbol=symbol)
+                        if cfg.runtime.live_resilience and broker.positions:
+                            exit_now = market.server_ms()
+                            exit_quotes = stream.snapshot() if stream else market.quotes(now_ms=exit_now)
+                            for closed in broker.mark(exit_quotes, exit_now, latest_atr):
+                                log.info("CLOSED: %s", json.dumps(closed))
+                                if cfg.operations.telegram_alerts:
+                                    notify(detailed_event("EXIT", closed))
+                            # Missing another position freezes new entries; fresh exits already ran.
+                            broker.equity(exit_quotes)
+                            quotes = exit_quotes
+                        try:
+                            data = market.candles(symbol, cfg.timeframe, 220, now)
+                            histories[symbol] = data
+                            upper = market.candles(symbol, "15m", 120, now)
+                            macro = market.candles(symbol, "1h", 260, now)
+                            minute = market.candles(symbol, "1m", 120, now)
+                            if not data or not upper or (not macro):
+                                log.info(
+                                    "ENTRY_SKIP %s reason=empty_candle_history counts=%d,%d,%d",
+                                    symbol,
+                                    len(data),
+                                    len(upper),
+                                    len(macro),
+                                )
+                                continue
+                            from .indicators import atr
+
+                            if len(data) >= 16:
+                                latest_atr[symbol] = atr(data)
+                            try:
+                                deriv = derivative_tracker.sample(market, symbol, now)
+                            except (MarketError, KeyError, ValueError) as exc:
+                                log.warning("Unavailable derivative snapshot for %s: %s", symbol, exc)
+                                deriv = None
+                            decision_ms = derivative_tracker.checked_ms
+                            if decision_ms is None:
+                                decision_ms = market.server_ms()
+                            flow = None
+                            if cfg.phase1.flow_enabled:
+                                from .orderflow import collect_flow
+
+                                flow = collect_flow(market, symbol, decision_ms, cfg.phase1)
+                                decision_ms = market.server_ms()
+                            health.observe(
                                 symbol,
+                                decision_ms,
+                                derivative_tracker.funding_timing.get(symbol),
+                                flow,
+                                cfg.phase1,
+                            )
+                            log.info(
+                                "ANALYZE %s decision_ms=%d bars=%d,%d,%d,%d",
+                                symbol,
+                                decision_ms,
                                 len(data),
                                 len(upper),
                                 len(macro),
+                                len(minute),
                             )
-                            continue
-                        from .indicators import atr
-
-                        if len(data) >= 16:
-                            latest_atr[symbol] = atr(data)
-                        try:
-                            deriv = derivative_tracker.sample(market, symbol, now)
+                            signal = analyze(
+                                symbol,
+                                data,
+                                upper,
+                                cfg.min_score,
+                                macro=macro,
+                                derivatives=deriv,
+                                decision_ms=decision_ms,
+                                minute=minute,
+                                policy=cfg.phase1,
+                                flow=flow,
+                            )
+                            if signal is None:
+                                log.info("ENTRY_SKIP %s reason=strategy_filters_not_satisfied", symbol)
                         except (MarketError, KeyError, ValueError) as exc:
-                            log.warning("Unavailable derivative snapshot for %s: %s", symbol, exc)
-                            deriv = None
-                        decision_ms = derivative_tracker.checked_ms
-                        if decision_ms is None:
-                            decision_ms = market.server_ms()
-                        flow = None
-                        if cfg.phase1.flow_enabled:
-                            from .orderflow import collect_flow
-
-                            flow = collect_flow(market, symbol, decision_ms, cfg.phase1)
-                            decision_ms = market.server_ms()
-                        log.info(
-                            "ANALYZE %s decision_ms=%d bars=%d,%d,%d,%d",
-                            symbol,
-                            decision_ms,
-                            len(data),
-                            len(upper),
-                            len(macro),
-                            len(minute),
-                        )
-                        signal = analyze(
-                            symbol,
-                            data,
-                            upper,
-                            cfg.min_score,
-                            macro=macro,
-                            derivatives=deriv,
-                            decision_ms=decision_ms,
-                            minute=minute,
-                            policy=cfg.phase1,
-                            flow=flow,
-                        )
-                        if signal is None:
-                            log.info("ENTRY_SKIP %s reason=strategy_filters_not_satisfied", symbol)
+                            if not cfg.runtime.live_resilience:
+                                raise
+                            health.update(
+                                force=True, status="DEGRADED", current_symbol=symbol, error=type(exc).__name__
+                            )
+                            log.warning("ENTRY_SKIP %s reason=candidate_data_unavailable", symbol)
+                            continue
                         if signal and symbol in quotes:
                             from .ml import evaluate, feature_snapshot
 
@@ -490,6 +531,13 @@ def main(argv: list[str] | None = None) -> int:
                         elif signal:
                             log.info("ENTRY_SKIP %s reason=missing_fresh_quote", symbol)
                     last_bucket = bucket
+                health.update(
+                    force=True,
+                    status="RUNNING",
+                    stage="cycle_complete",
+                    cycle_complete_ms=int(time.time() * 1000),
+                    recorder=recorder.status(),
+                )
                 broker.save()
                 from .monitoring import save_telemetry
 
@@ -501,6 +549,13 @@ def main(argv: list[str] | None = None) -> int:
                     broker.gate.blocked,
                 )
             except (MarketError, ValueError, KeyError, OSError) as exc:
+                health.update(
+                    force=True,
+                    status="DEGRADED",
+                    stage="cycle_failed",
+                    error=type(exc).__name__,
+                    recorder=recorder.status(),
+                )
                 log.error("Cycle failed closed: %s", exc)
                 if args.once:
                     return 2
@@ -509,6 +564,7 @@ def main(argv: list[str] | None = None) -> int:
             time.sleep(cfg.loop_seconds)
 
     finally:
+        health.update(force=True, status="STOPPED", stage="shutdown")
         recorder.stop()
         if stream:
             stream.stop()

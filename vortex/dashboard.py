@@ -11,7 +11,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 from .config import Settings
-from .monitoring import recent_decisions, rejection_counts
+from .monitoring import recent_decisions, rejection_counts, recent_jsonl
+from .health import read_health
 
 
 def serve(cfg: Settings, port: int = 8765) -> None:
@@ -21,7 +22,14 @@ def serve(cfg: Settings, port: int = 8765) -> None:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             path = urlparse(self.path).path
-            if path not in ("/", "/api/status", "/api/trades", "/api/rejections", "/api/telemetry"):
+            if path not in (
+                "/",
+                "/api/status",
+                "/api/trades",
+                "/api/rejections",
+                "/api/telemetry",
+                "/api/health",
+            ):
                 self.send_error(404)
                 return
             try:
@@ -40,11 +48,9 @@ def serve(cfg: Settings, port: int = 8765) -> None:
                 telemetry = json.loads(telemetry_path.read_text()) if telemetry_path.exists() else {}
                 decisions = recent_decisions(cfg.data_dir)
                 journal = cfg.data_dir / "closed_trades.jsonl"
-                trades = (
-                    [json.loads(line) for line in journal.read_text().splitlines() if line.strip()][-100:]
-                    if journal.exists()
-                    else []
-                )
+                trades = recent_jsonl(journal)
+                health = read_health(cfg.data_dir, max_age_ms=max(30000, cfg.loop_seconds * 2000))
+
             except (OSError, ValueError, KeyError):
                 self.send_error(503, "Unable to load paper state")
                 return
@@ -60,6 +66,7 @@ def serve(cfg: Settings, port: int = 8765) -> None:
                         "/api/trades": trades,
                         "/api/rejections": decisions,
                         "/api/telemetry": telemetry,
+                        "/api/health": health,
                     }[path]
                 ).encode()
             else:
@@ -95,6 +102,7 @@ def serve(cfg: Settings, port: int = 8765) -> None:
                 metrics = html.escape(
                     json.dumps({k: v for k, v in telemetry.items() if k != "protection"}, indent=2)
                 )
+                health_text = html.escape(json.dumps(health, indent=2))
                 protection = html.escape(json.dumps(state.get("protection", {}), indent=2))
                 rejection_rows = "".join(
                     "<tr><td>" + html.escape(str(row["reason"])) + "</td></tr>"
@@ -112,7 +120,8 @@ small{{color:#94a3b8}}</style><h1>VORTEX AI</h1><p>PAPER MODE — no live exchan
 <div class=card><small>Risk halted</small><h2>{html.escape(str(state.get("risk", {}).get("blocked", False)))}</h2></div></div>
 <h2>Sampled performance and risk</h2><p>Last exchange observation: {observed}</p>
 <pre>{metrics}</pre><details><summary>Protection state</summary><pre>{protection}</pre></details>
-<h2>Latest rejected decisions</h2><table>{rejection_rows}</table>
+<h2>Live data and recorder health</h2><pre>{health_text}</pre>
+<h2>Latest accepted/rejected decisions</h2><table>{rejection_rows}</table>
 <details><summary>Reason counts (last 100 records)</summary><pre>{counts}</pre></details>
 <h2>Open paper positions</h2><table><tr><th>Symbol</th><th>Side</th><th>Entry</th></tr>{position_rows}</table>
 <h2>Recent closed trades</h2><table><tr><th>Symbol</th><th>Side</th><th>Net PnL</th><th>Reason</th></tr>{trades_rows}</table>

@@ -253,6 +253,7 @@ class DecisionJournal(logging.Handler):
                 "ACCEPT",
                 "ENTRY_SKIP",
                 "accepted=False",
+                "accepted=True",
                 "CARD_SKIP",
                 "FILTER",
                 "rejected",
@@ -273,6 +274,10 @@ class DecisionJournal(logging.Handler):
             row["code"] = label(
                 "code", label("reason", "SIGNAL_ACCEPTED" if "ACCEPT" in message else "DECISION_REJECTED")
             )
+            if "accepted=True" in message:
+                row["code"] = "ENTRY_ACCEPTED"
+            elif "accepted=False" in message:
+                row["code"] = "ENTRY_REJECTED"
             row["flow"] = label(
                 "flow",
                 "FLOW_ABSTAIN_NOT_EVALUATED"

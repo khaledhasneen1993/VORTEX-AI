@@ -112,7 +112,7 @@ class Settings:
             phase1=phase1,
             phase2=phase2,
             trailing_atr_mult=float(f("TRAILING_ATR_MULT", "0.8")),
-            min_strong_score=int(f("MIN_STRONG_SCORE", "7")),
+            min_strong_score=phase1.min_strong_score,
             mode=f("RUN_MODE", "paper"),
             symbols=tuple(
                 s.strip().upper()

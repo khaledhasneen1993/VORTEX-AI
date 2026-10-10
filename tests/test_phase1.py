@@ -111,6 +111,17 @@ def test_weighted_normal_strong_primary_and_tie():
     assert weighted_selection({"trend": 1, "breakout": -1}, w, 1, True, p)[0] == 0
     assert weighted_selection({"funding_fade": 1, "reversion": 1}, w, 1, True, p)[0] == 0
     assert weighted_selection({"trend": 1}, w, 1, True, replace(p, strong_enabled=False))[0] == 0
+    weak_weights = dict(w, trend=2)
+    mixed = {"trend": 1, "funding_fade": 1}
+    assert weighted_selection(mixed, weak_weights, 1, False, p)[0] == 0
+    assert weighted_selection(mixed, weak_weights, 1, False, replace(p, strict_votes=False))[0] == 1
+    opt = replace(p, allow_single_strong_vote=True)
+    assert weighted_selection({"trend": 1}, weak_weights, 1, False, opt)[0] == 0
+    assert weighted_selection({"trend": 1}, weak_weights, 1, False, opt, clear_single=True)[0] == 1
+    assert weighted_selection({"trend": 1}, weak_weights, 1, False, p, clear_single=True)[0] == 0
+    assert weighted_selection({"trend": 1, "funding_fade": -1}, weak_weights, 1, False, opt, clear_single=True)[0] == 0
+    assert weighted_selection({"funding_fade": 1}, w, 1, False, opt, clear_single=True)[0] == 0
+    assert weighted_selection({"trend": 1}, weak_weights, -1, False, opt, clear_single=True)[0] == 0
 
 
 @pytest.mark.parametrize("sign", [1, -1])

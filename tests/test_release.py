@@ -39,7 +39,7 @@ def test_environment_migration_preserves_secrets_and_old_session(tmp_path):
     values = dotenv_values(path)
     assert values["VORTEX_TELEGRAM_TOKEN"] == "do-not-print"
     assert values["STARTING_EQUITY"] == "150" and values["OPS_ENABLED"] == "true"
-    assert "STRICT_VOTES" not in values and folder != "old-state"
+    assert values["STRICT_VOTES"] == "false" and folder != "old-state"
     assert (old / "position.json").read_text() == "unchanged"
     assert path.stat().st_mode & 0o777 == 0o600
     configure(path, 20)

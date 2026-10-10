@@ -41,6 +41,9 @@ class StrategyPolicy:
     strong_volume: float = 3.0
     strong_body_atr: float = 0.6
     strong_weight: float = 3.0
+    strict_votes: bool = True
+    allow_single_strong_vote: bool = False
+    min_strong_score: int = 7
     funding_extreme: float = 0.0015
     funding_oi_min_pct: float = 0.25
     funding_price_min_pct: float = 0.10
@@ -66,6 +69,10 @@ class StrategyPolicy:
             raise ValueError("Invalid phase1 lookback")
         if not 2 <= self.breakout_lookback <= 100 or not 2 <= self.normal_votes <= 4:
             raise ValueError("Invalid phase1 vote/window bounds")
+        if not 3 <= self.min_strong_score <= 10:
+            raise ValueError("MIN_STRONG_SCORE must be 3..10")
+        if not isinstance(self.strict_votes, bool) or not isinstance(self.allow_single_strong_vote, bool):
+            raise ValueError("Vote flags must be boolean")
         if not 0 <= self.atr_percentile_min <= 100 or not 0 <= self.cvd_min <= 1:
             raise ValueError("Invalid phase1 percentile/CVD threshold")
         if not 0 < self.atr_pct_min < self.atr_pct_max < 1:
@@ -88,12 +95,19 @@ class StrategyPolicy:
             raise ValueError("Primary weights/thresholds must be positive")
 
     @classmethod
-    def from_env(cls):
+    def from_env(cls, defaults=None):
         values = {}
-        defaults = cls()
+        defaults = defaults or cls()
+        aliases = {
+            "strict_votes": "STRICT_VOTES",
+            "allow_single_strong_vote": "ALLOW_SINGLE_STRONG_VOTE",
+            "min_strong_score": "MIN_STRONG_SCORE",
+        }
         for f in fields(cls):
-            raw = os.getenv("PHASE1_" + f.name.upper())
+            name = "PHASE1_" + f.name.upper()
+            raw = os.getenv(aliases.get(f.name, name), os.getenv(name))
             if raw is None:
+                values[f.name] = getattr(defaults, f.name)
                 continue
             default = getattr(defaults, f.name)
             if isinstance(default, bool):

@@ -104,22 +104,31 @@ def reversion_direction(bars, minute, relative_volume):
     return 0
 
 
-def weighted_selection(votes, weights, macro, strong, policy):
+def weighted_selection(votes, weights, macro, strong, policy, *, clear_single=False):
     """Primary strategy required; ties and opposing votes veto single-vote path."""
     totals = {d: sum(weights[k] for k, v in votes.items() if v == d) for d in (1, -1)}
     direction = 1 if totals[1] > totals[-1] else -1 if totals[-1] > totals[1] else 0
     approved = tuple(sorted(k for k, v in votes.items() if v == direction))
     primary = any(k in approved for k in ("trend", "breakout"))
-    normal = len(approved) >= policy.normal_votes and totals.get(direction, 0) >= policy.normal_weight
+    normal_weight = policy.normal_weight if policy.strict_votes else min(policy.normal_weight, 3.0)
+    normal = len(approved) >= policy.normal_votes and totals.get(direction, 0) >= normal_weight
     exceptional = (
         policy.strong_enabled
         and strong
         and not totals.get(-direction, 0)
         and totals.get(direction, 0) >= policy.strong_weight
     )
+    single = (
+        policy.strong_enabled
+        and policy.allow_single_strong_vote
+        and clear_single
+        and len(approved) == 1
+        and not totals.get(-direction, 0)
+        and totals.get(direction, 0) >= min(policy.strong_weight, 2.0)
+    )
     return (
         (direction, approved, totals)
-        if direction == macro and primary and (normal or exceptional)
+        if direction == macro and primary and (normal or exceptional or single)
         else (0, (), totals)
     )
 
@@ -214,7 +223,18 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
         and relvol >= policy.strong_volume
         and (current.close - current.open) * macro_dir / a >= policy.strong_body_atr
     )
-    sign, approved, totals = weighted_selection(votes, weights, macro_dir, strong, policy)
+    # Opt-in alternative: less ADX restriction, but MORE volume/body evidence.
+    # Existing MTF, data freshness, volatility and CVD gates above still apply.
+    clear_single = (
+        policy.strong_enabled
+        and policy.allow_single_strong_vote
+        and adx15 >= max(policy.trend_adx, policy.strong_adx - 5.0)
+        and relvol >= policy.strong_volume + 1.0
+        and (current.close - current.open) * macro_dir / a >= policy.strong_body_atr + 0.2
+    )
+    sign, approved, totals = weighted_selection(
+        votes, weights, macro_dir, strong, policy, clear_single=clear_single
+    )
     log.debug(
         "PHASE1_VOTES %s votes=%s weights=%s totals=%s strong=%s atr_percentile=%.1f cvd=%s",
         symbol,
@@ -232,6 +252,10 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     )
     if score < min_score:
         return reject("score")
+    single_override = clear_single and len(approved) == 1 and not strong
+    if single_override and score < policy.min_strong_score:
+        return reject("single_strong_score")
+    strong = strong or single_override
     features = dict(
         relative_volume=relvol,
         adx_15m=adx15,

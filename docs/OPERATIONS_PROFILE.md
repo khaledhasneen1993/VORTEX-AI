@@ -3,7 +3,7 @@
 Status: current maintained software release; **not economically accepted**.
 This is the default operations policy, not an optional alternate version.
 Automatic Testnet strategy entry is unavailable; no production path exists.
-Old executable strategies were removed. Historical evidence is inert in `archive/`.
+Old executable strategies were removed. Prior historical evidence remains retrievable from Git history, not from the maintained file tree.
 
 ## Entry and exits
 

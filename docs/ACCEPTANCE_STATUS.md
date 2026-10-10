@@ -37,7 +37,6 @@ parity or a full automatic Testnet deployment.
 ## Cleanup policy
 
 Old voting strategy, research-only entry/exit ablations, obsolete replay/search
-scripts and their tests were removed. Historical measurements and exposure registry
-are inert under `archive/`; they cannot be selected by the runtime. Old explanatory
+scripts and their tests were removed. Historical research results are excluded from the maintained file tree and are retained only in prior Git commits. They are not selectable runtime strategies or validated live performance. Old explanatory
 material was replaced by current documentation. Git history remains intact; no
 reset/force-push. Policy changes require a new state directory, not balance reset.

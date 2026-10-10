@@ -82,7 +82,7 @@ protection guarantees. See [manual review](research/MANUAL_REVIEW.md).
 - [Operations](docs/OPERATIONS_PROFILE.md): exits, execution gates, monitoring,
   historical observation requirements and offline stress/version comparisons.
 - [Acceptance status](docs/ACCEPTANCE_STATUS.md): maintained software vs economic validation.
-- [Archived evidence](archive/README.md): inert previous measurements, not executable versions.
+- Retired experiments are excluded from the maintained file tree; their history remains in previous Git commits.
 
 ```sh
 python -m pytest -q

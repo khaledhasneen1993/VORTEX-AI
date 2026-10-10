@@ -133,7 +133,7 @@ def main(argv=None):
         "actual_exchange_orders": 0,
         "actual_exchange_fills": 0,
         "diagnostics_enabled": env.get("VORTEX_DIAGNOSTICS", "false").lower() == "true",
-        "counter_schema_version": 3,
+        "counter_schema_version": 2,
         "github_run_id": os.getenv("GITHUB_RUN_ID"),
         "commit": os.getenv("GITHUB_SHA")
         or subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
@@ -223,7 +223,7 @@ def main(argv=None):
         )
         report.update(summarize_log(folder / "session.log"))
         report["status"] = (
-            "completed_duration_with_observed_cycles"
+            "completed_duration"
             if timed_out and report["successful_poll_cycles"] > 0
             else "failed_no_successful_cycles"
             if timed_out
@@ -251,7 +251,7 @@ def main(argv=None):
         }
         (folder / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps(report, indent=2), flush=True)
-    return 0 if report["status"] == "completed_duration_with_observed_cycles" else 1
+    return 0 if report["status"] == "completed_duration" else 1
 
 
 if __name__ == "__main__":

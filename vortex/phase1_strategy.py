@@ -123,7 +123,7 @@ def weighted_selection(votes, weights, macro, strong, policy, *, clear_single=Fa
         and policy.allow_single_strong_vote
         and clear_single
         and len(approved) == 1
-        and not totals.get(-direction, 0)
+        and not any(v == -direction for v in votes.values())
         and totals.get(direction, 0) >= min(policy.strong_weight, 2.0)
     )
     return (
@@ -252,7 +252,11 @@ def phase1_vote(symbol, small, higher, *, macro, deriv, decision_ms, minute, min
     )
     if score < min_score:
         return reject("score")
-    single_override = clear_single and len(approved) == 1 and not strong
+    single_override = (
+        clear_single
+        and len(approved) == 1
+        and not (strong and totals[sign] >= policy.strong_weight)
+    )
     if single_override and score < policy.min_strong_score:
         return reject("single_strong_score")
     strong = strong or single_override

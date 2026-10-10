@@ -119,7 +119,12 @@ def test_weighted_normal_strong_primary_and_tie():
     assert weighted_selection({"trend": 1}, weak_weights, 1, False, opt)[0] == 0
     assert weighted_selection({"trend": 1}, weak_weights, 1, False, opt, clear_single=True)[0] == 1
     assert weighted_selection({"trend": 1}, weak_weights, 1, False, p, clear_single=True)[0] == 0
-    assert weighted_selection({"trend": 1, "funding_fade": -1}, weak_weights, 1, False, opt, clear_single=True)[0] == 0
+    assert (
+        weighted_selection({"trend": 1, "funding_fade": -1}, weak_weights, 1, False, opt, clear_single=True)[
+            0
+        ]
+        == 0
+    )
     assert weighted_selection({"funding_fade": 1}, w, 1, False, opt, clear_single=True)[0] == 0
     assert weighted_selection({"trend": 1}, weak_weights, -1, False, opt, clear_single=True)[0] == 0
 
@@ -212,6 +217,21 @@ def test_filters_toggle_and_thresholds(monkeypatch):
             timeframe="15m",
             operations=OperationsPolicy(funding_guard=False, liquidity_guard=False, terminal_target=True),
         )
+    # Actual pipeline: only trend votes; the new volume/body path needs opt-in.
+    monkeypatch.setattr(mod, "adx", lambda bars: 25)
+    monkeypatch.setattr(mod, "atr", lambda bars: 0.2)
+    single = replace(base, breakout_adx=100, min_strong_score=6)
+    assert run(single) is None
+    opt = replace(single, allow_single_strong_vote=True)
+    sig = run(opt)
+    assert sig and sig.score == 6 and sig.votes == ("trend",)
+    assert sig.features["strong_signal"] == 1
+    assert run(replace(opt, min_strong_score=7)) is None
+    assert run(opt, small[:-1] + [replace(small[-1], volume=390)]) is None
+    assert run(opt, small[:-1] + [replace(small[-1], open=small[-1].close - 0.15)]) is None
+    assert run(opt, missing) is None
+    monkeypatch.setattr(mod, "adx", lambda bars: 24)
+    assert run(opt) is None
 
 
 def test_range_reversion_gate(monkeypatch):

@@ -5,6 +5,9 @@ on:
     branches: [research/phase0-baseline]
     paths:
       - '.github/workflows/phase0-fast-proxy.yml'
+      - 'vortex/backtest.py'
+      - 'tests/test_backtest_cooldown_regression.py'
+      - 'research/phase0_price_proxy.py'
   workflow_dispatch:
 
 permissions:
@@ -38,7 +41,7 @@ jobs:
       - name: Install project and run synthetic no-acceptance tests
         run: |
           python -m pip install -e '.[dev]'
-          python -m pytest -q tests/test_phase0_price_proxy.py
+          python -m pytest -q tests/test_phase0_price_proxy.py tests/test_backtest_cooldown_regression.py
           python -m ruff check --select E9,F63,F7,F82 research/phase0_price_proxy.py tests/test_phase0_price_proxy.py
       - name: Genuine current filters (historical validity is UNKNOWN)
         shell: bash

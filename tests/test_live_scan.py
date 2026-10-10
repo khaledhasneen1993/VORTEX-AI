@@ -103,7 +103,7 @@ def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypat
             return {"BTCUSDT": {}}
 
         def server_ms(self):
-            return 300010
+            return 305010
 
         def quotes(self, **kwargs):
             return {"BTCUSDT": (100, 100.01)}
@@ -120,7 +120,7 @@ def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypat
 
         def results(self, symbols, now, on_wait):
             on_wait()
-            yield "BTCUSDT", Prepared([bar], [bar], [bar], [bar], None, None, None, 300010)
+            yield "BTCUSDT", Prepared([bar], [bar], [bar], [bar], None, None, None, 305010)
 
         def close(self):
             state["closed"] = True

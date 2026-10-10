@@ -343,6 +343,15 @@ def main(argv: list[str] | None = None) -> int:
                             or broker.gate.blocked
                         ):
                             continue
+                        if cfg.experiment.enabled:
+                            if sym not in quotes or now - p.opened_ts < 60000:
+                                continue
+                            raw = quotes[sym][0 if p.side == "LONG" else 1]
+                            sign = 1 if p.side == "LONG" else -1
+                            if (
+                                raw - p.anchor_entry
+                            ) * sign > -cfg.experiment.average_trigger * p.anchor_entry:
+                                continue
                         if sym in quotes:
                             bid, ask = quotes[sym]
                             depth = None
@@ -560,6 +569,12 @@ def main(argv: list[str] | None = None) -> int:
                                 # Refresh the execution guard after queue wait. Never
                                 # re-stamp cached observations or bypass freshness.
                                 derivative_tracker.timing(market, symbol)
+                                now = market.server_ms()
+                                quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+                                if symbol not in quotes or now - data[-1].close_ts > 90000:
+                                    log.info("ENTRY_SKIP %s reason=stale_after_funding_refresh", symbol)
+                                    continue
+                                bid, ask = quotes[symbol]
                             if cfg.operations.enabled and cfg.operations.liquidity_guard:
                                 depth = market.get("/fapi/v1/depth", {"symbol": symbol, "limit": 100})
                                 now = market.server_ms()

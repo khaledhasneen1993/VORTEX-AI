@@ -201,13 +201,14 @@ def pyramid_plan(
     Existing target/stop remain fixed. Combined trade must still be profitable
     at the unchanged stop INCLUDING allocated fees, realized stages and slippage.
     """
+    from .r_units import anchor_entry, price_r
     from .models import Signal
     from .risk import floor_step, size_trade
 
     pol = cfg.phase2
     if not pol.enabled or not pol.pyramiding or p.trade_risk_cap <= 0:
         return None
-    anchor = p.anchor_entry or p.entry
+    anchor = anchor_entry(p)
     sign = 1 if p.side == "LONG" else -1
     trigger = pol.pyramid_trigger_r + p.pyramid_count * pol.pyramid_spacing_r
     observed = price if observed_price is None else observed_price
@@ -236,8 +237,8 @@ def pyramid_plan(
         p.pyramid_count >= pol.pyramid_max_adds
         or not p.tp2_done
         or decision_ms - max(p.opened_ts, p.last_pyramid_ms) < pol.pyramid_min_interval_ms
-        or (observed - anchor) * sign < trigger * p.initial_risk
-        or (price - anchor) * sign < trigger * p.initial_risk
+        or (observed - anchor) * sign < trigger * price_r(p)
+        or (price - anchor) * sign < trigger * price_r(p)
         or (price - p.target) * sign >= 0
         or (price - p.stop) * sign <= 0
         or (price - p.entry) * sign <= 0

@@ -7,6 +7,7 @@ import os
 from dataclasses import asdict
 
 from .config import Settings
+from .r_units import net_r, signal_r
 from .models import Position, Signal
 from .operations import Protection, depth_capacity, funding_gate, slippage_bps
 from .phase2 import (
@@ -273,7 +274,7 @@ class PaperBroker:
         )
         slip = modeled_slip / 10000
         entry = ask * (1 + slip) if signal.side == "LONG" else bid * (1 - slip)
-        stop_gap = abs(signal.entry - signal.stop)
+        stop_gap = signal_r(signal)
         target_gap = abs(signal.target - signal.entry)
         if stop_gap <= 0 or abs(entry - signal.entry) > stop_gap * 0.35:
             return False, "price ran too far from signal"
@@ -429,9 +430,7 @@ class PaperBroker:
                 "approved_votes": list(p.votes),
                 "initial_stop": p.initial_stop or p.entry - (1 if p.side == "LONG" else -1) * p.initial_risk,
                 "initial_target": p.initial_target or p.target,
-                "r_multiple": round(all_net / ((p.initial_qty or qty) * p.initial_risk), 6)
-                if p.initial_risk > 0
-                else None,
+                "r_multiple": net_r(p, all_net),
                 "source": "paper",
                 "pyramid_count": p.pyramid_count,
                 "total_entry_qty": p.total_entry_qty or p.initial_qty,

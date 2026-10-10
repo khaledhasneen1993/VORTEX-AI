@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from math import isclose, isfinite
 
 from .models import Position
+from .r_units import anchor_entry, price_r
 from .operations import OperationsPolicy
 from .risk import floor_step, trailing_stop
 
@@ -23,11 +24,11 @@ class ExitStep:
 
 
 def _risk(p: Position) -> float:
-    return p.initial_risk or abs(p.entry - p.stop)
+    return price_r(p)
 
 
 def _entry(p: Position) -> float:
-    return p.anchor_entry or p.entry
+    return anchor_entry(p)
 
 
 def _sign(p: Position) -> int:

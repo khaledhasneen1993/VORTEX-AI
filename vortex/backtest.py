@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from .config import Settings
 from .exits import levels_for_bar
 from .indicators import atr
+from .r_units import net_r, signal_r
 from .models import Candle, Position
 from .operations import Protection, historical_context, require_history, slippage_bps
 from .phase2 import ProfitReserve, apply_pyramid, initialize_position, pyramid_plan, stop_exposure
@@ -140,9 +141,7 @@ def run(
                             "pyramid_count": p.pyramid_count,
                             "risk_fraction": p.risk_fraction,
                             "net_pnl": round(final_net, 6),
-                            "r_multiple": round(final_net / (p.initial_qty * p.initial_risk), 6)
-                            if p.initial_qty * p.initial_risk > 0
-                            else None,
+                            "r_multiple": net_r(p, final_net),
                             "votes": list(p.votes),
                             "reason": action.reason,
                             "wallet": round(wallet, 6),
@@ -222,7 +221,7 @@ def run(
         modeled_slip = slippage_bps(cfg.slippage_bps, signal.atr_value / signal.entry, spread, cfg.operations)
         slip = modeled_slip / 10000
         entry = future.open * (1 + slip if signal.side == "LONG" else 1 - slip)
-        gap, target_gap = (abs(signal.entry - signal.stop), abs(signal.target - signal.entry))
+        gap, target_gap = (signal_r(signal), abs(signal.target - signal.entry))
         if gap <= 0 or abs(entry - signal.entry) > gap * 0.35:
             continue
         sign = 1 if signal.side == "LONG" else -1

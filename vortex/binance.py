@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from math import isfinite
 
 import requests
 
@@ -19,10 +20,11 @@ class MarketError(RuntimeError):
 
 
 class Market:
-    def __init__(self, base: str = BASE, session: requests.Session | None = None):
+    def __init__(self, base: str = BASE, session: requests.Session | None = None, *, resilient: bool = False):
         if base not in {BASE, TESTNET}:
             raise ValueError("Exchange endpoint must be allowlisted")
         self.base = base
+        self.resilient = resilient
         self.http = session or requests.Session()
         self.http.headers.update({"User-Agent": f"VortexAI-paper/{__version__}"})
         self._exchange: dict | None = None
@@ -42,7 +44,9 @@ class Market:
             raise MarketError("Public endpoints only")
         for n in range(3):
             try:
-                response = self.http.get(self.base + path, params=params, timeout=12)
+                response = self.http.get(
+                    self.base + path, params=params, timeout=(3, 6) if self.resilient else 12
+                )
                 if response.status_code in {418, 429}:
                     wait = min(30, int(response.headers.get("Retry-After", "2")))
                     time.sleep(max(1, wait))
@@ -104,13 +108,15 @@ class Market:
         raw = self.get("/fapi/v1/ticker/bookTicker")
         if isinstance(raw, dict):
             raw = [raw]
+        if self.resilient:
+            now = self.server_ms()  # Validate after the quote request, not the old cycle clock.
         out: dict[str, tuple[float, float]] = {}
         for row in raw:
             try:
                 bid, ask = float(row["bidPrice"]), float(row["askPrice"])
                 event_ms = int(row["time"])
                 lag = now - event_ms
-                if 0 < bid <= ask and -1000 <= lag <= max_age_ms:
+                if isfinite(bid) and isfinite(ask) and 0 < bid <= ask and -1000 <= lag <= max_age_ms:
                     out[row["symbol"]] = (bid, ask)
             except (KeyError, ValueError, TypeError):
                 continue

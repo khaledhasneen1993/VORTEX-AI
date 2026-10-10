@@ -354,3 +354,21 @@ def test_paired_price_tracker():
     assert d.price_change_pct == pytest.approx(1)
     assert d.interval_ms == 300000
     assert funding_direction(d, m.now, StrategyPolicy()) == 1
+
+
+def test_paper_capture_requires_observed_primary_and_keeps_freshness(monkeypatch):
+    from vortex import phase1_strategy as module
+
+    small, higher, macro, end = setup()
+    policy = StrategyPolicy(strong_enabled=False, normal_votes=4, normal_weight=20)
+    monkeypatch.setattr(module, "atr_percentile", lambda *args: 30)
+    args = dict(macro=macro, decision_ms=end, minute=None, policy=policy)
+    assert analyze("BTCUSDT", small, higher, **args) is None
+    signal = analyze("BTCUSDT", small, higher, capture=True, **args)
+    assert signal and signal.side == "LONG" and "CAPTURE_RELAXED" in signal.reason
+    mixed = history(260, 3600000, end, -1)
+    assert analyze("BTCUSDT", small, higher, capture=True, **dict(args, macro=mixed))
+    assert analyze("BTCUSDT", small, higher, capture=True, **dict(args, decision_ms=end + 90001)) is None
+    monkeypatch.setattr(module, "adx", lambda *args: 0)
+    flat_volume = [replace(b, volume=100) for b in small]
+    assert analyze("BTCUSDT", flat_volume, higher, capture=True, **args) is None

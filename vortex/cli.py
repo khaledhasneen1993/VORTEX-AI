@@ -327,13 +327,31 @@ def main(argv: list[str] | None = None) -> int:
                     for sym in list(broker.positions):
                         p = broker.positions[sym]
                         if (
-                            not cfg.phase2.pyramiding
-                            or not p.tp2_done
-                            or p.pyramid_count >= cfg.phase2.pyramid_max_adds
+                            (
+                                not cfg.experiment.enabled
+                                and (
+                                    not cfg.phase2.pyramiding
+                                    or not p.tp2_done
+                                    or p.pyramid_count >= cfg.phase2.pyramid_max_adds
+                                )
+                            )
+                            or (
+                                cfg.experiment.enabled
+                                and (not cfg.experiment.average_enabled or p.average_count)
+                            )
                             or (not broker.protection.allow(now)[0])
                             or broker.gate.blocked
                         ):
                             continue
+                        if cfg.experiment.enabled:
+                            if sym not in quotes or now - p.opened_ts < 60000:
+                                continue
+                            raw = quotes[sym][0 if p.side == "LONG" else 1]
+                            sign = 1 if p.side == "LONG" else -1
+                            if (
+                                raw - p.anchor_entry
+                            ) * sign > -cfg.experiment.average_trigger * p.anchor_entry:
+                                continue
                         if sym in quotes:
                             bid, ask = quotes[sym]
                             depth = None
@@ -491,6 +509,7 @@ def main(argv: list[str] | None = None) -> int:
                                 minute=minute,
                                 policy=cfg.phase1,
                                 flow=flow,
+                                capture=cfg.experiment.enabled and cfg.experiment.capture_enabled,
                             )
                             if signal is None:
                                 log.info("ENTRY_SKIP %s reason=strategy_filters_not_satisfied", symbol)
@@ -546,6 +565,16 @@ def main(argv: list[str] | None = None) -> int:
                                     continue
                             bid, ask = quotes[symbol]
                             depth = None
+                            if cfg.experiment.enabled and cfg.operations.funding_guard:
+                                # Refresh the execution guard after queue wait. Never
+                                # re-stamp cached observations or bypass freshness.
+                                derivative_tracker.timing(market, symbol)
+                                now = market.server_ms()
+                                quotes = stream.snapshot() if stream else market.quotes(now_ms=now)
+                                if symbol not in quotes or now - data[-1].close_ts > 90000:
+                                    log.info("ENTRY_SKIP %s reason=stale_after_funding_refresh", symbol)
+                                    continue
+                                bid, ask = quotes[symbol]
                             if cfg.operations.enabled and cfg.operations.liquidity_guard:
                                 depth = market.get("/fapi/v1/depth", {"symbol": symbol, "limit": 100})
                                 now = market.server_ms()

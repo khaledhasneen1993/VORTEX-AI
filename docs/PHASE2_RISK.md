@@ -44,6 +44,12 @@ can resume with missing opt-in fields interpreted as disabled.
 
 ## Shared original R
 
+The [optional PAPER capture experiment](PAPER_CAPTURE_EXPERIMENT.md) is an explicit
+exception to default profitable-only adds: one capped adverse add, fixed original
+price stop, full net-margin target and initial-bankroll liquidation floor. Its
+master is off by default. It permits five positions without raising leverage or
+aggregate margin limits; no historical replay model is provided for this mode.
+
 `vortex/r_units.py` is the common definition for initial stop distance, immutable
 exit anchor and cumulative net R reporting in PAPER and both replay engines.
 Fees affect net PnL, not R; pyramids keep the original exposure denominator.

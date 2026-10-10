@@ -13,10 +13,12 @@ from .operations import OperationsPolicy
 from .phase1_config import StrategyPolicy
 from .phase2 import RiskPolicy
 from .runtime_config import RuntimePolicy
+from .paper_experiment import PaperExperiment
 
 
 @dataclass(frozen=True)
 class Settings:
+    experiment: PaperExperiment = field(default_factory=PaperExperiment)
     runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
     operations: OperationsPolicy = field(default_factory=OperationsPolicy)
     phase1: StrategyPolicy = field(default_factory=StrategyPolicy)
@@ -53,6 +55,8 @@ class Settings:
         # Production execution is not included in this release.
         if self.mode not in {"paper", "backtest"}:
             raise ValueError("RUN_MODE must be paper or backtest; live orders are disabled")
+        if self.experiment.enabled and self.mode != "paper":
+            raise ValueError("PAPER_EXP_ENABLED supports PAPER live only; no historical execution model")
         if not self.symbols or len(set(self.symbols)) != len(self.symbols):
             raise ValueError("Symbols must be unique and nonempty")
         if any(not x.isalnum() or not x.endswith("USDT") for x in self.symbols):
@@ -73,7 +77,7 @@ class Settings:
         ):
             raise ValueError("Daily loss cap invalid")
         if (
-            not 1 <= self.max_positions <= (4 if self.phase2.enabled else 3)
+            not 1 <= self.max_positions <= (5 if self.experiment.enabled else 4 if self.phase2.enabled else 3)
             or not 1 <= self.max_leverage <= 10
         ):
             raise ValueError("Position/leverage limit invalid")
@@ -127,6 +131,7 @@ class Settings:
                 "Only the current strategy/risk/operations release is supported; remove disabled PHASE1_ENABLED/PHASE2_ENABLED/OPS_ENABLED settings"
             )
         return cls(
+            experiment=PaperExperiment.from_env(),
             runtime=RuntimePolicy.from_env(),
             operations=operations,
             phase1=phase1,

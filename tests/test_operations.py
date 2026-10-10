@@ -523,3 +523,24 @@ def test_experiment_small_account_never_rounds_add_up_to_exchange_minimum(tmp_pa
     hist = {"BTCUSDT": [Candle(NOW - 300000, 100, 101, 99, 100, 100, NOW - 1, 50)]}
     assert broker.pyramid("BTCUSDT", 94, 94, F, {"BTCUSDT": (94, 94)}, NOW + 60000, hist) is None
     assert asdict(broker.positions["BTCUSDT"]) == before
+
+
+def test_experiment_floor_flatten_recovers_uncertain_journal_once(tmp_path, monkeypatch):
+    cfg = experiment_config(tmp_path)
+    broker = PaperBroker(cfg)
+    p = position()
+    p.qty, p.entry_fee, p.margin = 0.01, 0.0005, 0.2
+    broker.positions["BTCUSDT"], broker.wallet = p, 15.0005
+
+    def fail(event):
+        raise OSError("synthetic interrupted journal append")
+
+    monkeypatch.setattr(broker, "_write_journal", fail)
+    with pytest.raises(OSError):
+        broker.mark({"BTCUSDT": (100, 100)}, NOW + 1)
+    resumed = PaperBroker(cfg)
+    assert resumed.account_floor_halted and not resumed.positions
+    assert resumed.pending_journal is None
+    assert len(resumed.trades_file.read_text().splitlines()) == 1
+    again = PaperBroker(cfg)
+    assert len(again.trades_file.read_text().splitlines()) == 1

@@ -73,3 +73,20 @@ def test_sample_records_missing_not_fabricated(tmp_path):
     writer.finish()
     assert verify(tmp_path / "recorder")["errors"] == []
     assert not replace(cfg.runtime, recorder_enabled=False).recorder_enabled
+
+
+def test_three_hour_virtual_rotation_and_resume(tmp_path):
+    # Deterministic durability test, not a claimed three-hour market run.
+    clock = [1000.0]
+    policy = RuntimePolicy(recorder_enabled=True, recorder_rotate_seconds=3600)
+    writer = SegmentWriter(tmp_path, policy, clock=lambda: clock[0])
+    for minute in range(181):
+        clock[0] = 1000.0 + minute * 60
+        writer.append({"kind": "market", "gaps": ["SYNTHETIC_TEST_ONLY"]})
+    seq = writer.seq
+    writer.finish()
+    assert verify(tmp_path)["errors"] == []
+    assert verify(tmp_path)["sealed"] == 4
+    writer = SegmentWriter(tmp_path, policy, clock=lambda: clock[0])
+    assert writer.seq == seq + 2
+    writer.finish()

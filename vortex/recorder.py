@@ -205,7 +205,12 @@ class DataRecorder:
         self.decisions = queue.Queue(maxsize=self.policy.recorder_queue_size)
         self.thread = None
         self.owns_writer = False
-        self.state = {"status": "DISABLED", "dropped_decisions": 0, "last_sample_ms": None}
+        self.state = {
+            "status": "DISABLED",
+            "dropped_decisions": 0,
+            "last_sample_ms": None,
+            "expected_interval_seconds": self.policy.recorder_interval_seconds,
+        }
 
     def update_symbols(self, symbols):
         # Radar<=30 plus up to four existing positions; never an unbounded cache.
@@ -240,7 +245,7 @@ class DataRecorder:
             pass
 
     def start(self):
-        if not self.policy.recorder_enabled:
+        if not self.policy.recorder_enabled or (self.thread and self.thread.is_alive()):
             return
         self.thread = threading.Thread(target=self._run, name="vortex-recorder", daemon=True)
         self.thread.start()
@@ -293,9 +298,16 @@ class DataRecorder:
                 flow = summarize_trades(
                     symbol, raw, end, replace(self.cfg.phase1, flow_window_ms=15000, flow_limit=1000)
                 )
-                row["data"]["flow"] = {**asdict(flow), "checked_ms": market.server_ms()}
+                checked = market.server_ms()
+                fresh = (
+                    0 <= checked - flow.end_ms <= self.cfg.phase1.flow_max_age_ms
+                    and 0 <= checked - flow.latest_ms <= self.cfg.phase1.flow_max_age_ms
+                )
+                row["data"]["flow"] = {**asdict(flow), "checked_ms": checked, "fresh": fresh}
                 if flow.reason != "FLOW_VALID":
                     row["gaps"].append(flow.reason)
+                elif not fresh:
+                    row["gaps"].append("FLOW_STALE_OR_FUTURE")
             except Exception:
                 row["gaps"].append("FLOW_UNAVAILABLE")
         else:

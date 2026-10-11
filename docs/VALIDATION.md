@@ -27,3 +27,16 @@ Next steps:
 2. Reconcile entries, closed PnL, open exposure and current equity from journals.
 3. Build validation using recorded data with realistic costs and missing-data
    handling before considering any strategy change.
+
+## Basket validation boundary
+
+The new group behavior is opt-in and has synthetic regression checks for ranked
+five-entry atomicity, margin units, net-after-cost targets, closing losing legs,
+deadlines, price stops, account floors, missing quotes, one half-margin add pair,
+rollback on second-add failure, journal replay and uncertain-write shutdown.
+Legacy regressions remain. These checks prove behavior under their fixtures,
+not live profitability, four groups per hour, or successful small-wallet adds.
+
+Next basket checks: run a three-hour PAPER session with `--basket`; reconcile
+`baskets.jsonl` net outcomes with all member/add journals; review quote gaps,
+late deadline exits and add refusals before considering further loosening.

@@ -4,6 +4,7 @@ from dataclasses import fields
 
 APPROVED_SOURCE = "d54ee349d470c97862059058ecefa8285c1a0083"
 APPROVED_ENV = {
+    "BASKET_ENABLED": "false",
     "RUN_MODE": "paper",
     "TIMEFRAME": "5m",
     "TRAILING_ATR_MULT": "1.0",
@@ -82,7 +83,9 @@ def canonical_environment(values, setting_fields):
     values = dict(values)
     setting_keys = {field.name.upper() for field in setting_fields}
     for key in list(values):
-        if key in setting_keys or key.startswith(("PHASE1_", "PHASE2_", "OPS_", "PAPER_EXP_", "RECORDER_")):
+        if key in setting_keys or key.startswith(
+            ("PHASE1_", "PHASE2_", "OPS_", "PAPER_EXP_", "RECORDER_", "BASKET_")
+        ):
             values.pop(key)
     values.pop("VORTEX_CLAUDE_MODEL", None)
     values.update(APPROVED_ENV)

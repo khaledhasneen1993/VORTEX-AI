@@ -80,10 +80,12 @@ class CandidateScanner:
         checked = market.server_ms()
         return Prepared(*bars, derivatives, flow, tracker.funding_timing.get(symbol), checked)
 
-    def results(self, symbols, now_ms, on_wait=lambda: None):
+    def results(self, symbols, now_ms, on_wait=lambda: None, *, reserve_seconds=0):
         width = 300000 if self.cfg.timeframe == "5m" else 900000
         close_ms = now_ms // width * width - 1
-        remaining = (min(90000, self.cfg.phase1.max_signal_age_ms) - (now_ms - close_ms)) / 1000
+        remaining = (
+            min(90000, self.cfg.phase1.max_signal_age_ms) - (now_ms - close_ms)
+        ) / 1000 - reserve_seconds
         deadline = self.clock() + max(0, remaining)
         active = set(symbols)
         self.trackers = {s: t for s, t in self.trackers.items() if s in active or s in self.inflight}

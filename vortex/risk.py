@@ -50,6 +50,7 @@ def size_trade(
     *,
     committed_risk: float = 0,
     risk_fraction_override: float | None = None,
+    margin_capital: float | None = None,
 ) -> tuple[float, float] | None:
     stop_gap = signal_r(signal)
     if equity <= 0 or stop_gap <= 0 or not math.isfinite(stop_gap):
@@ -77,7 +78,13 @@ def size_trade(
     max_by_risk = budget / (stop_gap + cost_per_unit)
     # Config accepts 1..10 but this bot's trading policy never exceeds 5x.
     leverage = min(cfg.max_leverage, 5)
-    max_by_margin = max(0.0, equity * cfg.max_margin_fraction - committed_margin)
+    margin_basis = equity
+    if margin_capital is not None:
+        if not cfg.basket.enabled or not math.isfinite(margin_capital) or margin_capital <= 0:
+            return None
+        margin_basis = margin_capital
+    # Basket allocation uses its frozen starting equity; available cash still caps it.
+    max_by_margin = max(0.0, min(equity, margin_basis * cfg.max_margin_fraction) - committed_margin)
     if cfg.phase2.enabled:
         max_by_margin = min(max_by_margin, equity * cfg.phase2.entry_margin_fraction)
     if max_new_margin is not None:

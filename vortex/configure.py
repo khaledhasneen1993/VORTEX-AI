@@ -15,7 +15,7 @@ from dotenv import dotenv_values
 from .approved import canonical_environment
 
 
-def configure(path: Path, equity: float | None = None):
+def configure(path: Path, equity: float | None = None, basket: bool = False):
     if equity is not None and (not isfinite(equity) or equity <= 0):
         raise ValueError("Virtual equity must be positive and finite")
     from .config import Settings
@@ -24,6 +24,8 @@ def configure(path: Path, equity: float | None = None):
     values["DATA_DIR"] = "data/vortex-approved-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
     if equity is not None:
         values["STARTING_EQUITY"] = str(equity)
+    if basket:
+        values.update(BASKET_ENABLED="true", MAX_MARGIN_FRACTION="0.60")
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=".vortex-env-", dir=path.parent)
     try:
@@ -48,8 +50,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env", type=Path, default=Path(".env"))
     parser.add_argument("--equity", type=float)
+    parser.add_argument("--basket", action="store_true", help="Enable opt-in five-position PAPER baskets")
     args = parser.parse_args()
-    folder = configure(args.env, args.equity)
+    folder = configure(args.env, args.equity, args.basket)
     print("Current PAPER configuration saved; no engine started. New DATA_DIR:", folder)
 
 

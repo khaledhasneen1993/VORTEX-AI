@@ -160,6 +160,7 @@ class Market:
                         "QUOTE_MISSING %s reason=depth_unavailable", symbol
                     )
             # Earlier quotes are revalidated against the last post-request clock.
+        self.quotes_checked_ms = now  # Timestamp of this completed validation, not a cached-book restamp.
         return {s: (bid, ask) for s, (bid, ask, ts) in observed.items()
                 if -1000 <= now - ts <= max_age_ms}
 

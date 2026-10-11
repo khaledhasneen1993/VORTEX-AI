@@ -258,6 +258,10 @@ class DecisionJournal(logging.Handler):
                 "FILTER",
                 "rejected",
                 "failed closed",
+                "BASKET_CANDIDATE",
+                "BASKET_ENTRY",
+                "BASKET_ADD",
+                "BASKET_CLOSE",
             )
         ):
             row = {

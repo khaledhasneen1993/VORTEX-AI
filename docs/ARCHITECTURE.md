@@ -33,3 +33,18 @@ Decision hooks join trading observations to recorder evidence.
 This is sampled REST data, not a full tick tape or an exchange matching-engine
 model. Recorder gaps, stale derivatives, truncated flow, time endpoint failures,
 order-filter rejections and missing quotes remain visible operational limits.
+
+## Optional group execution
+
+`basket_config.py` contains the fixed, opt-in contract; `basket_live.py` collects
+and ranks existing signals using the existing scanner. `basket.py` stages five
+virtual entries or a pair of adds on a shadow broker. One atomic state snapshot
+commits all legs and a pending journal batch; restart replays event IDs without
+repeating fills. No new third-party package or exchange-order path is added.
+
+Groups persist ACTIVE → CLOSING → CLOSED. The exit reason is latched before any
+leg closes; only quoted members can exit, and unquoted members keep the group
+CLOSING across restarts. New entries and legacy pyramiding are blocked during a
+group. A durable add-decision latch limits it to one attempt even across a crash.
+Policy changes on saved groups are refused. Background recorder and flock are
+unchanged; group outcomes appear in a separate append-only `baskets.jsonl`.

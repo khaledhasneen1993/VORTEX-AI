@@ -1,9 +1,10 @@
 # VORTEX-AI — adopted PAPER system
 
 The default deployment is the user-adopted configuration tested at source
-`d54ee349d470c97862059058ecefa8285c1a0083`. This release consolidates that
-configuration and its commands; entry, sizing, averaging and exit algorithms are
-unchanged. Adoption is a configuration decision, not evidence of profitability.
+`d54ee349d470c97862059058ecefa8285c1a0083`. The default keeps that
+configuration. An opt-in five-position basket layer ranks the same strategy
+signals and changes group allocation, averaging and exits. Adoption and tests
+are configuration decisions, not evidence of profitability.
 
 Binance USDT-M **public market data, virtual PAPER balances only**. The supported
 CLI cannot place exchange orders and needs no exchange API keys.
@@ -26,6 +27,36 @@ A qualifying signal is not necessarily a fill. Minimum order size, liquidity,
 funding, correlation, freshness, margin and risk caps can reject it. With 20 USDT,
 all five position slots or an averaging add may be unavailable.
 
+## Optional five-position baskets
+
+Enable with `python -m vortex.configure --equity 20 --basket` for continuous
+operation, or `bash run_paper.sh 10800 --basket` for a fresh three-hour test.
+`BASKET_ENABLED=false` is the default. A bounded launch requires its own
+`--basket` argument; configuring `.env` alone does not select the bounded profile.
+
+| Basket rule | Behavior |
+| --- | --- |
+| Selection | Rank the current scan; open exactly five eligible signals together |
+| Initial allocation | Each uses 10% of basket-start account equity as margin, rounded down by lot size; 5x |
+| Collective target | Close every member at 3% net PnL / total posted basket margin, including add margin |
+| Five-minute decision | If net loss, choose the strongest two freshly aligned members; one add each at half their initial margin |
+| Deadline | Request closing all members after 15 minutes, even at a loss |
+| Emergency protection | Original 10% price stop on any member requests whole-group closing; account floor remains 25% |
+
+At 20 USDT, initial margins are about 2 USDT each (10 total), so the initial
+collective target is about 0.30 USDT. Two successful adds of about 1 USDT each
+raise the denominator to 12 and the target to 0.36. Leverage is counted once.
+This profile explicitly replaces the legacy 25% total-margin ceiling with a
+60% ceiling of **basket-start equity**, additionally capped by available capital.
+Per-signal risk, portfolio stop risk, profit reserve and execution guards remain.
+Small-wallet minimum notional and risk limits can prevent additions or an entire
+group. No partial five-position group is opened and no missing slot is refilled.
+
+A deadline is a close request on the first available poll, not a guaranteed
+execution timestamp. Missing quotes leave a persisted pending close until fresh
+prices return. Four groups per hour is not guaranteed. See
+[basket details](docs/BASKETS.md) for state, costs, ranking and limits.
+
 ## Termux / Linux
 
 Stop the old PAPER process with Ctrl+C before updating. Existing sessions and
@@ -42,7 +73,7 @@ python -m vortex.configure --equity 20
 bash run_paper.sh 10800
 ```
 
-The bounded launcher applies the adopted defaults explicitly, creates a unique
+The bounded launcher applies the adopted defaults (or the explicit basket option), creates a unique
 `runs/vortex-approved-*` directory, saves its path in
 `runs/latest-paper-path.txt`, and records logs, effective configuration, Git
 version, saved wallet, decisions, health and recorder manifests. It does not
@@ -83,7 +114,7 @@ alternative deployed strategies. Git history remains available.
 
 [Strategy](docs/STRATEGY.md), [risk](docs/RISK.md),
 [operations](docs/OPERATIONS.md), [architecture](docs/ARCHITECTURE.md), and
-[validation limits](docs/VALIDATION.md) describe this system.
+[validation limits](docs/VALIDATION.md), and [basket profile](docs/BASKETS.md) describe this system.
 
 ```bash
 python -m pip install -e '.[dev]'

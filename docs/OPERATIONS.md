@@ -46,3 +46,38 @@ Set workflow `KEEP_LATEST_SUCCESSFUL_BUILD` to `false` to retain history. The
 Actions-write token is confined to the main-push cleanup job; PR test jobs keep
 read-only permissions. Cleanup errors are visible but do not change passing
 project-test results.
+
+## Basket testing
+
+Stop the running process before an update. For the new opt-in group profile:
+
+```bash
+cd ~/VORTEX-20M
+source .venv/bin/activate
+git fetch origin main
+git switch main
+git pull --ff-only origin main
+python -m pip install -e .
+python -m vortex.configure --equity 20 --basket
+bash run_paper.sh 10800 --basket
+```
+
+Use `21600 --basket` for six hours. `run_paper.sh` deliberately uses its explicit
+option rather than inheriting a stale `.env`. To restore legacy deployment, run
+`python -m vortex.configure --equity 20` and omit `--basket` on bounded launches.
+Both operations create new virtual sessions; old wallets are preserved.
+
+For basket-session status, pass both policy settings:
+
+```bash
+RUN_DIR="$(cat runs/latest-paper-path.txt)"
+BASKET_ENABLED=true MAX_MARGIN_FRACTION=0.60 DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
+```
+
+Read `baskets.jsonl` alongside the per-position journals. Telemetry/dashboard
+include group phase, total margins, estimated net, target, deadline and one-add
+decision. `basket_needs_five_eligible` means no group was opened.
+`basket_add_skipped` explains the one rejected add decision. `CLOSING` with a
+held member means a fresh exit quote is still needed; no new group can open.
+An uncertain persistence failure stops the basket engine rather than continuing
+from possibly uncommitted memory. Resume only the same saved policy and path.

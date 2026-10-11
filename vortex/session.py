@@ -45,6 +45,7 @@ def session_args(argv=None):
     )
     parser.add_argument("--output", type=Path, default=Path("runs/vortex-approved"))
     parser.add_argument("--diagnostics", action="store_true", help="Record votes and rejection reasons")
+    parser.add_argument("--basket", action="store_true", help="Opt-in ranked five-position PAPER baskets")
     return parser.parse_args(argv)
 
 
@@ -144,6 +145,8 @@ def main(argv=None):
     )
     if args.starting_equity is not None:
         env["STARTING_EQUITY"] = str(args.starting_equity)
+    if args.basket:
+        env.update(BASKET_ENABLED="true", MAX_MARGIN_FRACTION="0.60")
     for key in set(os.environ) - set(env):
         os.environ.pop(key)
     os.environ.update(env)

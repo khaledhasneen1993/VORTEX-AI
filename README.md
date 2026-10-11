@@ -145,3 +145,15 @@ python -m pytest -q
 
 No profitability, future win rate, uninterrupted operation, or live exchange
 execution quality is established by a short PAPER session.
+
+## Project review and operational limits
+
+See [the current review](docs/REVIEW.md) for corrected persistence/monitoring
+faults and remaining validation gaps. `status` is strictly read-only, reports
+pending journal recovery, and must use the same policy configuration as its
+saved session. Recovery belongs to a writable restart under the PAPER lock.
+An uncertain ledger write stops PAPER in both grouped and individual paths.
+Live resilience retains original exchange timestamps and stale-price rejection;
+a single extra bulk refresh can recover books aged during critical depth reads,
+but an outage can still defer exits. The latest smart-add basket policy needs
+its own live PAPER validation; earlier sessions do not establish its performance.

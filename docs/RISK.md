@@ -63,20 +63,35 @@ per-position PnL and original R remain separately recorded. Individual profit
 exits and the legacy 5%-adverse averaging trigger are inactive in basket mode.
 A member hitting its unchanged original price stop closes the whole group.
 
-After five minutes, one decision may add to two strongest freshly aligned
-members if group net is negative. Each addition requests half its initial
-posted margin. Both adds are staged together; if either violates size, liquidity,
-funding, correlation or risk, neither is committed. A 1-USDT margin is near a
-5-USDT minimum notional at 5x; lot rounding commonly makes it untradeable.
-A lost group is not permission to exceed the portfolio stop-risk budget.
+The explicit current basket preset enables smart loss adds from five minutes:
+losers only, fresh side-aligned accepted signals, improved weighted entry, and
+at least 0.5 entry ATR further adverse than the preceding add price. At least
+five minutes between decisions, maximum three rounds, each request capped by
+that member's initial margin. Successful eligible members commit together;
+minimum order sizes and remaining capacity can prevent some or all additions.
+Price winners remain untouched. See [BASKETS](BASKETS.md) for the exact guards.
 
-At 15 minutes, remaining members enter persisted closing, even at a loss.
-Account-floor, polling gaps, funding/liquidation exclusions and price freshness
-limits above still apply. Neither the target nor the deadline guarantees profit,
-execution speed or a hard loss ceiling. See [BASKETS](BASKETS.md).
+The current preset has no 15-minute expiry. From ten minutes, strictly positive
+group net after modeled costs closes all members without waiting for 3%.
+At group net <= minus 10% of fixed session starting equity, close all members
+(-2 USDT from 20). This group stop does not permanently halt the account. The
+original member price stop and permanent account floor remain. Default-disabled
+new flags preserve the old deadline and one half-margin pair add for old wallets.
+
+Account-floor, polling gaps, funding/liquidation exclusions and freshness limits
+above still apply. Neither targets nor nominal stops guarantee execution speed
+or a hard loss ceiling. Missing quotes may leave a group partially closing.
 
 The current basket launcher explicitly sets `BASKET_MIN_ENTRY_FILL_RATIO=0.90`.
 Initial lot rounding below 90% of the requested margin rejects that candidate;
 other eligible signals can replace it. Default zero retains old rounding.
 Neither this filter nor the launcher rounds orders up beyond the requested
 margin. Added orders still face their original lot/minimum and risk constraints.
+
+From 20 USDT, five initial margins total approximately 10 USDT and the initial
+3% target is approximately 0.30 USDT net. The fixed 2-USDT group stop is materially
+larger; increasing it is not evidence of an improved edge. The 60% margin cap
+leaves approximately 2 USDT for adds before other constraints, so exchange
+minimum sizes can make adding to all losing members impossible. Targets and
+caps evolve differently: targets include all posted add margins, the group loss
+stop remains anchored to the original session balance.

@@ -44,5 +44,7 @@ are required. The selected five share a simulated opening timestamp.
 
 After five minutes, current signals are reevaluated for existing members.
 Only freshly accepted signals aligned with the held side can rank for the
-single two-member add decision. A missing or opposite signal is not recycled
-from entry time. Guard rejections remain visible. See [BASKETS](BASKETS.md).
+smart loss-add rounds in the explicit current preset. Price winners are
+untouched. A missing or opposite signal is not recycled from entry time.
+Guard rejections remain visible. Old default-disabled flags retain their single
+two-member decision. See [BASKETS](BASKETS.md).

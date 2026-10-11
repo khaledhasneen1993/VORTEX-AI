@@ -153,7 +153,9 @@ def main(argv=None):
             MAX_MARGIN_FRACTION="0.60",
             BASKET_MIN_ENTRY_FILL_RATIO="0.90",
             BASKET_HOLD_UNTIL_TARGET="true",
-            BASKET_LOSS_STARTING_EQUITY_FRACTION="0.05",
+            BASKET_LOSS_STARTING_EQUITY_FRACTION="0.10",
+            BASKET_ANY_PROFIT_AFTER_SECONDS="600",
+            BASKET_SMART_ADDS="true",
         )
     for key in set(os.environ) - set(env):
         os.environ.pop(key)

@@ -19,9 +19,18 @@ class BasketPolicy:
     min_entry_fill_ratio: float = 0.0  # Off until explicitly selected by the basket launcher.
     hold_until_target: bool = False
     loss_starting_equity_fraction: float = 0.0
+    any_profit_after_seconds: int = 0
+    smart_adds: bool = False
+    smart_add_interval_seconds: int = 300
+    smart_add_max_rounds: int = 3
+    smart_add_step_atr: float = 0.5
 
     def __post_init__(self):
-        if not isinstance(self.enabled, bool) or not isinstance(self.hold_until_target, bool):
+        if (
+            not isinstance(self.enabled, bool)
+            or not isinstance(self.hold_until_target, bool)
+            or not isinstance(self.smart_adds, bool)
+        ):
             raise ValueError("BASKET_ENABLED must be boolean")
         if any(not isfinite(getattr(self, f.name)) for f in fields(self) if f.name != "enabled"):
             raise ValueError("Nonfinite basket policy")
@@ -37,6 +46,11 @@ class BasketPolicy:
                     "min_entry_fill_ratio",
                     "hold_until_target",
                     "loss_starting_equity_fraction",
+                    "any_profit_after_seconds",
+                    "smart_adds",
+                    "smart_add_interval_seconds",
+                    "smart_add_max_rounds",
+                    "smart_add_step_atr",
                 }
             )
             != expected
@@ -51,6 +65,13 @@ class BasketPolicy:
         if self.hold_until_target and self.loss_starting_equity_fraction <= 0:
             raise ValueError("Holding without a deadline requires a basket loss threshold")
 
+        if not 0 <= self.any_profit_after_seconds <= 86400:
+            raise ValueError("BASKET_ANY_PROFIT_AFTER_SECONDS must be 0..86400")
+        if not 300 <= self.smart_add_interval_seconds <= 3600 or not 1 <= self.smart_add_max_rounds <= 10:
+            raise ValueError("Smart add interval must be 300..3600 seconds, rounds 1..10")
+        if not 0.1 <= self.smart_add_step_atr <= 5:
+            raise ValueError("BASKET_SMART_ADD_STEP_ATR must be 0.1..5")
+
     @classmethod
     def from_env(cls):
         raw = os.getenv("BASKET_ENABLED", "false").strip().lower()
@@ -59,9 +80,17 @@ class BasketPolicy:
         hold = os.getenv("BASKET_HOLD_UNTIL_TARGET", "false").strip().lower()
         if hold not in {"true", "false"}:
             raise ValueError("BASKET_HOLD_UNTIL_TARGET must be true or false")
+        smart = os.getenv("BASKET_SMART_ADDS", "false").strip().lower()
+        if smart not in {"true", "false"}:
+            raise ValueError("BASKET_SMART_ADDS must be true or false")
         return cls(
             enabled=raw == "true",
             min_entry_fill_ratio=float(os.getenv("BASKET_MIN_ENTRY_FILL_RATIO", "0")),
             hold_until_target=hold == "true",
+            any_profit_after_seconds=int(os.getenv("BASKET_ANY_PROFIT_AFTER_SECONDS", "0")),
+            smart_adds=smart == "true",
+            smart_add_interval_seconds=int(os.getenv("BASKET_SMART_ADD_INTERVAL_SECONDS", "300")),
+            smart_add_max_rounds=int(os.getenv("BASKET_SMART_ADD_MAX_ROUNDS", "3")),
+            smart_add_step_atr=float(os.getenv("BASKET_SMART_ADD_STEP_ATR", "0.5")),
             loss_starting_equity_fraction=float(os.getenv("BASKET_LOSS_STARTING_EQUITY_FRACTION", "0")),
         )

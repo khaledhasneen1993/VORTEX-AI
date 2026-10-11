@@ -57,6 +57,14 @@ class PaperBroker:
             saved_basket.setdefault("min_entry_fill_ratio", 0.0)
             saved_basket.setdefault("hold_until_target", False)
             saved_basket.setdefault("loss_starting_equity_fraction", 0.0)
+            for key in (
+                "any_profit_after_seconds",
+                "smart_adds",
+                "smart_add_interval_seconds",
+                "smart_add_max_rounds",
+                "smart_add_step_atr",
+            ):
+                saved_basket.setdefault(key, getattr(self.cfg.basket.__class__(), key))
         if saved_basket != self._basket_policy():
             raise ValueError("Basket policy changed: use a new isolated session")
         self.basket = raw.get("basket")

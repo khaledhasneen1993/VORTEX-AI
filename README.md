@@ -38,15 +38,16 @@ operation, or `bash run_paper.sh 10800 --basket` for a fresh three-hour test.
 | --- | --- |
 | Selection | Rank the current scan; open exactly five eligible signals together |
 | Initial allocation | Each uses 10% of basket-start account equity as margin, rounded down by lot size; 5x |
-| Collective target | Close every member at 3% net PnL / total posted basket margin, including add margin |
-| Five-minute decision | If net loss, choose the strongest two freshly aligned members; one add each at half their initial margin |
+| Collective target | First 10 minutes: 3% net / posted margins. From 10 minutes: any strictly positive net after costs |
+| Loss averaging | Every 5 minutes from minute 5, at most 3 rounds: consider every losing, freshly aligned member; winners untouched |
 | Holding period | Current `--basket` disables the 15-minute expiry; hold until target or protection |
-| Collective loss stop | Close all members at net loss of 5% of session starting equity (1 USDT at 20) |
+| Collective loss stop | Close all members at net loss of 10% of session starting equity (2 USDT at 20) |
 | Emergency protection | Original 10% price stop on any member requests whole-group closing; account floor remains 25% |
 
 At 20 USDT, initial margins are about 2 USDT each (10 total), so the initial
-collective target is about 0.30 USDT. Two successful adds of about 1 USDT each
-raise the denominator to 12 and the target to 0.36. Leverage is counted once.
+collective target starts near 0.30 USDT. Posted add margins join its denominator.
+After ten minutes, any net profit above zero requests group closing. Leverage
+is counted once.
 This profile explicitly replaces the legacy 25% total-margin ceiling with a
 60% ceiling of **basket-start equity**, additionally capped by available capital.
 Per-signal risk, portfolio stop risk, profit reserve and execution guards remain.
@@ -57,9 +58,18 @@ Small-wallet minimum notional and risk limits can prevent additions or an entire
 group. No partial five-position group is opened and no missing slot is refilled.
 
 The launcher explicitly selects `BASKET_HOLD_UNTIL_TARGET=true` and
-`BASKET_LOSS_STARTING_EQUITY_FRACTION=0.05`. Both default off; without them,
-the legacy basket deadline remains 15 minutes. The loss threshold uses fixed
+`BASKET_LOSS_STARTING_EQUITY_FRACTION=0.10`,
+`BASKET_ANY_PROFIT_AFTER_SECONDS=600`, and `BASKET_SMART_ADDS=true`.
+These new behaviors default off; without them,
+the legacy basket deadline and one half-margin add pair remain. The loss threshold uses fixed
 session starting equity, not basket margin or current wallet equity.
+
+Smart averaging needs a further adverse move of at least 0.5 entry ATR from
+the preceding add price (entry on the first add), improving average entry.
+Fixed initial margin caps each request; no doubling. Exchange minimum lots
+are reserved across eligible losers within remaining capital. If all minimums
+cannot fit, strength decides which can be considered. Per-trade/portfolio
+risk and funding/depth guards can still refuse any or all additions.
 
 Stops are close requests on fresh polls, not guaranteed execution prices.
 The four-hour session timer stops observation; remaining open positions are

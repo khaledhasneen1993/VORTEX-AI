@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import logging
 from dataclasses import dataclass, replace
-from math import isfinite
+from math import isfinite, ceil
 from uuid import uuid4
 
 from .models import Signal
@@ -90,6 +90,25 @@ def validate_state(broker):
         or not isinstance(group.get("add_decided"), bool)
     ):
         raise ValueError("Invalid saved basket")
+    if broker.cfg.basket.smart_adds:
+        rounds = group.get("smart_add_rounds", 0)
+        prices = group.get("smart_last_add_prices", {})
+        if (
+            type(rounds) is not int
+            or not 0 <= rounds <= broker.cfg.basket.smart_add_max_rounds
+            or (
+                rounds > 0
+                and (
+                    type(group.get("smart_last_decision_ms")) is not int
+                    or group["smart_last_decision_ms"]
+                    < group["opened_ms"] + broker.cfg.basket.add_after_seconds * 1000
+                )
+            )
+            or not isinstance(prices, dict)
+            or not set(prices) <= set(group["symbols"])
+            or any(not isfinite(v) or v <= 0 for v in prices.values())
+        ):
+            raise ValueError("Invalid saved smart basket rounds")
     held = set(broker.positions)
     if not held <= set(group["symbols"]):
         raise ValueError("Orphan position outside saved basket")
@@ -128,6 +147,16 @@ def projected_net(broker, quotes):
     return value
 
 
+def target_net(broker, now):
+    group = broker.basket
+    if not group:
+        return None
+    seconds = broker.cfg.basket.any_profit_after_seconds
+    if seconds > 0 and now >= group["opened_ms"] + seconds * 1000:
+        return 0.0  # Strictly greater than zero, not break-even.
+    return group["total_margin"] * broker.cfg.basket.profit_margin
+
+
 def exit_reason(broker, quotes, now, floor_halted=False):
     validate_state(broker)
     for symbol in broker.positions:
@@ -156,6 +185,13 @@ def exit_reason(broker, quotes, now, floor_halted=False):
         loss_fraction = broker.cfg.basket.loss_starting_equity_fraction
         if net is not None and loss_fraction > 0 and net <= -broker.cfg.starting_equity * loss_fraction:
             reason = "basket_starting_equity_loss_stop"
+        elif (
+            net is not None
+            and net > 0
+            and broker.cfg.basket.any_profit_after_seconds > 0
+            and now >= group["opened_ms"] + broker.cfg.basket.any_profit_after_seconds * 1000
+        ):
+            reason = "basket_any_net_profit_after_timeout"
         elif net is not None and net >= group["total_margin"] * broker.cfg.basket.profit_margin:
             reason = "basket_net_margin_target"
     if reason:
@@ -288,7 +324,7 @@ def open_group(broker, candidates, quotes, now, histories):
     return True, "basket opened: " + ",".join(chosen)
 
 
-def _add_position(broker, c, quotes, now, histories):
+def _add_position(broker, c, quotes, now, histories, margin_budget=None):
     p = broker.positions[c.signal.symbol]
     bid, ask = quotes[p.symbol]
     cfg = broker.cfg
@@ -315,6 +351,8 @@ def _add_position(broker, c, quotes, now, histories):
     sign = 1 if p.side == "LONG" else -1
     if sign * (price - p.stop) <= 0:
         return None, "original_stop_breached"
+    if margin_budget is not None and not smart_add_eligible(broker, p, bid, ask)[0]:
+        return None, "smart_add_not_losing_or_no_new_adverse_move"
     if abs(price - c.signal.entry) > abs(c.signal.entry - c.signal.stop) * 0.35:
         return None, "price_ran_from_fresh_signal"
     capital = broker.reserve.capital(broker.wallet, equity)
@@ -326,7 +364,11 @@ def _add_position(broker, c, quotes, now, histories):
         c.filters,
         sum(x.margin for x in broker.positions.values()),
         sum(stop_exposure(x, cfg) for x in broker.positions.values()),
-        broker.basket["initial_margins"][p.symbol] * cfg.basket.add_fraction,
+        (
+            broker.basket["initial_margins"][p.symbol] * cfg.basket.add_fraction
+            if margin_budget is None
+            else margin_budget
+        ),
         margin_capital=broker.basket["initial_account_equity"],
     )
     if sized is None:
@@ -347,7 +389,7 @@ def _add_position(broker, c, quotes, now, histories):
         kind="pyramid",
         event_id=f"{p.symbol}:{p.opened_ts}:add:{p.pyramid_count}",
         basket_id=broker.basket["id"],
-        add_type="basket_half_margin",
+        add_type="basket_half_margin" if margin_budget is None else "basket_smart_loss_add",
         symbol=p.symbol,
         ts=now,
         source="paper",
@@ -366,6 +408,8 @@ def _add_position(broker, c, quotes, now, histories):
 def add_group(broker, candidates, quotes, now, histories):
     broker._finish_pending()
     validate_state(broker)
+    if broker.cfg.basket.smart_adds:
+        return smart_add_group(broker, candidates, quotes, now, histories)
     g = broker.basket
     if (
         not g
@@ -450,3 +494,130 @@ def add_group(broker, candidates, quotes, now, histories):
         broker._finish_pending()
         log.info("ENTRY_SKIP BASKET reason=basket_add_skipped detail=%s", reason)
     return success, "added strongest two once" if success else reason
+
+
+def next_add_due(broker):
+    g, policy = broker.basket, broker.cfg.basket
+    if not g or g["phase"] != "ACTIVE":
+        return None
+    if not policy.smart_adds:
+        return None if g["add_decided"] else g["opened_ms"] + policy.add_after_seconds * 1000
+    rounds = g.get("smart_add_rounds", 0)
+    if rounds >= policy.smart_add_max_rounds:
+        return None
+    return (
+        g["opened_ms"] + policy.add_after_seconds * 1000
+        if rounds == 0
+        else g["smart_last_decision_ms"] + policy.smart_add_interval_seconds * 1000
+    )
+
+
+def smart_add_eligible(broker, p, bid, ask):
+    sign = 1 if p.side == "LONG" else -1
+    if not all(isfinite(x) for x in (bid, ask)) or not 0 < bid <= ask:
+        return False, 0.0
+    raw = bid if sign == 1 else ask
+    # A price winner is untouched even if tiny gains do not yet cover costs.
+    if sign * (raw - p.entry) >= 0 or p.atr_value <= 0:
+        return False, 0.0
+    spread = (ask - bid) / ((ask + bid) / 2) * 10000
+    slip = slippage_bps(broker.cfg.slippage_bps, p.atr_value / p.entry, spread, broker.cfg.operations)
+    price = (ask if sign == 1 else bid) * (1 + sign * slip / 10000)
+    reference = broker.basket.get("smart_last_add_prices", {}).get(p.symbol, p.entry)
+    distance = p.atr_value * broker.cfg.basket.smart_add_step_atr
+    return sign * (price - reference) <= -distance and sign * (price - p.entry) < 0, price
+
+
+def smart_add_group(broker, candidates, quotes, now, histories):
+    g, policy = broker.basket, broker.cfg.basket
+    due = next_add_due(broker)
+    if due is None or now < due:
+        return False, "smart add not due"
+    reason = exit_reason(broker, quotes, now, broker._account_floor(quotes))
+    if reason:
+        return False, "basket closing: add blocked"
+    net = projected_net(broker, quotes)
+    if net is None:
+        return False, "missing quote: add deferred"
+    # Persist a round before attempting writes. A crash may skip, never repeat it.
+    round_number = g.get("smart_add_rounds", 0) + 1
+    g.update(
+        smart_add_rounds=round_number,
+        smart_last_decision_ms=now,
+        add_decided=True,
+        add_decided_ms=now,
+        add_due_ms=due,
+        add_delay_ms=now - due,
+        add_net_before=net,
+        add_result="decision_committed",
+    )
+    broker.save()
+    staged, events = _shadow(broker)
+    available = max(
+        0.0,
+        min(
+            staged.reserve.capital(staged.wallet, staged.equity(quotes)),
+            g["initial_account_equity"] * staged.cfg.max_margin_fraction,
+        )
+        - sum(p.margin for p in staged.positions.values()),
+    )
+    eligible, skipped, seen = [], {}, set()
+    for c in sorted(candidates, key=strength):
+        symbol = c.signal.symbol
+        if symbol in seen:
+            continue
+        seen.add(symbol)
+        if not fresh(c, now, broker.cfg.phase1.max_signal_age_ms) or symbol not in staged.positions:
+            skipped[symbol] = "stale_or_not_held"
+            continue
+        p = staged.positions[symbol]
+        if c.signal.side != p.side or symbol not in quotes:
+            skipped[symbol] = "signal_opposed_or_missing_quote"
+            continue
+        allowed, price = smart_add_eligible(staged, p, *quotes[symbol])
+        if not allowed:
+            skipped[symbol] = "not_losing_or_no_new_adverse_move"
+            continue
+        # Reserve real exchange minimum lots; never round above allocated capital.
+        f = c.filters
+        qty = ceil(max(f.min_qty, f.min_notional / price) / f.step) * f.step
+        minimum = qty * price / min(staged.cfg.max_leverage, 5)
+        cap = g["initial_margins"][symbol]  # Fixed initial amount; no doubling.
+        if minimum > cap or sum(x[1] for x in eligible) + minimum > available:
+            skipped[symbol] = "smart_add_minimum_exceeds_available_margin"
+            continue
+        eligible.append((c, minimum, cap))
+    # Equal share of remaining capital above each minimum; prioritize strength
+    # only if all eligible minimum orders cannot fit. Risk guards may still refuse.
+    remaining = available
+    for index, (c, minimum, cap) in enumerate(eligible):
+        reserve = sum(x[1] for x in eligible[index + 1 :])
+        excess = max(0.0, remaining - minimum - reserve)
+        budget = min(cap, minimum + excess / (len(eligible) - index))
+        event, detail = _add_position(staged, c, quotes, now, histories, margin_budget=budget)
+        if event is None:
+            skipped[c.signal.symbol] = detail
+            continue
+        events.append(event)
+        remaining -= event["margin"]
+        staged.basket.setdefault("smart_last_add_prices", {})[c.signal.symbol] = event["price"]
+    result = "added" if events else "no_eligible_loss_add_within_caps"
+    staged.basket.update(add_result=result, added_symbols=[e["symbol"] for e in events])
+    decision = dict(
+        kind="basket",
+        event_id=g["id"] + f":smart_add:{round_number}",
+        source="paper",
+        action="added" if events else "add_skipped",
+        ts=now,
+        round=round_number,
+        symbols=[e["symbol"] for e in events],
+        skipped=skipped,
+        reason=result,
+        total_margin=staged.basket["total_margin"],
+    )
+    events.append(decision)
+    _commit(broker, staged, events)
+    for event in events[:-1]:
+        log.info("PYRAMID: %s", event)
+    log.info("BASKET_SMART_ADD round=%d symbols=%s skipped=%s", round_number, decision["symbols"], skipped)
+    return bool(events[:-1]), result

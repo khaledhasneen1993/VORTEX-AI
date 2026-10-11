@@ -16,6 +16,7 @@ def test_adopted_session_default_duration_and_artifact_path():
     assert args.duration_seconds == 10800
     assert args.output == Path("runs/vortex-approved")
     assert args.starting_equity is None
+    assert args.basket
 
 
 def test_three_hour_session_with_150_dollar_bankroll():

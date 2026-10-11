@@ -298,8 +298,8 @@ def test_policy_is_opt_in_saved_state_cannot_switch_modes(tmp_path):
     assert values["BASKET_ANY_PROFIT_AFTER_SECONDS"] == "600"
     assert values["BASKET_SMART_ADDS"] == "true"
     configure(path, 20)
-    assert dotenv_values(path)["BASKET_ENABLED"] == "false"
-    assert dotenv_values(path)["MAX_MARGIN_FRACTION"] == "0.25"
+    assert dotenv_values(path)["BASKET_ENABLED"] == "true"
+    assert dotenv_values(path)["MAX_MARGIN_FRACTION"] == "0.60"
 
 
 def test_cli_basket_collects_before_opening_and_stops_on_uncertain_write(tmp_path, monkeypatch):

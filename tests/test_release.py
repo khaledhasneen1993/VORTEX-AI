@@ -15,13 +15,16 @@ def test_latest_defaults_and_no_alternative_master_profile(monkeypatch):
     for key in APPROVED_ENV:
         monkeypatch.delenv(key, raising=False)
     cfg = Settings.from_env()
-    assert cfg.starting_equity == 20
+    assert cfg.starting_equity == 100
     assert (cfg.max_positions, cfg.max_daily_loss, cfg.max_leverage, cfg.max_margin_fraction) == (
         5,
         0.25,
         5,
-        0.25,
+        0.60,
     )
+    assert cfg.basket.enabled and cfg.basket.smart_adds and cfg.basket.hold_until_target
+    assert cfg.basket.loss_starting_equity_fraction == 0.10
+    assert cfg.basket.any_profit_after_seconds == 600
     assert cfg.operations.profile == "aggressive" and cfg.operations.short_loss_cooldown
     assert not cfg.phase1.strict_votes and cfg.phase1.allow_single_strong_vote
     assert cfg.min_strong_score == 6 and cfg.phase2.strong_max == 0.18
@@ -61,7 +64,7 @@ def test_environment_migration_preserves_secrets_and_old_session(tmp_path):
     folder = configure(path)
     values = dotenv_values(path)
     assert values["VORTEX_TELEGRAM_TOKEN"] == "do-not-print"
-    assert values["STARTING_EQUITY"] == "20" and values["OPS_ENABLED"] == "true"
+    assert values["STARTING_EQUITY"] == "100" and values["OPS_ENABLED"] == "true"
     assert values["STRICT_VOTES"] == "false" and folder != "old-state"
     assert "PHASE1_ATR_PCT_MIN" not in values
     assert (old / "position.json").read_text() == "unchanged"

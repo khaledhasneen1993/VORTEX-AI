@@ -154,6 +154,11 @@ class Settings:
         experiment = PaperExperiment.from_env(policy_defaults(PaperExperiment, "PAPER_EXP_"))
         if not experiment.enabled or not experiment.capture_enabled or f("RUN_MODE", "paper") != "paper":
             raise ValueError("Only the adopted PAPER capture system is supported; run vortex.configure")
+        if not (basket.enabled and basket.hold_until_target and basket.smart_adds
+                and basket.any_profit_after_seconds == 600
+                and basket.loss_starting_equity_fraction == 0.10
+                and basket.min_entry_fill_ratio == 0.90):
+            raise ValueError("Only the adopted smart PAPER basket policy is supported; run vortex.configure")
         for retired in ("USE_AI_MODEL", "USE_CLAUDE", "USE_MICROSTRUCTURE", "USE_WEBSOCKET"):
             if boolean(retired, "false"):
                 raise ValueError(retired + " is not part of the adopted PAPER system")

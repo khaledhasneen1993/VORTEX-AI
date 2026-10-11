@@ -15,7 +15,7 @@ from dotenv import dotenv_values
 from .approved import canonical_environment
 
 
-def configure(path: Path, equity: float | None = None, basket: bool = False):
+def configure(path: Path, equity: float | None = None, basket: bool = True):
     if equity is not None and (not isfinite(equity) or equity <= 0):
         raise ValueError("Virtual equity must be positive and finite")
     from .config import Settings
@@ -58,7 +58,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env", type=Path, default=Path(".env"))
     parser.add_argument("--equity", type=float)
-    parser.add_argument("--basket", action="store_true", help="Enable opt-in five-position PAPER baskets")
+    parser.add_argument("--basket", action="store_true", default=True, help="Compatibility option; baskets are always enabled")
     args = parser.parse_args()
     folder = configure(args.env, args.equity, args.basket)
     print("Current PAPER configuration saved; no engine started. New DATA_DIR:", folder)

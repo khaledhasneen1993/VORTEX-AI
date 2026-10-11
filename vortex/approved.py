@@ -1,22 +1,22 @@
-"""User-adopted PAPER configuration from d54ee34; not profitability approval."""
+"""User-adopted five-position PAPER basket configuration; not profitability approval."""
 
 from dataclasses import fields
 
-APPROVED_SOURCE = "d54ee349d470c97862059058ecefa8285c1a0083"
+APPROVED_SOURCE = "82540c4ea988014d24050869a64ebd978130b4ed"
 APPROVED_ENV = {
-    "BASKET_ENABLED": "false",
-    "BASKET_MIN_ENTRY_FILL_RATIO": "0",
-    "BASKET_HOLD_UNTIL_TARGET": "false",
-    "BASKET_LOSS_STARTING_EQUITY_FRACTION": "0",
-    "BASKET_ANY_PROFIT_AFTER_SECONDS": "0",
-    "BASKET_SMART_ADDS": "false",
+    "BASKET_ENABLED": "true",
+    "BASKET_MIN_ENTRY_FILL_RATIO": "0.90",
+    "BASKET_HOLD_UNTIL_TARGET": "true",
+    "BASKET_LOSS_STARTING_EQUITY_FRACTION": "0.10",
+    "BASKET_ANY_PROFIT_AFTER_SECONDS": "600",
+    "BASKET_SMART_ADDS": "true",
     "BASKET_SMART_ADD_INTERVAL_SECONDS": "300",
     "BASKET_SMART_ADD_MAX_ROUNDS": "3",
     "BASKET_SMART_ADD_STEP_ATR": "0.5",
     "RUN_MODE": "paper",
     "TIMEFRAME": "5m",
     "TRAILING_ATR_MULT": "1.0",
-    "STARTING_EQUITY": "20",
+    "STARTING_EQUITY": "100",
     "PAPER_EXP_ENABLED": "true",
     "PAPER_EXP_CAPTURE_ENABLED": "true",
     "PAPER_EXP_AVERAGE_ENABLED": "true",
@@ -30,7 +30,7 @@ APPROVED_ENV = {
     "MAX_DAILY_LOSS": "0.25",
     "MAX_POSITIONS": "5",
     "MAX_LEVERAGE": "5",
-    "MAX_MARGIN_FRACTION": "0.25",
+    "MAX_MARGIN_FRACTION": "0.60",
     "COOLDOWN_MINUTES": "5",
     "STRICT_VOTES": "false",
     "ALLOW_SINGLE_STRONG_VOTE": "true",

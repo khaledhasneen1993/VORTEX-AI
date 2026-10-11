@@ -81,3 +81,11 @@ decision. `basket_needs_five_eligible` means no group was opened.
 held member means a fresh exit quote is still needed; no new group can open.
 An uncertain persistence failure stops the basket engine rather than continuing
 from possibly uncommitted memory. Resume only the same saved policy and path.
+
+Basket execution observations are collected in parallel on the existing bounded
+scan pool, with a maximum ten-second batch and funding refreshed after depth.
+Their original exchange timestamps are rechecked at the final quote snapshot;
+late responses are discarded. This removes the old sequential all-candidate
+wait that expired early funding observations, without widening the 15-second
+funding/depth guards or four-second book limit. Missing public observations can
+still refuse a group or add.

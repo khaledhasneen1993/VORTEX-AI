@@ -130,3 +130,62 @@ class CandidateScanner:
         self.closed.set()
         self.pool.shutdown(wait=False, cancel_futures=True)
         # Each job closes its own session after active read-only requests return.
+
+    def _execution(self, symbol, deadline):
+        """Independent public session; refresh funding AFTER depth collection."""
+        market = self.factory()
+        market._exchange = self.metadata
+
+        def check():
+            if self.closed.is_set() or self.clock() >= deadline:
+                raise ScanExpired("execution observation deadline reached")
+
+        try:
+            check()
+            depth = (
+                market.get("/fapi/v1/depth", {"symbol": symbol, "limit": 100})
+                if self.cfg.operations.liquidity_guard
+                else None
+            )
+            check()
+            funding = (
+                DerivativesTracker().timing(market, symbol) if self.cfg.operations.funding_guard else None
+            )
+            check()
+            return funding, depth
+        finally:
+            if hasattr(market, "http"):
+                market.http.close()
+
+    def execution(self, symbols, on_wait=lambda: None, *, budget_seconds=10):
+        """Bounded PAPER-basket guard batch on the SAME existing worker pool.
+
+        Final broker checks still enforce original observation timestamps.
+        Late jobs are discarded; they cannot write trading state or submit orders.
+        """
+        if not self.cfg.basket.enabled or not 0 <= budget_seconds <= 10:
+            raise ValueError("Execution batches require PAPER baskets and a 0..10s budget")
+        symbols = list(dict.fromkeys(symbols))
+        if len(symbols) > 30:
+            raise ValueError("Execution batch exceeds Radar limit")
+        deadline = self.clock() + budget_seconds
+        pending = {self.pool.submit(self._execution, symbol, deadline): symbol for symbol in symbols}
+        try:
+            while pending and self.clock() < deadline and not self.closed.is_set():
+                on_wait()
+                done, _ = wait(
+                    pending, timeout=min(0.25, max(0, deadline - self.clock())), return_when=FIRST_COMPLETED
+                )
+                for future in done:
+                    symbol = pending.pop(future)
+                    try:
+                        result = future.result()
+                    except (MarketError, KeyError, TypeError, ValueError) as exc:
+                        result = exc
+                    yield symbol, result
+            for future, symbol in pending.items():
+                future.cancel()
+                yield symbol, ScanExpired("execution observation missed deadline")
+        finally:
+            for future in pending:
+                future.cancel()

@@ -8,7 +8,6 @@ from dataclasses import replace
 from datetime import datetime, timezone
 
 from .basket import Candidate, add_group, open_group, projected_net, strength
-from .binance import MarketError
 from .monitoring import save_telemetry
 from .strategy import analyze
 
@@ -116,29 +115,25 @@ class BasketLoop:
         return Candidate(signal, self.market.symbol_filters(symbol), data[-1].close_ts)
 
     def _guards(self, candidates):
+        if not candidates:
+            return []
+        if not self.cfg.operations.funding_guard and not self.cfg.operations.liquidity_guard:
+            return candidates
+        now = self.market.server_ms()
+        remaining = min(90000, self.cfg.phase1.max_signal_age_ms) - (
+            now - min(c.close_ms for c in candidates)
+        )
+        budget = min(10, max(0, (remaining - 5000) / 1000))
+        lookup = {c.signal.symbol: c for c in candidates}
         guarded = []
-        for c in candidates:
-            self._wait()  # Protective exits also run between public guard requests.
-            now = self.market.server_ms()
-            if now - c.close_ms > min(85000, self.cfg.phase1.max_signal_age_ms):
-                log.info("ENTRY_SKIP %s reason=basket_execution_window_exhausted", c.signal.symbol)
-                break
-            try:
-                funding = (
-                    self.tracker.timing(self.market, c.signal.symbol)
-                    if self.cfg.operations.funding_guard
-                    else None
-                )
-                depth = (
-                    self.market.get("/fapi/v1/depth", {"symbol": c.signal.symbol, "limit": 100})
-                    if self.cfg.operations.liquidity_guard
-                    else None
-                )
-                guarded.append(replace(c, funding=funding, depth=depth))
-            except (MarketError, KeyError, ValueError) as exc:
+        for symbol, result in self.scanner.execution(lookup, self._wait, budget_seconds=budget):
+            if isinstance(result, Exception):
                 self.degraded = True
-                log.info("ENTRY_SKIP %s reason=basket_guard_data_unavailable detail=%s", c.signal.symbol, exc)
-        return guarded
+                log.info("ENTRY_SKIP %s reason=basket_guard_data_unavailable detail=%s", symbol, result)
+                continue
+            funding, depth = result
+            guarded.append(replace(lookup[symbol], funding=funding, depth=depth))
+        return sorted(guarded, key=strength)
 
     def _manage_add(self, now, quotes):
         group = self.broker.basket

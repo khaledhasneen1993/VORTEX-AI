@@ -94,7 +94,11 @@ def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypat
     from vortex.operations import OperationsPolicy
     from vortex.risk import Filters
 
-    cfg = Settings(symbols=("BTCUSDT",), data_dir=tmp_path, runtime=RuntimePolicy(paper_fast_scan=True, live_resilience=resilient))
+    cfg = Settings(
+        symbols=("BTCUSDT",),
+        data_dir=tmp_path,
+        runtime=RuntimePolicy(paper_fast_scan=True, live_resilience=resilient),
+    )
     if experiment:
         cfg = replace(
             cfg, experiment=PaperExperiment(enabled=True), operations=OperationsPolicy(liquidity_guard=False)
@@ -164,3 +168,100 @@ def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypat
             assert ("BTCUSDT",) in state["required"]
         assert "BTCUSDT" in PaperBroker(cfg).positions
     assert (tmp_path / "paper_state.json").exists()
+
+
+def test_basket_execution_batch_is_parallel_bounded_and_keeps_exchange_timestamps():
+    from vortex.basket_config import BasketPolicy
+    from vortex.paper_experiment import PaperExperiment
+
+    cfg = Settings(
+        basket=BasketPolicy(enabled=True),
+        experiment=PaperExperiment(enabled=True, capture_enabled=True),
+        max_positions=5,
+        max_margin_fraction=0.6,
+        runtime=RuntimePolicy(paper_fast_scan=True, paper_scan_workers=2),
+    )
+    mutex, together = threading.Lock(), threading.Barrier(2)
+    state = {"active": 0, "peak": 0, "closed": 0, "sessions": []}
+
+    class Public:
+        def __init__(self):
+            self.calls = []
+            self.http = self
+
+        def metadata(self):
+            return {s: {} for s in cfg.symbols}
+
+        def get(self, path, params):
+            self.calls.append(path)
+            if path.endswith("/depth"):
+                with mutex:
+                    state["active"] += 1
+                    state["peak"] = max(state["peak"], state["active"])
+                together.wait(timeout=2)
+                with mutex:
+                    state["active"] -= 1
+                return {"T": 305000, "bids": [["100", "1000"]], "asks": [["100.01", "1000"]]}
+            return {
+                "symbol": params["symbol"],
+                "time": 305000,
+                "lastFundingRate": "0",
+                "nextFundingTime": 900000,
+            }
+
+        def server_ms(self):
+            return 305000
+
+        def close(self):
+            with mutex:
+                state["closed"] += 1
+                state["sessions"].append(self)
+
+    scanner = CandidateScanner(Public(), cfg, market_factory=Public)
+    try:
+        result = dict(scanner.execution(cfg.symbols))
+        assert len(result) == 6 and state["peak"] == 2 and state["closed"] == 6
+        assert len({id(s) for s in state["sessions"]}) == 6
+        assert all(s.calls == ["/fapi/v1/depth", "/fapi/v1/premiumIndex"] for s in state["sessions"])
+        assert all(snapshot[0] == (305000, 0, 900000) for snapshot in result.values())
+    finally:
+        scanner.close()
+
+
+def test_execution_deadline_and_stale_funding_never_create_fresh_observations():
+    from vortex.basket_config import BasketPolicy
+    from vortex.paper_experiment import PaperExperiment
+
+    cfg = Settings(
+        basket=BasketPolicy(enabled=True),
+        experiment=PaperExperiment(enabled=True, capture_enabled=True),
+        max_positions=5,
+        max_margin_fraction=0.6,
+        runtime=RuntimePolicy(paper_fast_scan=True, paper_scan_workers=1),
+    )
+    clock = [0.0]
+    delayed = [False]
+
+    class Public:
+        def metadata(self):
+            return {"BTCUSDT": {}}
+
+        def get(self, path, params):
+            if delayed[0]:
+                clock[0] += 6
+            if path.endswith("/depth"):
+                return {"T": 305000, "bids": [], "asks": []}
+            return {"symbol": "BTCUSDT", "time": 285000, "lastFundingRate": "0", "nextFundingTime": 900000}
+
+        def server_ms(self):
+            return 305000
+
+    scanner = CandidateScanner(Public(), cfg, market_factory=Public, clock=lambda: clock[0])
+    try:
+        result = list(scanner.execution(["BTCUSDT"]))
+        assert result[0][1][0] is None  # Old exchange funding stays unavailable.
+        delayed[0] = True
+        result = list(scanner.execution(["BTCUSDT"]))
+        assert isinstance(result[0][1], ScanExpired)
+    finally:
+        scanner.close()

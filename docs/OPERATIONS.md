@@ -67,11 +67,11 @@ option rather than inheriting a stale `.env`. To restore legacy deployment, run
 `python -m vortex.configure --equity 20` and omit `--basket` on bounded launches.
 Both operations create new virtual sessions; old wallets are preserved.
 
-For basket-session status, pass both policy settings:
+For current basket-session status, pass the saved policy settings:
 
 ```bash
 RUN_DIR="$(cat runs/latest-paper-path.txt)"
-BASKET_ENABLED=true BASKET_MIN_ENTRY_FILL_RATIO=0.90 MAX_MARGIN_FRACTION=0.60 DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
+BASKET_ENABLED=true BASKET_MIN_ENTRY_FILL_RATIO=0.90 BASKET_HOLD_UNTIL_TARGET=true BASKET_LOSS_STARTING_EQUITY_FRACTION=0.05 MAX_MARGIN_FRACTION=0.60 DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
 ```
 
 Read `baskets.jsonl` alongside the per-position journals. Telemetry/dashboard
@@ -89,3 +89,11 @@ late responses are discarded. This removes the old sequential all-candidate
 wait that expired early funding observations, without widening the 15-second
 funding/depth guards or four-second book limit. Missing public observations can
 still refuse a group or add.
+
+Current `--basket` disables the 15-minute group expiry and requests collective
+closing at net PnL <= -5% of fixed session starting equity (-1 USDT for 20),
+or the unchanged +3% of group-margin target. All other protections remain.
+`BASKET_STARTING_EQUITY_LOSS_STOP` identifies this close request in logs.
+It persists across partial closes/restarts; no add is allowed at the threshold.
+A fresh quote is required for each exit, so gaps can exceed the nominal loss.
+The four-hour timer still ends observation and saves any open positions.

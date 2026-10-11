@@ -25,7 +25,13 @@ def configure(path: Path, equity: float | None = None, basket: bool = False):
     if equity is not None:
         values["STARTING_EQUITY"] = str(equity)
     if basket:
-        values.update(BASKET_ENABLED="true", MAX_MARGIN_FRACTION="0.60", BASKET_MIN_ENTRY_FILL_RATIO="0.90")
+        values.update(
+            BASKET_ENABLED="true",
+            MAX_MARGIN_FRACTION="0.60",
+            BASKET_MIN_ENTRY_FILL_RATIO="0.90",
+            BASKET_HOLD_UNTIL_TARGET="true",
+            BASKET_LOSS_STARTING_EQUITY_FRACTION="0.05",
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=".vortex-env-", dir=path.parent)
     try:

@@ -54,3 +54,9 @@ at most the configured workers. Its ten-second deadline discards late jobs and
 reserves time for the final executable quote snapshot. Protective quote polls
 continue while waiting; no worker writes broker state. Funding is collected
 last and never restamped.
+
+The opt-in target-or-loss basket policy ignores the historical deadline when
+`hold_until_target` is enabled. `projected_net` supplies the same executable
+sides and cost model for profit and loss thresholds. Loss is compared with
+fixed `Settings.starting_equity`, not compounded wallet or group margin.
+Closing is latched and replayed under the existing journal/recovery mechanism.

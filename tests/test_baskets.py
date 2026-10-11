@@ -294,7 +294,9 @@ def test_policy_is_opt_in_saved_state_cannot_switch_modes(tmp_path):
     values = dotenv_values(path)
     assert values["BASKET_ENABLED"] == "true" and values["MAX_MARGIN_FRACTION"] == "0.60"
     assert values["BASKET_HOLD_UNTIL_TARGET"] == "true"
-    assert values["BASKET_LOSS_STARTING_EQUITY_FRACTION"] == "0.05"
+    assert values["BASKET_LOSS_STARTING_EQUITY_FRACTION"] == "0.10"
+    assert values["BASKET_ANY_PROFIT_AFTER_SECONDS"] == "600"
+    assert values["BASKET_SMART_ADDS"] == "true"
     configure(path, 20)
     assert dotenv_values(path)["BASKET_ENABLED"] == "false"
     assert dotenv_values(path)["MAX_MARGIN_FRACTION"] == "0.25"

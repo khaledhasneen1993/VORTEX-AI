@@ -71,12 +71,12 @@ For current basket-session status, pass the saved policy settings:
 
 ```bash
 RUN_DIR="$(cat runs/latest-paper-path.txt)"
-BASKET_ENABLED=true BASKET_MIN_ENTRY_FILL_RATIO=0.90 BASKET_HOLD_UNTIL_TARGET=true BASKET_LOSS_STARTING_EQUITY_FRACTION=0.05 MAX_MARGIN_FRACTION=0.60 DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
+BASKET_ENABLED=true BASKET_MIN_ENTRY_FILL_RATIO=0.90 BASKET_HOLD_UNTIL_TARGET=true BASKET_LOSS_STARTING_EQUITY_FRACTION=0.10 BASKET_ANY_PROFIT_AFTER_SECONDS=600 BASKET_SMART_ADDS=true MAX_MARGIN_FRACTION=0.60 DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
 ```
 
 Read `baskets.jsonl` alongside the per-position journals. Telemetry/dashboard
-include group phase, total margins, estimated net, target, deadline and one-add
-decision. `basket_needs_five_eligible` means no group was opened.
+include group phase, total margins, estimated net, target, deadline and add-round
+decisions. `basket_needs_five_eligible` means no group was opened.
 `basket_add_skipped` explains the one rejected add decision. `CLOSING` with a
 held member means a fresh exit quote is still needed; no new group can open.
 An uncertain persistence failure stops the basket engine rather than continuing
@@ -91,9 +91,15 @@ funding/depth guards or four-second book limit. Missing public observations can
 still refuse a group or add.
 
 Current `--basket` disables the 15-minute group expiry and requests collective
-closing at net PnL <= -5% of fixed session starting equity (-1 USDT for 20),
-or the unchanged +3% of group-margin target. All other protections remain.
+closing at net PnL <= -10% of fixed session starting equity (-2 USDT for 20).
+The +3% group-margin target applies before ten minutes; from ten minutes any
+strictly positive net closes the whole group. All other protections remain.
 `BASKET_STARTING_EQUITY_LOSS_STOP` identifies this close request in logs.
 It persists across partial closes/restarts; no add is allowed at the threshold.
 A fresh quote is required for each exit, so gaps can exceed the nominal loss.
 The four-hour timer still ends observation and saves any open positions.
+
+Smart averaging considers every losing aligned member at five-minute intervals,
+maximum three rounds. It requires a new adverse move of at least 0.5 entry ATR
+and available margin/risk. Winners remain untouched. `BASKET_SMART_ADD` logs
+selected members and rejection reasons; no exchange minimum or cap is bypassed.

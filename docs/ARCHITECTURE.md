@@ -45,7 +45,9 @@ repeating fills. No new third-party package or exchange-order path is added.
 Groups persist ACTIVE → CLOSING → CLOSED. The exit reason is latched before any
 leg closes; only quoted members can exit, and unquoted members keep the group
 CLOSING across restarts. New entries and legacy pyramiding are blocked during a
-group. A durable add-decision latch limits it to one attempt even across a crash.
+group. Legacy adds have one durable decision latch. Smart adds persist a bounded
+round counter and decision time before staging; each batch journals its
+selected symbols and skipped reasons without repeating adds after a crash.
 Policy changes on saved groups are refused. Background recorder and flock are
 unchanged; group outcomes appear in a separate append-only `baskets.jsonl`.
 

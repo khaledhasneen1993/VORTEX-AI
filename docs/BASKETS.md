@@ -1,87 +1,70 @@
 # Five-position PAPER basket contract
 
-Disabled by default (`BASKET_ENABLED=false`). Enable with `configure --basket`
-for continuous operation or the explicit `run_paper.sh DURATION --basket`
-option. The former writes `.env`; the latter starts an isolated fresh wallet.
-No mainnet, signed orders, new voter, dependency or historical replay is added.
+Disabled by default (`BASKET_ENABLED=false`). Explicit `configure --basket`
+and `run_paper.sh DURATION --basket` select the current opt-in policy in a new
+wallet. No signed orders, mainnet, new strategy or dependency is introduced.
 
-1. Read existing Radar/strategy data and rank current accepted signals: score,
-   strong label, directional vote weight, 5m ADX, then symbol. Open exactly five
-   eligible distinct symbols together or open none. Final guard checks can skip
-   a higher-ranked signal; the next eligible one can take its place.
-2. Freeze marked account equity at group opening. Request 10% of it as each
-   position's posted margin at 5x, rounded down to exchange lots. At 20 USDT,
-   this is approximately 2 each, 10 total. Group margin ceiling is 60% of this
-   frozen equity, also bounded by currently deployable capital. This explicitly
-   replaces only the legacy entry/aggregate margin limits in this opt-in path.
-3. On each fresh poll, estimate net PnL using executable bid/ask, modeled
-   slippage and all entry/exit fees. At 3% of total historically posted group
-   margins, latch collective closing and close all members, even losing ones.
-   Leverage is already represented in margin: do not multiply returns again.
-4. At the first poll after five minutes, if group net is
-   negative, choose its strongest two freshly accepted side-aligned members.
-   Request half each member's actual initial margin once. Both additions commit
-   together or neither commits. Added margin increases the target denominator.
-   Closed-candle histories are prefetched before the timer and reevaluated at
-   decision time; stale flow/OI abstain. The timer does not wait for the next
-   Radar window. Original stop/entry R anchors stay fixed. A non-losing group or fewer
-   than two eligible members produces one recorded skip. Missing quotes defer
-   the decision; missing signal data is not a substitute for a current signal.
-5. Current explicit `--basket` selects `BASKET_HOLD_UNTIL_TARGET=true` and
-   `BASKET_LOSS_STARTING_EQUITY_FRACTION=0.05`: no 15-minute expiry. Hold until
-   the margin target or protection. Net basket PnL at or below minus 5% of
-   **session starting equity** requests closing every member: -1 USDT for a
-   20-USDT session, even after wallet changes or adds. Net includes estimated
-   entry/exit fees and slippage. This closes the group; it does not permanently
-   halt the account or disable existing cooldowns. An original
-   member-price stop or account floor can request closing earlier. Never refill
-   a stopped/exited slot or overlap two groups. New groups require fresh
-   signals, cooldown clearance and all safety guards.
+1. Rank current accepted Radar signals by score, strong label, vote weight,
+   ADX and symbol. Open exactly five eligible distinct members together or none.
+2. Request 10% of marked group-start account equity as each initial margin,
+   rounded down by lot size, leverage capped at 5x. The initial fill-ratio filter
+   is 0.90. Total margin remains capped at 60% of frozen group-start equity and
+   current deployable capital; portfolio/per-trade stop risk remains unchanged.
+3. On every fresh poll, estimate group net with executable bid/ask, modeled
+   slippage and all entry/exit fees. Before ten minutes, close all members at
+   3% of historically posted group margins, including adds. From ten minutes,
+   **strictly positive** net requests closing all members, including losers.
+   Zero or negative net does not itself trigger a timed close.
+4. No 15-minute expiry in the current preset. At net <= minus 10% of fixed
+   session starting equity, close all members: -2 USDT for a 20-USDT wallet.
+   Original member-price stops and the account 25% floor also remain. The
+   group loss stop does not permanently halt the account; cooldowns still apply.
+5. Smart loss averaging starts at the first poll after five minutes, then
+   at least five minutes between decisions, maximum three rounds. Each round
+   considers all held losing members with fresh accepted side-aligned signals.
+   Price winners are never modified, even if tiny gains do not cover fees.
+   Additional executable entry must improve average entry and be at least
+   0.5 **entry ATR** further adverse than the preceding add price (entry for
+   the first add). No repeated additions at an unchanged quote or flipped signal.
+6. Each request is capped by that member's fixed initial margin; no doubling.
+   Reserve exchange minimum lots within remaining margin, then share remaining
+   allocation among eligible members. If all minimum orders cannot fit, consider
+   strongest signals first. Existing spread, price-runaway, correlation, funding,
+   depth participation and original stop-risk caps can still reject an add.
+   One rejected member does not cancel other successful members. All successful
+   additions in a round commit through one atomic state/journal batch.
 
-The 60% allocation cap uses group-start equity so the half-margin request does
-not shrink with each mark, while the original 30% portfolio stop-risk budget
-continues to use deployable current capital. Per-trade risk cap, profit reserve,
-funding timing, liquidity participation, spread, correlation, stale-book and
-signal rejection all remain. A request is not a guaranteed fill or addition.
-Near the 5-USDT minimum notional, rounding a 1-USDT margin add at 5x down often
-prevents it; no rounding up or synthetic minimum-size exemption is used.
+Preparation uses closed candles and current decision time; stale flow/OI
+abstain. New rounds prepare fresh candles. The timer remains group-relative,
+independent of Radar entry windows; missed freshness windows can yield a skip.
+Exit checks run before additions and while collecting guard data. Any latched
+close blocks all additions and new groups. Never refill a member's exited slot.
 
-Group outcomes drive reserve and losing-streak accounting once at completion;
-member-level closed PnL/R is still journaled. Summed member net PnL equals group
-net PnL; reserve is inside wallet, not an extra profit. Funding cashflows and
-exchange liquidation remain unmodeled.
+Round decisions persist before staging. A crash can skip a round, never replay
+it as a new addition; pending journal batches replay idempotently. Group phases
+ACTIVE → CLOSING → CLOSED persist across partial exits/restarts. Missing fresh
+quotes can leave members pending and realized loss can exceed its nominal stop.
+Original entry/stop R anchors remain fixed; average entry changes only on adds.
 
-Atomic state saves and pending journal batches protect virtual openings/adds.
-The add decision is persisted before staging, so a crash can skip that attempt
-but cannot repeat it. Closing is latched before the first member exit. A missing
-quote can leave members pending after a close request; known fresh legs still close
-and recovery continues until flat. Polling and price gaps mean neither deadlines
-nor nominal stops guarantee exact execution or a maximum realized loss.
+Flags (default / explicit preset):
+- `BASKET_HOLD_UNTIL_TARGET`: false / true.
+- `BASKET_LOSS_STARTING_EQUITY_FRACTION`: 0 / 0.10.
+- `BASKET_ANY_PROFIT_AFTER_SECONDS`: 0 / 600.
+- `BASKET_SMART_ADDS`: false / true.
+- `BASKET_SMART_ADD_INTERVAL_SECONDS`: 300.
+- `BASKET_SMART_ADD_MAX_ROUNDS`: 3.
+- `BASKET_SMART_ADD_STEP_ATR`: 0.5.
+- `BASKET_MIN_ENTRY_FILL_RATIO`: 0 / 0.90.
 
-Watch `paper_state.json` / `telemetry.json` basket fields and `baskets.jsonl`:
-`ACTIVE`, `CLOSING`, `CLOSED`; opening, added/skipped decision, final net outcome.
-The single-writer lock, existing journals, recorder and health checks remain.
-Basket persistence errors terminate PAPER to prevent further uncertain writes.
-Four groups per hour and profitability have not been established.
+With new behaviors disabled, the legacy 15-minute deadline and one half-margin
+pair add remain. Old saved wallets retain those saved policies; changing policy
+requires a new isolated session. Retained `deadline_ms` is ignored when holding
+is enabled. Live logs show disabled expiry and the current target (zero after
+10m means strictly positive net); telemetry also records the group loss limit.
 
-The add journal records its scheduled `add_due_ms`, actual decision time and
-`add_delay_ms`. Network delays or missing fresh data can still block an add;
-preparation never extends the 90-second signal freshness limit.
-
-`BASKET_MIN_ENTRY_FILL_RATIO` is an optional initial-allocation quality filter:
-zero (default) preserves old downward lot rounding. The current `--basket`
-configure/session commands explicitly set 0.90. An entry that cannot reach 90%
-of its requested margin within the 10% cap is skipped and the next ranked
-eligible signal is considered. If five qualifying symbols remain unavailable,
-no partial group opens. It does not increase quantity or alter add minimums.
-Entry journals record requested margin and actual allocation ratio. Old saved
-baskets without the field retain the disabled policy; changing it needs a new
-session.
-
-These two new flags default to false/zero, preserving the old 15-minute
-contract for unmodified policies. Holding without a deadline requires a
-positive loss threshold. Old saved baskets restore their original policy;
-changing policy requires a new isolated session. The retained `deadline_ms`
-field is historical schema data and is ignored when holding is enabled; live
-logs show `deadline_ms=disabled`. The session duration still stops the process;
-open positions remain saved and are not automatically flattened at that time.
+Read `baskets.jsonl` and per-member journals together. Smart round decisions
+record selected symbols, per-symbol skip codes, due time and delay. Group
+outcomes drive reserve/streak accounting once; reserve is inside the wallet.
+Funding payments and exchange liquidation remain unmodeled. The bounded session
+timer still ends observation and saves any open positions without invented
+closes. Neither averaging, frequency nor profitability is guaranteed.

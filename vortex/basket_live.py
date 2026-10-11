@@ -7,7 +7,16 @@ import time
 from dataclasses import replace
 from datetime import datetime, timezone
 
-from .basket import Candidate, add_group, open_group, projected_net, strength
+from .basket import (
+    Candidate,
+    add_group,
+    open_group,
+    projected_net,
+    strength,
+    next_add_due,
+    smart_add_eligible,
+    target_net,
+)
 from .monitoring import save_telemetry
 from .strategy import analyze
 
@@ -137,13 +146,13 @@ class BasketLoop:
 
     def _manage_add(self, now, quotes):
         group = self.broker.basket
-        if group["add_decided"]:
+        due = next_add_due(self.broker)
+        if due is None:
             return now, quotes
         if self.add_group_id != group["id"]:
             self.add_group_id = group["id"]
             self.prepared = {}
             self.last_add_scan = -1
-        due = group["opened_ms"] + self.cfg.basket.add_after_seconds * 1000
         bucket = now // 300000
         # Prepare the next completed candle before the group-relative timer.
         # Entry at :01:14 means a :06:14 add, not waiting for the :10 scan.
@@ -155,13 +164,20 @@ class BasketLoop:
             return now, quotes
         net = projected_net(self.broker, quotes)
         ready = []
-        if net is not None and net < 0:
+        if net is not None and (net < 0 or self.cfg.basket.smart_adds):
             for symbol, prepared in self.prepared.items():
                 if symbol in self.broker.positions:
                     c = self._evaluate(symbol, prepared, now)
                     if c and c.signal.side == self.broker.positions[symbol].side:
-                        ready.append(c)
-            ready = self._guards(sorted(ready, key=strength)[:2])
+                        if not self.cfg.basket.smart_adds or (
+                            symbol in quotes
+                            and smart_add_eligible(
+                                self.broker, self.broker.positions[symbol], *quotes[symbol]
+                            )[0]
+                        ):
+                            ready.append(c)
+            ranked = sorted(ready, key=strength)
+            ready = self._guards(ranked if self.cfg.basket.smart_adds else ranked[:2])
             now, quotes = self._quotes(tuple(self.broker.positions))
             for event in self.broker.mark(quotes, now):
                 log.info("CLOSED: %s", event)
@@ -237,7 +253,7 @@ class BasketLoop:
                 group["id"],
                 group["phase"],
                 projected_net(self.broker, quotes),
-                group["total_margin"] * self.cfg.basket.profit_margin,
+                target_net(self.broker, now),
                 "disabled" if self.cfg.basket.hold_until_target else group["deadline_ms"],
                 self.cfg.starting_equity * self.cfg.basket.loss_starting_equity_fraction,
                 group["add_decided"],

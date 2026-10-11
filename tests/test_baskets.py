@@ -400,8 +400,9 @@ def test_post_request_quote_clock_blocks_late_group_without_another_request(tmp_
     assert not b.positions
 
 
+@pytest.mark.parametrize("smart", [False, True])
 @pytest.mark.parametrize("losing", [False, True])
-def test_group_relative_add_timer_does_not_wait_next_radar_window(tmp_path, monkeypatch, losing):
+def test_group_relative_add_timer_does_not_wait_next_radar_window(tmp_path, monkeypatch, losing, smart):
     from types import SimpleNamespace
     from vortex import basket_live
     from vortex.basket_live import BasketLoop
@@ -409,6 +410,8 @@ def test_group_relative_add_timer_does_not_wait_next_radar_window(tmp_path, monk
     from vortex.models import Candle
 
     b = setup(tmp_path)
+    if smart:
+        b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, smart_adds=True))
     opened_ms = 374000  # Entry beyond the old 65-second scan-start window.
     assert open_group(b, candidates(), quotes(), opened_ms, {})[0]
     clock = [605000]
@@ -452,7 +455,9 @@ def test_group_relative_add_timer_does_not_wait_next_radar_window(tmp_path, monk
     loop.cycle()
     assert b.basket["add_decided"] and b.basket["add_delay_ms"] == 1
     assert calls == [605000]  # Cached closed candles reevaluated, not restamped.
-    assert b.basket["add_result"] == ("added" if losing else "basket_not_losing")
+    assert b.basket["add_result"] == (
+        "added" if losing else ("no_eligible_loss_add_within_caps" if smart else "basket_not_losing")
+    )
     assert b.basket["add_decided_ms"] - opened_ms == 300001
 
 
@@ -502,3 +507,147 @@ def test_ten_percent_loss_threshold(tmp_path, monkeypatch):
     monkeypatch.setattr(basket, "projected_net", lambda *args: -2.0)
     assert exit_reason(b, quotes(), NOW + 600000) == "basket_starting_equity_loss_stop"
 
+
+def smart_group(tmp_path, short=False):
+    b = setup(tmp_path)
+    b.cfg = replace(
+        b.cfg,
+        experiment=replace(b.cfg.experiment, stop_price=0.05, average_trigger=0.025),
+        basket=replace(
+            b.cfg.basket,
+            hold_until_target=True,
+            loss_starting_equity_fraction=0.10,
+            any_profit_after_seconds=600,
+            smart_adds=True,
+        ),
+    )
+    cs = candidates()
+    if short:
+        cs = [replace(c, signal=replace(c.signal, side="SHORT", stop=10.3)) for c in cs]
+    assert open_group(b, cs, quotes(), NOW, {})[0]
+    return b
+
+
+@pytest.mark.parametrize("short", [False, True])
+def test_smart_add_all_five_losers_and_total_caps(tmp_path, short):
+    b = smart_group(tmp_path, short)
+    prices = {s: 10.1 if short else 9.9 for s in SYMBOLS}
+    cs = candidates(NOW + 300000, prices=prices)
+    if short:
+        cs = [replace(c, signal=replace(c.signal, side="SHORT", stop=10.4)) for c in cs]
+    before = {s: (p.qty, p.entry, p.stop) for s, p in b.positions.items()}
+    ok, reason = add_group(b, cs, quotes(prices), NOW + 300000, {})
+    assert ok, reason
+    assert set(b.basket["added_symbols"]) == set(SYMBOLS[:5])
+    assert sum(p.margin for p in b.positions.values()) <= 12 + 1e-8
+    for s, p in b.positions.items():
+        assert p.qty > before[s][0] and p.stop == before[s][2]
+        assert (p.entry - before[s][1]) * (-1 if short else 1) < 0
+    assert b.basket["smart_add_rounds"] == 1
+    assert len(rows(b.pyramids_file)) == 5
+    assert PaperBroker(b.cfg).basket == b.basket
+
+
+def test_smart_add_winners_untouched_and_failed_member_does_not_block_others(tmp_path):
+    from dataclasses import asdict
+
+    b = smart_group(tmp_path)
+    prices = {s: 10.01 for s in SYMBOLS}
+    prices.update({SYMBOLS[0]: 9.9, SYMBOLS[1]: 9.9, SYMBOLS[2]: 9.9})
+    cs = candidates(NOW + 300000, prices=prices)
+    cs[0] = replace(cs[0], filters=replace(FILT, min_notional=100))
+    before = {s: asdict(p) for s, p in b.positions.items()}
+    assert add_group(b, cs, quotes(prices), NOW + 300000, {})[0]
+    assert SYMBOLS[0] not in b.basket["added_symbols"]
+    assert SYMBOLS[1] in b.basket["added_symbols"]
+    for s in SYMBOLS[3:5]:
+        assert asdict(b.positions[s]) == before[s]
+
+
+def test_smart_rounds_retry_fresh_signals_but_not_every_poll(tmp_path):
+    from vortex.basket import next_add_due
+
+    b = smart_group(tmp_path)
+    book = quotes({s: 9.9 for s in SYMBOLS})
+    assert not add_group(b, [], book, NOW + 300000, {})[0]
+    assert b.basket["smart_add_rounds"] == 1
+    b = PaperBroker(b.cfg)
+    assert next_add_due(b) == NOW + 600000
+    assert not add_group(b, candidates(NOW + 300010), book, NOW + 300010, {})[0]
+    assert b.basket["smart_add_rounds"] == 1
+    assert add_group(b, candidates(NOW + 600000, prices={s: 9.9 for s in SYMBOLS}), book, NOW + 600000, {})[0]
+    assert b.basket["smart_add_rounds"] == 2
+    assert not add_group(b, [], book, NOW + 900000, {})[0]
+    assert b.basket["smart_add_rounds"] == 3 and next_add_due(b) is None
+
+
+def test_smart_needs_new_adverse_atr_move_and_aligned_signal(tmp_path):
+    from vortex.basket import smart_add_eligible
+
+    b = smart_group(tmp_path)
+    p = b.positions[SYMBOLS[0]]
+    assert not smart_add_eligible(b, p, 10.02, 10.021)[0]
+    assert not smart_add_eligible(b, p, 9.98, 9.981)[0]
+    assert smart_add_eligible(b, p, 9.9, 9.901)[0]
+    b.basket["smart_last_add_prices"] = {p.symbol: 9.9}
+    assert not smart_add_eligible(b, p, 9.89, 9.891)[0]
+    prices = {s: 9.8 for s in SYMBOLS}
+    cs = [replace(c, signal=replace(c.signal, side="SHORT")) for c in candidates(NOW + 300000, prices=prices)]
+    assert not add_group(b, cs, quotes(prices), NOW + 300000, {})[0]
+    assert not b.pyramids_file.exists()
+
+
+def test_smart_minimum_notional_never_breaks_cap(tmp_path):
+    b = smart_group(tmp_path)
+    prices = {s: 9.9 for s in SYMBOLS}
+    cs = candidates(NOW + 300000, prices=prices, filters=replace(FILT, min_notional=5))
+    add_group(b, cs, quotes(prices), NOW + 300000, {})
+    assert sum(p.margin for p in b.positions.values()) <= 12 + 1e-8
+    assert len(b.basket["added_symbols"]) <= 2
+
+
+def test_smart_uncertain_append_recovers_without_repeating_round(tmp_path, monkeypatch):
+    b = smart_group(tmp_path)
+    original = b._write_journal
+
+    def fail(event):
+        if event.get("kind") == "batch":
+            original(event["events"][0])
+        raise OSError("simulated uncertain append")
+
+    monkeypatch.setattr(b, "_write_journal", fail)
+    prices = {s: 9.9 for s in SYMBOLS}
+    with pytest.raises(OSError):
+        add_group(b, candidates(NOW + 300000, prices=prices), quotes(prices), NOW + 300000, {})
+    b = PaperBroker(b.cfg)
+    assert b.pending_journal is None and b.basket["smart_add_rounds"] == 1
+    assert len(rows(b.pyramids_file)) == 5
+    assert not add_group(b, [], quotes(prices), NOW + 300001, {})[0]
+    assert len(rows(b.pyramids_file)) == 5
+
+
+def test_old_saved_basket_new_flags_default_off(tmp_path):
+    b = opened(tmp_path)
+    state = json.loads(b.state_file.read_text())
+    for key in (
+        "smart_adds",
+        "smart_add_interval_seconds",
+        "smart_add_max_rounds",
+        "smart_add_step_atr",
+        "any_profit_after_seconds",
+    ):
+        state["basket_policy"].pop(key)
+    b.state_file.write_text(json.dumps(state))
+    assert PaperBroker(b.cfg).basket == b.basket
+
+
+def test_smart_funding_guard_and_corrupt_rounds_remain_fail_closed(tmp_path):
+    b = smart_group(tmp_path)
+    b.cfg = replace(b.cfg, operations=replace(b.cfg.operations, funding_guard=True))
+    prices = {s: 9.9 for s in SYMBOLS}
+    assert not add_group(b, candidates(NOW + 300000, prices=prices), quotes(prices), NOW + 300000, {})[0]
+    assert not b.pyramids_file.exists()
+    b.basket["smart_add_rounds"] = 99
+    b.save()
+    with pytest.raises(ValueError, match="Invalid saved smart"):
+        PaperBroker(b.cfg)

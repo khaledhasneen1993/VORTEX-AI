@@ -31,8 +31,8 @@ class PaperExperiment:
             raise ValueError("Averaging/account loss bounds exceeded")
 
     @classmethod
-    def from_env(cls):
-        defaults, values = cls(), {}
+    def from_env(cls, defaults=None):
+        defaults, values = defaults or cls(), {}
         for f in fields(cls):
             raw = os.getenv("PAPER_EXP_" + f.name.upper())
             value = getattr(defaults, f.name)

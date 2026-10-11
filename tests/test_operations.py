@@ -207,8 +207,11 @@ def test_profiles_focus_and_invalid_settings(monkeypatch):
     monkeypatch.setenv("OPS_ENABLED", "true")
     monkeypatch.setenv("OPS_PROFILE", "conservative")
     monkeypatch.setenv("OPS_FOCUS_SYMBOL", "ethusdt")
+    with pytest.raises(ValueError, match="adopted aggressive"):
+        Settings.from_env()
+    monkeypatch.setenv("OPS_PROFILE", "aggressive")
     cfg = Settings.from_env()
-    assert cfg.symbols == ("ETHUSDT",) and cfg.risk_per_trade <= 0.08 and cfg.max_positions <= 2
+    assert cfg.symbols == ("ETHUSDT",) and cfg.max_positions == 5
     with pytest.raises(ValueError):
         OperationsPolicy(tp1_fraction=0.5, tp2_fraction=0.5)
     monkeypatch.setenv("OPS_ENABLED", "yes")

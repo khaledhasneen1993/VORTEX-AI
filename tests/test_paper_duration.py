@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from research.paper_hour import session_args
+from vortex.session import session_args
 
 
 def test_twenty_minute_session_has_separate_output():
@@ -11,10 +11,10 @@ def test_twenty_minute_session_has_separate_output():
     assert args.output == Path("runs/radar-20m")
 
 
-def test_hour_workflow_keeps_original_duration_and_artifact_path():
+def test_adopted_session_default_duration_and_artifact_path():
     args = session_args([])
-    assert args.duration_seconds == 3600
-    assert args.output == Path("runs/radar-one-hour")
+    assert args.duration_seconds == 10800
+    assert args.output == Path("runs/vortex-approved")
     assert args.starting_equity is None
 
 
@@ -41,7 +41,7 @@ def test_unsupported_duration_rejected(seconds):
 
 def test_interrupted_summary_preserves_observed_evidence_and_marks_stopped(tmp_path):
     import json
-    from research.paper_hour import summarize_session
+    from vortex.session import summarize_session
 
     (tmp_path / "session.log").write_text(
         "INFO ANALYZE BTCUSDT\nPAPER equity=20.00\nCycle failed closed: unavailable\n"
@@ -65,7 +65,7 @@ def test_interrupted_summary_preserves_observed_evidence_and_marks_stopped(tmp_p
 def test_child_gets_graceful_interrupt_before_forced_kill():
     import signal
     import subprocess
-    from research.paper_hour import stop_child
+    from vortex.session import stop_child
 
     class Child:
         returncode = None

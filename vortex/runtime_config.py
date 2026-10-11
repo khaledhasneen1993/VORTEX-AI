@@ -39,8 +39,8 @@ class RuntimePolicy:
             raise ValueError("RECORDER_DECISIONS requires RECORDER_ENABLED")
 
     @classmethod
-    def from_env(cls):
-        defaults = cls()
+    def from_env(cls, defaults=None):
+        defaults = defaults or cls()
         values = {}
         for field in fields(cls):
             value = os.getenv(field.name.upper(), str(getattr(defaults, field.name))).strip()

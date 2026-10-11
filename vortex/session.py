@@ -12,12 +12,13 @@ import sys
 import threading
 import time
 import traceback
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from datetime import datetime, timezone
 from hashlib import sha256
 from math import isfinite
 from pathlib import Path
 
+from vortex.approved import canonical_environment
 from vortex.binance import Market
 from vortex.config import Settings
 from vortex.radar import discover
@@ -35,14 +36,14 @@ def session_args(argv=None):
         return number
 
     parser = argparse.ArgumentParser(description="Bounded live-data PAPER radar session")
-    parser.add_argument("--duration-seconds", type=int, choices=[1200, 3600, 10800, 21600], default=3600)
+    parser.add_argument("--duration-seconds", type=int, choices=[1200, 3600, 10800, 21600], default=10800)
     parser.add_argument(
         "--starting-equity",
         type=positive_equity,
         default=None,
         help="Fresh PAPER bankroll; default uses existing configuration",
     )
-    parser.add_argument("--output", type=Path, default=Path("runs/radar-one-hour"))
+    parser.add_argument("--output", type=Path, default=Path("runs/vortex-approved"))
     parser.add_argument("--diagnostics", action="store_true", help="Record votes and rejection reasons")
     return parser.parse_args(argv)
 
@@ -127,8 +128,9 @@ def main(argv=None):
     if folder.exists():
         raise ValueError("Never restart or overwrite an existing session")
     folder.mkdir(parents=True)
-    env = dict(os.environ)
+    env = canonical_environment(os.environ, fields(Settings))
     env.update(
+        VORTEX_CANONICAL_SESSION="true",
         RUN_MODE="paper",
         USE_RADAR="true",
         USE_WEBSOCKET="false",
@@ -142,6 +144,8 @@ def main(argv=None):
     )
     if args.starting_equity is not None:
         env["STARTING_EQUITY"] = str(args.starting_equity)
+    for key in set(os.environ) - set(env):
+        os.environ.pop(key)
     os.environ.update(env)
     if args.diagnostics:
         env["VORTEX_DIAGNOSTICS"] = "true"

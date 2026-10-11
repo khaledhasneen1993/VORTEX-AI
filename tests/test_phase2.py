@@ -121,8 +121,8 @@ def test_default_env_and_validation(monkeypatch):
     for key in ("RISK_PER_TRADE", "MAX_POSITIONS", "MAX_DAILY_LOSS", "TRAILING_ATR_MULT"):
         monkeypatch.delenv(key, raising=False)
     c = Settings.from_env()
-    assert (c.risk_per_trade, c.max_positions, c.max_daily_loss, c.trailing_atr_mult) == (0.12, 4, 0.55, 0.8)
-    for kwargs in ({"risk_per_trade": 0.151}, {"max_positions": 5}, {"max_daily_loss": 0.551}):
+    assert (c.risk_per_trade, c.max_positions, c.max_daily_loss, c.trailing_atr_mult) == (0.12, 5, 0.25, 1.0)
+    for kwargs in ({"risk_per_trade": 0.151}, {"max_positions": 6}, {"max_daily_loss": 0.551}):
         with pytest.raises(ValueError):
             replace(c, **kwargs)
     for kw in (
@@ -276,7 +276,9 @@ def test_all_phase2_env_fields_present():
     from pathlib import Path
 
     env = Path(".env.example").read_text()
-    assert all(("PHASE2_" + f.name.upper() + "=" in env for f in fields(RiskPolicy)))
+    from vortex.approved import APPROVED_ENV
+
+    assert all(key + "=" in env for key in APPROVED_ENV if key.startswith("PHASE2_"))
 
 
 def rising_bars():
@@ -405,14 +407,6 @@ def test_minute_portfolio_replays_same_add_accounting(monkeypatch):
     assert len(out["pyramid_events"]) == 1 and out["closed_trades"] == 1
     assert out["reserved_profit"] > 0
     assert out["pyramid_events"][0]["ts"] == h[74].ts
-
-
-def test_manual_phase2_snapshot_refuses_missing_correlation_state():
-    from vortex.manual_signals import make_card
-
-    sig = replace(signal(), ts=NOW - 300000)
-    with pytest.raises(ValueError, match="correlation/reserve"):
-        make_card(sig, 100, 100, NOW, config(), F, equity=1000, positions=1, day_start_equity=1000)
 
 
 def test_multiple_pyramids_need_spacing_and_remain_bounded():

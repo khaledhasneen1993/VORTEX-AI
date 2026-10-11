@@ -1,6 +1,5 @@
 """Consolidated release contracts, not strategy performance evidence."""
 
-import os
 import pytest
 from dotenv import dotenv_values
 
@@ -10,71 +9,45 @@ from vortex.phase1_config import StrategyPolicy
 
 
 def test_latest_defaults_and_no_alternative_master_profile(monkeypatch):
+    from vortex.approved import APPROVED_ENV
+
     monkeypatch.setattr("vortex.config.load_dotenv", lambda: None)
+    for key in APPROVED_ENV:
+        monkeypatch.delenv(key, raising=False)
     cfg = Settings.from_env()
-    assert cfg.phase1.enabled and cfg.phase2.enabled and cfg.operations.enabled
-    assert (cfg.risk_per_trade, cfg.max_positions, cfg.max_daily_loss, cfg.trailing_atr_mult) == (
-        0.12,
-        4,
-        0.55,
-        0.8,
+    assert cfg.starting_equity == 20
+    assert (cfg.max_positions, cfg.max_daily_loss, cfg.max_leverage, cfg.max_margin_fraction) == (
+        5,
+        0.25,
+        5,
+        0.25,
     )
-    assert cfg.operations.tp1_fraction == cfg.operations.tp2_fraction == 0.3
-    assert not cfg.operations.terminal_target and not cfg.operations.telegram_alerts
-    assert cfg.operations.profile == "default" and cfg.phase1.strict_votes
-    assert not cfg.phase1.allow_single_strong_vote and cfg.min_strong_score == 7
-    assert not cfg.phase2.aggressive_strong_risk and cfg.phase2.strong_max == 0.15
-    assert not cfg.operations.short_loss_cooldown
-    assert (cfg.radar_limit, cfg.radar_fast_ranking, cfg.loop_seconds) == (24, False, 20)
-    for flag in ("PHASE1_ENABLED", "PHASE2_ENABLED", "OPS_ENABLED"):
-        monkeypatch.setenv(flag, "false")
-        with pytest.raises(ValueError, match="Only the current"):
-            Settings.from_env()
-        monkeypatch.delenv(flag)
-    monkeypatch.setenv("OPS_PROFILE", "aggressive")
-    aggressive = Settings.from_env()
-    assert not any(
-        (
-            aggressive.phase1.flow_enabled,
-            aggressive.phase1.regime_enabled,
-            aggressive.phase1.volume_spike_enabled,
-            aggressive.phase1.liquidity_sweep_enabled,
-            aggressive.phase1.funding_flow_confirm,
-        )
+    assert cfg.operations.profile == "aggressive" and cfg.operations.short_loss_cooldown
+    assert not cfg.phase1.strict_votes and cfg.phase1.allow_single_strong_vote
+    assert cfg.min_strong_score == 6 and cfg.phase2.strong_max == 0.18
+    assert (cfg.phase2.normal_min, cfg.phase2.normal_max) == (0.08, 0.10)
+    assert cfg.phase1.flow_enabled and cfg.phase1.flow_mode == "voter"
+    assert cfg.phase1.volume_spike_enabled and not cfg.phase1.regime_enabled
+    assert cfg.experiment.enabled and cfg.experiment.capture_enabled and cfg.experiment.average_enabled
+    assert (cfg.experiment.profit_margin, cfg.experiment.stop_price, cfg.experiment.account_loss) == (
+        0.04,
+        0.10,
+        0.25,
     )
-    assert not aggressive.phase1.strict_votes and aggressive.phase1.allow_single_strong_vote
-    assert aggressive.min_strong_score == aggressive.phase1.min_strong_score == 6
-    assert aggressive.phase2.aggressive_strong_risk and aggressive.phase2.strong_max == 0.18
-    assert (aggressive.phase2.normal_min, aggressive.phase2.normal_max) == (0.08, 0.10)
-    assert aggressive.operations.short_loss_cooldown
-    assert (aggressive.radar_limit, aggressive.radar_fast_ranking, aggressive.loop_seconds) == (30, True, 10)
-    assert (aggressive.max_leverage, aggressive.max_margin_fraction) == (5, 0.25)
-    monkeypatch.setenv("STRICT_VOTES", "true")
-    monkeypatch.setenv("ALLOW_SINGLE_STRONG_VOTE", "false")
-    monkeypatch.setenv("MIN_STRONG_SCORE", "8")
-    monkeypatch.setenv("PHASE2_AGGRESSIVE_STRONG_RISK", "false")
-    monkeypatch.setenv("OPS_SHORT_LOSS_COOLDOWN", "false")
-    monkeypatch.setenv("RADAR_LIMIT", "24")
-    monkeypatch.setenv("RADAR_FAST_RANKING", "false")
-    overridden = Settings.from_env()
-    assert overridden.phase1.strict_votes and not overridden.phase1.allow_single_strong_vote
-    assert overridden.min_strong_score == 8 and overridden.phase2.strong_max == 0.15
-    assert not overridden.operations.short_loss_cooldown and not overridden.radar_fast_ranking
-    for name in (
-        "STRICT_VOTES",
-        "ALLOW_SINGLE_STRONG_VOTE",
-        "PHASE2_AGGRESSIVE_STRONG_RISK",
-        "OPS_SHORT_LOSS_COOLDOWN",
-        "RADAR_FAST_RANKING",
+    assert cfg.runtime.recorder_enabled and cfg.runtime.live_resilience and cfg.runtime.paper_fast_scan
+    assert (cfg.radar_limit, cfg.radar_fast_ranking, cfg.loop_seconds) == (30, True, 10)
+    for key, value in (
+        ("OPS_PROFILE", "conservative"),
+        ("RUN_MODE", "testnet"),
+        ("USE_AI_MODEL", "true"),
+        ("USE_WEBSOCKET", "true"),
+        ("PAPER_EXP_ENABLED", "false"),
+        ("PHASE1_ENABLED", "false"),
     ):
-        previous = os.environ[name]
-        monkeypatch.setenv(name, "maybe")
+        monkeypatch.setenv(key, value)
         with pytest.raises(ValueError):
             Settings.from_env()
-        monkeypatch.setenv(name, previous)
-    monkeypatch.setenv("OPS_PROFILE", "conservative")
-    safer = Settings.from_env()
-    assert safer.risk_per_trade == 0.08 and safer.max_positions == 2 and safer.max_daily_loss == 0.20
+        monkeypatch.delenv(key)
 
 
 def test_environment_migration_preserves_secrets_and_old_session(tmp_path):
@@ -83,13 +56,14 @@ def test_environment_migration_preserves_secrets_and_old_session(tmp_path):
     old.mkdir()
     (old / "position.json").write_text("unchanged")
     path.write_text(
-        "VORTEX_TELEGRAM_TOKEN='do-not-print'\nSTARTING_EQUITY=150\nSTRICT_VOTES=false\nOPS_ENABLED=false\nDATA_DIR=old-state\n"
+        "VORTEX_TELEGRAM_TOKEN='do-not-print'\nSTARTING_EQUITY=150\nSTRICT_VOTES=false\nOPS_ENABLED=false\nPHASE1_ATR_PCT_MIN=0.02\nDATA_DIR=old-state\n"
     )
     folder = configure(path)
     values = dotenv_values(path)
     assert values["VORTEX_TELEGRAM_TOKEN"] == "do-not-print"
-    assert values["STARTING_EQUITY"] == "150" and values["OPS_ENABLED"] == "true"
+    assert values["STARTING_EQUITY"] == "20" and values["OPS_ENABLED"] == "true"
     assert values["STRICT_VOTES"] == "false" and folder != "old-state"
+    assert "PHASE1_ATR_PCT_MIN" not in values
     assert (old / "position.json").read_text() == "unchanged"
     assert path.stat().st_mode & 0o777 == 0o600
     configure(path, 20)

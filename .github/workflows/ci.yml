@@ -14,6 +14,10 @@ concurrency:
 permissions:
   contents: read
 
+# Set false to retain completed historical runs instead of pruning them.
+env:
+  KEEP_LATEST_SUCCESSFUL_BUILD: 'true'
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -36,3 +40,31 @@ jobs:
         run: python -m pytest -q
       - name: Smoke-test PAPER CLI
         run: python -m vortex.cli status
+
+  prune-old-runs:
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Keep current successful main build only
+        if: env.KEEP_LATEST_SUCCESSFUL_BUILD == 'true'
+        # A cleanup outage must not turn passing project tests into a failure.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          KEEP_RUN: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$GH_REPO/actions/runs?per_page=100" \
+            --jq ".workflow_runs[] | select(.status == \"completed\" and .id < $KEEP_RUN) | .id" \
+            > "$RUNNER_TEMP/vortex-old-runs.txt"
+          while IFS= read -r run_id; do
+            test -n "$run_id" || continue
+            gh api --method DELETE "repos/$GH_REPO/actions/runs/$run_id"
+            echo "Deleted completed old run $run_id; keeping $KEEP_RUN"
+          done < "$RUNNER_TEMP/vortex-old-runs.txt"

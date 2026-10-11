@@ -34,3 +34,15 @@ Never widen freshness, delete journals, replace saved prices with mark prices,
 or reset a halt to force activity. REST time failures and missing data can still
 prevent position management. Recovery and health reporting do not guarantee
 multi-hour uptime.
+
+## Build history
+
+The single Build & Test workflow checks compilation, dependencies, correctness,
+tests and PAPER status. After a successful push build on `main`, its cleanup job
+removes older completed workflow runs, keeping the current main build. It never
+cancels running jobs, deletes newer runs, or edits source, Git history or local
+PAPER sessions. Deleted build logs and attached Actions artifacts are permanent.
+Set workflow `KEEP_LATEST_SUCCESSFUL_BUILD` to `false` to retain history. The
+Actions-write token is confined to the main-push cleanup job; PR test jobs keep
+read-only permissions. Cleanup errors are visible but do not change passing
+project-test results.

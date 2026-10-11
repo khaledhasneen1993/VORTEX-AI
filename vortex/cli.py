@@ -68,14 +68,15 @@ def main(argv: list[str] | None = None) -> int:
         print("Paper risk halt reset; daily loss floor remains enforced")
         return 0
     if args.command == "status":
-        broker = PaperBroker(cfg)
+        broker = PaperBroker(cfg, read_only=True)
         print(
             json.dumps(
                 {
                     "wallet": broker.wallet,
                     "positions": {s: vars(p) for s, p in broker.positions.items()},
                     "closed_trades": broker.closed_count,
-                    "risk_halted": broker.gate.blocked,
+                    "risk_halted": broker.gate.blocked or broker.protection.blocked or broker.account_floor_halted,
+                    "journal_recovery_pending": broker.pending_journal is not None,
                     "basket": broker.basket,
                 },
                 indent=2,

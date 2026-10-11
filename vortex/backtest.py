@@ -34,6 +34,11 @@ def run(
     *,
     execution_observations=None,
 ) -> dict:
+    if cfg.basket.enabled or cfg.experiment.enabled:
+        raise ValueError(
+            "Legacy OHLC replay does not implement current PAPER capture/basket exits; "
+            "use recorded live PAPER journals for this policy"
+        )
     require_history(execution_observations, cfg.operations)
     protection = Protection(cfg.operations)
     rejection_events = []

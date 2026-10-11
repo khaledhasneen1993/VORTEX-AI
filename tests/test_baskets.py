@@ -478,3 +478,27 @@ def test_old_basket_policy_defaults_to_no_new_margin_fill_filter(tmp_path):
     state["basket_policy"].pop("min_entry_fill_ratio")
     b.state_file.write_text(json.dumps(state))
     assert len(PaperBroker(b.cfg).positions) == 5
+
+
+@pytest.mark.parametrize(
+    "net,seconds,close", [(0.01, 599, False), (0.01, 600, True), (0.0, 600, False), (-0.01, 900, False)]
+)
+def test_any_profit_after_ten_minutes(tmp_path, monkeypatch, net, seconds, close):
+    from vortex import basket
+
+    b = held_group(tmp_path)
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, any_profit_after_seconds=600))
+    monkeypatch.setattr(basket, "projected_net", lambda *args: net)
+    assert (exit_reason(b, quotes(), NOW + seconds * 1000) == "basket_any_net_profit_after_timeout") is close
+
+
+def test_ten_percent_loss_threshold(tmp_path, monkeypatch):
+    from vortex import basket
+
+    b = held_group(tmp_path)
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, loss_starting_equity_fraction=0.10))
+    monkeypatch.setattr(basket, "projected_net", lambda *args: -1.99)
+    assert exit_reason(b, quotes(), NOW + 600000) is None
+    monkeypatch.setattr(basket, "projected_net", lambda *args: -2.0)
+    assert exit_reason(b, quotes(), NOW + 600000) == "basket_starting_equity_loss_stop"
+

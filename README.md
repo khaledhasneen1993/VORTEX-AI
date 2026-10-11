@@ -40,7 +40,8 @@ operation, or `bash run_paper.sh 10800 --basket` for a fresh three-hour test.
 | Initial allocation | Each uses 10% of basket-start account equity as margin, rounded down by lot size; 5x |
 | Collective target | Close every member at 3% net PnL / total posted basket margin, including add margin |
 | Five-minute decision | If net loss, choose the strongest two freshly aligned members; one add each at half their initial margin |
-| Deadline | Request closing all members after 15 minutes, even at a loss |
+| Holding period | Current `--basket` disables the 15-minute expiry; hold until target or protection |
+| Collective loss stop | Close all members at net loss of 5% of session starting equity (1 USDT at 20) |
 | Emergency protection | Original 10% price stop on any member requests whole-group closing; account floor remains 25% |
 
 At 20 USDT, initial margins are about 2 USDT each (10 total), so the initial
@@ -55,8 +56,14 @@ margin and considers the next ranked signal. The flag defaults to zero (off).
 Small-wallet minimum notional and risk limits can prevent additions or an entire
 group. No partial five-position group is opened and no missing slot is refilled.
 
-A deadline is a close request on the first available poll, not a guaranteed
-execution timestamp. Missing quotes leave a persisted pending close until fresh
+The launcher explicitly selects `BASKET_HOLD_UNTIL_TARGET=true` and
+`BASKET_LOSS_STARTING_EQUITY_FRACTION=0.05`. Both default off; without them,
+the legacy basket deadline remains 15 minutes. The loss threshold uses fixed
+session starting equity, not basket margin or current wallet equity.
+
+Stops are close requests on fresh polls, not guaranteed execution prices.
+The four-hour session timer stops observation; remaining open positions are
+saved without inventing a close. Missing quotes leave a persisted pending close until fresh
 prices return. Four groups per hour is not guaranteed. See
 [basket details](docs/BASKETS.md) for state, costs, ranking and limits.
 

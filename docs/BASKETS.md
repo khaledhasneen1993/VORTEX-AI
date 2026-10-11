@@ -27,7 +27,13 @@ No mainnet, signed orders, new voter, dependency or historical replay is added.
    Radar window. Original stop/entry R anchors stay fixed. A non-losing group or fewer
    than two eligible members produces one recorded skip. Missing quotes defer
    the decision; missing signal data is not a substitute for a current signal.
-5. At 15 minutes, latch group closing regardless of net outcome. An original
+5. Current explicit `--basket` selects `BASKET_HOLD_UNTIL_TARGET=true` and
+   `BASKET_LOSS_STARTING_EQUITY_FRACTION=0.05`: no 15-minute expiry. Hold until
+   the margin target or protection. Net basket PnL at or below minus 5% of
+   **session starting equity** requests closing every member: -1 USDT for a
+   20-USDT session, even after wallet changes or adds. Net includes estimated
+   entry/exit fees and slippage. This closes the group; it does not permanently
+   halt the account or disable existing cooldowns. An original
    member-price stop or account floor can request closing earlier. Never refill
    a stopped/exited slot or overlap two groups. New groups require fresh
    signals, cooldown clearance and all safety guards.
@@ -48,7 +54,7 @@ exchange liquidation remain unmodeled.
 Atomic state saves and pending journal batches protect virtual openings/adds.
 The add decision is persisted before staging, so a crash can skip that attempt
 but cannot repeat it. Closing is latched before the first member exit. A missing
-quote can leave members pending beyond 15 minutes; known fresh legs still close
+quote can leave members pending after a close request; known fresh legs still close
 and recovery continues until flat. Polling and price gaps mean neither deadlines
 nor nominal stops guarantee exact execution or a maximum realized loss.
 
@@ -71,3 +77,11 @@ no partial group opens. It does not increase quantity or alter add minimums.
 Entry journals record requested margin and actual allocation ratio. Old saved
 baskets without the field retain the disabled policy; changing it needs a new
 session.
+
+These two new flags default to false/zero, preserving the old 15-minute
+contract for unmodified policies. Holding without a deadline requires a
+positive loss threshold. Old saved baskets restore their original policy;
+changing policy requires a new isolated session. The retained `deadline_ms`
+field is historical schema data and is ignored when holding is enabled; live
+logs show `deadline_ms=disabled`. The session duration still stops the process;
+open positions remain saved and are not automatically flattened at that time.

@@ -233,11 +233,12 @@ class BasketLoop:
         )
         if group:
             log.info(
-                "BASKET id=%s phase=%s net=%s target=%.8f deadline_ms=%d add_decided=%s",
+                "BASKET id=%s phase=%s net=%s target=%.8f deadline_ms=%s loss_limit=%.8f add_decided=%s",
                 group["id"],
                 group["phase"],
                 projected_net(self.broker, quotes),
                 group["total_margin"] * self.cfg.basket.profit_margin,
-                group["deadline_ms"],
+                "disabled" if self.cfg.basket.hold_until_target else group["deadline_ms"],
+                self.cfg.starting_equity * self.cfg.basket.loss_starting_equity_fraction,
                 group["add_decided"],
             )

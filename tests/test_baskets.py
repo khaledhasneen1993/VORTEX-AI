@@ -6,7 +6,7 @@ from dataclasses import replace
 import pytest
 from dotenv import dotenv_values
 
-from vortex.basket import Candidate, add_group, open_group, projected_net
+from vortex.basket import Candidate, add_group, open_group, projected_net, exit_reason
 from vortex.basket_config import BasketPolicy
 from vortex.config import Settings
 from vortex.configure import configure
@@ -126,6 +126,84 @@ def test_legacy_individual_target_is_ignored_and_deadline_closes_loss(tmp_path):
     assert b.protection.streak == 1 and b.gate.consecutive_losses == 1
 
 
+def held_group(tmp_path):
+    b = setup(tmp_path)
+    b.cfg = replace(
+        b.cfg, basket=replace(b.cfg.basket, hold_until_target=True, loss_starting_equity_fraction=0.05)
+    )
+    assert open_group(b, candidates(), quotes(), NOW, {})[0]
+    return b
+
+
+def test_hold_survives_deadline_and_restart_then_closes_at_target(tmp_path):
+    b = held_group(tmp_path)
+    assert b.mark(quotes({s: 9.9 for s in SYMBOLS}), NOW + 1800000) == []
+    b = PaperBroker(b.cfg)
+    assert b.basket["phase"] == "ACTIVE" and len(b.positions) == 5
+    events = b.mark(quotes({s: 10.1 for s in SYMBOLS}), NOW + 1810000)
+    assert len(events) == 5
+    assert all(e["reason"] == "basket_net_margin_target" for e in events)
+
+
+def test_starting_equity_loss_stop_is_fixed_and_blocks_add(tmp_path):
+    b = held_group(tmp_path)
+    # Current balance / group equity may change; the threshold remains 5% of 20.
+    b.wallet = 30
+    b.basket["initial_account_equity"] = 30
+    book = quotes({s: 9.79 for s in SYMBOLS})
+    net = projected_net(b, book)
+    assert -1.5 < net < -1
+    assert not add_group(b, candidates(NOW + 300000), book, NOW + 300000, {})[0]
+    assert not b.basket["add_decided"]
+    events = b.mark(book, NOW + 300000)
+    assert len(events) == 5
+    assert all(e["reason"] == "basket_starting_equity_loss_stop" for e in events)
+    assert b.basket["realized_net"] == pytest.approx(net)
+    assert not b.account_floor_halted
+
+
+def test_loss_stop_latch_survives_partial_close_and_restart(tmp_path):
+    b = held_group(tmp_path)
+    book = quotes({s: 9.79 for s in SYMBOLS})
+    assert exit_reason(b, book, NOW + 10000) == "basket_starting_equity_loss_stop"
+    del book[SYMBOLS[2]]
+    assert len(b.mark(book, NOW + 10000)) == 4
+    b = PaperBroker(b.cfg)
+    assert b.basket["phase"] == "CLOSING"
+    events = b.mark(quotes(), NOW + 20000)
+    assert len(events) == 1 and events[0]["reason"] == "basket_starting_equity_loss_stop"
+    assert b.basket["phase"] == "CLOSED"
+
+
+@pytest.mark.parametrize("net,should_close", [(-0.999999, False), (-1.0, True), (-1.000001, True)])
+def test_loss_boundary_is_inclusive(tmp_path, monkeypatch, net, should_close):
+    from vortex import basket
+
+    b = held_group(tmp_path)
+    monkeypatch.setattr(basket, "projected_net", lambda broker, book: net)
+    reason = exit_reason(b, quotes(), NOW + 10000)
+    assert (reason == "basket_starting_equity_loss_stop") is should_close
+
+
+def test_hold_policy_validation_and_legacy_recovery(tmp_path, monkeypatch):
+    with pytest.raises(ValueError):
+        BasketPolicy(hold_until_target=True)
+    monkeypatch.setenv("BASKET_HOLD_UNTIL_TARGET", "yes")
+    with pytest.raises(ValueError):
+        BasketPolicy.from_env()
+    b = opened(tmp_path)
+    state = json.loads(b.state_file.read_text())
+    state["basket_policy"].pop("hold_until_target")
+    state["basket_policy"].pop("loss_starting_equity_fraction")
+    b.state_file.write_text(json.dumps(state))
+    assert PaperBroker(b.cfg).basket == b.basket
+    changed = replace(
+        b.cfg, basket=replace(b.cfg.basket, hold_until_target=True, loss_starting_equity_fraction=0.05)
+    )
+    with pytest.raises(ValueError, match="Basket policy changed"):
+        PaperBroker(changed)
+
+
 def test_missing_quote_latches_deadline_and_recovery_never_refills(tmp_path):
     b = opened(tmp_path)
     book = quotes()
@@ -215,6 +293,8 @@ def test_policy_is_opt_in_saved_state_cannot_switch_modes(tmp_path):
     configure(path, 20, basket=True)
     values = dotenv_values(path)
     assert values["BASKET_ENABLED"] == "true" and values["MAX_MARGIN_FRACTION"] == "0.60"
+    assert values["BASKET_HOLD_UNTIL_TARGET"] == "true"
+    assert values["BASKET_LOSS_STARTING_EQUITY_FRACTION"] == "0.05"
     configure(path, 20)
     assert dotenv_values(path)["BASKET_ENABLED"] == "false"
     assert dotenv_values(path)["MAX_MARGIN_FRACTION"] == "0.25"

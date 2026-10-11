@@ -143,7 +143,7 @@ def exit_reason(broker, quotes, now, floor_halted=False):
     reason = None
     if floor_halted:
         reason = "account_equity_floor"
-    elif now >= group["deadline_ms"]:
+    elif not broker.cfg.basket.hold_until_target and now >= group["deadline_ms"]:
         reason = "basket_max_duration"
     elif any(
         (quotes[s][0 if p.side == "LONG" else 1] - p.stop) * (1 if p.side == "LONG" else -1) <= 0
@@ -153,7 +153,10 @@ def exit_reason(broker, quotes, now, floor_halted=False):
         reason = "basket_member_price_stop"
     else:
         net = projected_net(broker, quotes)
-        if net is not None and net >= group["total_margin"] * broker.cfg.basket.profit_margin:
+        loss_fraction = broker.cfg.basket.loss_starting_equity_fraction
+        if net is not None and loss_fraction > 0 and net <= -broker.cfg.starting_equity * loss_fraction:
+            reason = "basket_starting_equity_loss_stop"
+        elif net is not None and net >= group["total_margin"] * broker.cfg.basket.profit_margin:
             reason = "basket_net_margin_target"
     if reason:
         # Latch BEFORE any leg exits; a restart cannot switch back to entry mode.
@@ -369,12 +372,15 @@ def add_group(broker, candidates, quotes, now, histories):
         or g["phase"] != "ACTIVE"
         or g["add_decided"]
         or now < g["opened_ms"] + broker.cfg.basket.add_after_seconds * 1000
-        or now >= g["deadline_ms"]
+        or (not broker.cfg.basket.hold_until_target and now >= g["deadline_ms"])
     ):
         return False, "add not due"
     net = projected_net(broker, quotes)
     if net is None:
         return False, "missing quote: add deferred"
+    loss_fraction = broker.cfg.basket.loss_starting_equity_fraction
+    if loss_fraction > 0 and net <= -broker.cfg.starting_equity * loss_fraction:
+        return False, "basket loss threshold: add blocked"
     if broker._account_floor(quotes):
         return False, "account equity floor: add blocked"
     eligible = sorted(

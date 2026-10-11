@@ -62,3 +62,51 @@ def test_read_only_snapshot_cannot_mutate_or_create_folder(tmp_path):
         with pytest.raises(PermissionError):
             action()
     assert not folder.exists()
+
+
+def test_state_rename_and_new_journal_sync_parent(tmp_path, monkeypatch):
+    from vortex.config import Settings
+    from vortex.paper import PaperBroker
+
+    broker = PaperBroker(Settings(data_dir=tmp_path))
+    calls = []
+    def sync_parent():
+        assert broker.state_file.exists()  # Rename precedes directory durability.
+        calls.append(True)
+    monkeypatch.setattr(broker, "_sync_folder", sync_parent)
+    broker.save()
+    event = {"kind": "entry", "event_id": "durable"}
+    broker._write_journal(event)
+    broker._write_journal(event)
+    assert len(calls) == 2  # State rename and first journal creation only.
+    def fail():
+        raise OSError("directory sync uncertain")
+    monkeypatch.setattr(broker, "_sync_folder", fail)
+    with pytest.raises(OSError, match="uncertain"):
+        broker.save()
+
+
+def test_nonbasket_loop_stops_on_uncertain_write(tmp_path, monkeypatch):
+    from vortex import cli
+    from vortex.config import Settings
+    from vortex.paper import PaperBroker
+
+    cfg = Settings(data_dir=tmp_path)
+    monkeypatch.setattr(cli.Settings, "from_env", lambda: cfg)
+    class Public:
+        def __init__(self, **kwargs):
+            pass
+        def metadata(self):
+            return {s: {} for s in cfg.symbols}
+        def server_ms(self):
+            return 305000
+        def quotes(self, **kwargs):
+            return {}
+    monkeypatch.setattr(cli, "Market", Public)
+    def fail(*args):
+        raise OSError("uncertain state write")
+    monkeypatch.setattr(PaperBroker, "mark", fail)
+    monkeypatch.setattr(cli.time, "sleep", lambda _: pytest.fail("Must not retry uncertain write"))
+    assert cli.main(["paper"]) == 2
+    with ProcessLock(tmp_path / "paper.lock"):
+        pass  # Fatal stop releases the writer lock.

@@ -137,6 +137,13 @@ class PaperBroker:
         if self.read_only:
             raise PermissionError("Read-only PAPER snapshot cannot mutate state")
 
+    def _sync_folder(self) -> None:
+        fd = os.open(self.folder, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
     def _write_journal(self, event: dict) -> None:
         self._require_writable()
         if event.get("kind") == "batch":
@@ -163,10 +170,13 @@ class PaperBroker:
                         if old.get("event_id"):
                             existing.add(old["event_id"])
         if event["event_id"] not in existing:
+            created = not target.exists()
             with target.open("a", encoding="utf-8") as fp:
                 fp.write(json.dumps(event) + "\n")
                 fp.flush()
                 os.fsync(fp.fileno())
+            if created:
+                self._sync_folder()
 
     def _finish_pending(self):
         self._require_writable()
@@ -284,6 +294,7 @@ class PaperBroker:
             f.flush()
             os.fsync(f.fileno())
         tmp.replace(self.state_file)
+        self._sync_folder()
 
     def equity(self, quotes: dict[str, tuple[float, float]]) -> float:
         unrealized = 0.0

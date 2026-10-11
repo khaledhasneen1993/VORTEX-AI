@@ -521,10 +521,10 @@ def main(argv: list[str] | None = None) -> int:
                     recorder=recorder.status(),
                 )
                 log.error("Cycle failed closed: %s", exc)
-                if basket_loop and isinstance(exc, OSError):
+                if isinstance(exc, OSError):
                     # Never continue with memory diverging from an uncertain state write.
                     log.critical(
-                        "Basket persistence failed: stopping PAPER; recover saved journal before restarting"
+                        "Persistence failed: stopping PAPER; inspect saved state/journal before restarting"
                     )
                     return 2
                 if args.once:

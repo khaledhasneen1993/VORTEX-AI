@@ -24,6 +24,9 @@ class BasketLoop:
         self.use_radar = use_radar
         self.histories = {}
         self.last_scan = -1
+        self.last_add_scan = -1
+        self.add_group_id = None
+        self.prepared = {}
         self.last_exit_poll = 0.0
         self.degraded = False
 
@@ -66,44 +69,51 @@ class BasketLoop:
                 self.degraded = True
                 log.info("ENTRY_SKIP %s reason=basket_scan_data_unavailable detail=%s", symbol, prepared)
                 continue
-            data = prepared.data
-            self.histories[symbol] = data
-            checked = self.market.server_ms()
-            self.health.observe(symbol, checked, prepared.funding, prepared.flow, self.cfg.phase1)
-            log.info(
-                "ANALYZE %s decision_ms=%d bars=%d,%d,%d,%d",
-                symbol,
-                checked,
-                len(data),
-                len(prepared.upper),
-                len(prepared.macro),
-                len(prepared.minute),
-            )
-            signal = analyze(
-                symbol,
-                data,
-                prepared.upper,
-                self.cfg.min_score,
-                macro=prepared.macro,
-                derivatives=prepared.derivatives,
-                decision_ms=checked,
-                minute=prepared.minute,
-                policy=self.cfg.phase1,
-                flow=prepared.flow,
-                capture=True,
-            )
-            if (
-                signal is None
-                or not data
-                or not 0 <= checked - data[-1].close_ts <= min(90000, self.cfg.phase1.max_signal_age_ms)
-            ):
-                log.info("ENTRY_SKIP %s reason=basket_strategy_or_stale_signal", symbol)
-                continue
-            from .signal_features import feature_snapshot
-
-            signal = replace(signal, features={**signal.features, **feature_snapshot(data, signal)})
-            ready.append(Candidate(signal, self.market.symbol_filters(symbol), data[-1].close_ts))
+            self.prepared[symbol] = prepared
+            candidate = self._evaluate(symbol, prepared, self.market.server_ms())
+            if candidate:
+                ready.append(candidate)
         return sorted(ready, key=strength)
+
+    def _evaluate(self, symbol, prepared, checked):
+        # Reevaluate cached CLOSED candles at actual decision time. Old flow/OI
+        # must abstain under existing strategy rules; their timestamps never move.
+        data = prepared.data
+        self.histories[symbol] = data
+        self.health.observe(symbol, checked, prepared.funding, prepared.flow, self.cfg.phase1)
+        log.info(
+            "ANALYZE %s decision_ms=%d bars=%d,%d,%d,%d",
+            symbol,
+            checked,
+            len(data),
+            len(prepared.upper),
+            len(prepared.macro),
+            len(prepared.minute),
+        )
+        signal = analyze(
+            symbol,
+            data,
+            prepared.upper,
+            self.cfg.min_score,
+            macro=prepared.macro,
+            derivatives=prepared.derivatives,
+            decision_ms=checked,
+            minute=prepared.minute,
+            policy=self.cfg.phase1,
+            flow=prepared.flow,
+            capture=True,
+        )
+        if (
+            signal is None
+            or not data
+            or not 0 <= checked - data[-1].close_ts <= min(90000, self.cfg.phase1.max_signal_age_ms)
+        ):
+            log.info("ENTRY_SKIP %s reason=basket_strategy_or_stale_signal", symbol)
+            return None
+        from .signal_features import feature_snapshot
+
+        signal = replace(signal, features={**signal.features, **feature_snapshot(data, signal)})
+        return Candidate(signal, self.market.symbol_filters(symbol), data[-1].close_ts)
 
     def _guards(self, candidates):
         guarded = []
@@ -130,6 +140,43 @@ class BasketLoop:
                 log.info("ENTRY_SKIP %s reason=basket_guard_data_unavailable detail=%s", c.signal.symbol, exc)
         return guarded
 
+    def _manage_add(self, now, quotes):
+        group = self.broker.basket
+        if group["add_decided"]:
+            return now, quotes
+        if self.add_group_id != group["id"]:
+            self.add_group_id = group["id"]
+            self.prepared = {}
+            self.last_add_scan = -1
+        due = group["opened_ms"] + self.cfg.basket.add_after_seconds * 1000
+        bucket = now // 300000
+        # Prepare the next completed candle before the group-relative timer.
+        # Entry at :01:14 means a :06:14 add, not waiting for the :10 scan.
+        if due // 300000 == bucket and self.last_add_scan != bucket and 5000 <= now % 300000 <= 65000:
+            self.last_add_scan = bucket
+            self._scan(list(self.broker.positions), now)
+            now, quotes = self._mark()
+        if not self.broker.positions or group["phase"] != "ACTIVE" or now < due:
+            return now, quotes
+        net = projected_net(self.broker, quotes)
+        ready = []
+        if net is not None and net < 0:
+            for symbol, prepared in self.prepared.items():
+                if symbol in self.broker.positions:
+                    c = self._evaluate(symbol, prepared, now)
+                    if c and c.signal.side == self.broker.positions[symbol].side:
+                        ready.append(c)
+            ready = self._guards(sorted(ready, key=strength)[:2])
+            now, quotes = self._quotes(tuple(self.broker.positions))
+            for event in self.broker.mark(quotes, now):
+                log.info("CLOSED: %s", event)
+        if self.broker.positions and group["phase"] == "ACTIVE":
+            ok, reason = add_group(self.broker, ready, quotes, now, self.histories)
+            log.info(
+                "BASKET_ADD accepted=%s reason=%s due_ms=%d delay_ms=%d", ok, reason, due, max(0, now - due)
+            )
+        return now, quotes
+
     def cycle(self):
         self.degraded = False
         now, quotes = self._mark()
@@ -138,17 +185,15 @@ class BasketLoop:
             self._report(now, quotes)
             return
         active = bool(self.broker.positions)
-        add_due = (
-            active
-            and not group["add_decided"]
-            and now >= group["opened_ms"] + self.cfg.basket.add_after_seconds * 1000
-        )
+        if active:
+            now, quotes = self._manage_add(now, quotes)
+            self._report(now, quotes)
+            return
         bucket = now // 300000
-        if (not active or add_due) and self.last_scan != bucket and 5000 <= now % 300000 <= 65000:
+        if self.last_scan != bucket and 5000 <= now % 300000 <= 65000:
             self.last_scan = bucket
-            old_id = group["id"] if active else None
-            symbols = list(self.broker.positions) if active else self.symbols
-            if not active and self.use_radar:
+            symbols = self.symbols
+            if self.use_radar:
                 from .radar import discover
 
                 self.symbols = symbols = [
@@ -163,24 +208,13 @@ class BasketLoop:
                 s: row for s, row in self.health.row["symbols"].items() if s in symbols
             }
             ready = self._scan(symbols, now)
-            if active:
-                ready = [
-                    c
-                    for c in ready
-                    if c.signal.symbol in self.broker.positions
-                    and c.signal.side == self.broker.positions[c.signal.symbol].side
-                ][:2]
             guarded = self._guards(ready)
             # A new final quote snapshot, never the book used before collection.
-            required = tuple(self.broker.positions) if active else tuple(c.signal.symbol for c in guarded[:6])
+            required = tuple(c.signal.symbol for c in guarded[:6])
             now, quotes = self._quotes(required)
             for event in self.broker.mark(quotes, now):
                 log.info("CLOSED: %s", event)
-            if active:
-                if self.broker.positions and self.broker.basket["id"] == old_id:
-                    ok, reason = add_group(self.broker, guarded, quotes, now, self.histories)
-                    log.info("BASKET_ADD accepted=%s reason=%s", ok, reason)
-            elif not self.broker.positions:
+            if not self.broker.positions:
                 ok, reason = open_group(self.broker, guarded, quotes, now, self.histories)
                 log.info("BASKET_ENTRY accepted=%s reason=%s", ok, reason)
         self._report(now, quotes)

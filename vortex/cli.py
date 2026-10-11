@@ -153,11 +153,13 @@ def main(argv: list[str] | None = None) -> int:
             result = market.quotes(now_ms=checked_ms, required_symbols=required)
         else:
             result = market.quotes(now_ms=checked_ms)
+        if not stream:
+            checked_ms = getattr(market, "quotes_checked_ms", checked_ms)
         health.update(
             quotes_checked_ms=checked_ms,
             missing_quotes=[s for s in broker.positions if s not in result],
         )
-        return result
+        return checked_ms, result
 
     try:
         while True:
@@ -172,15 +174,16 @@ def main(argv: list[str] | None = None) -> int:
                 health.update(stage="quotes", status="RUNNING")
                 recorder.update_symbols([*broker.positions, *symbols])
                 now = market.server_ms()
-                quotes = live_quotes(now)
+                if not cfg.experiment.enabled:
+                    refresh_open_position_atr(
+                        market, broker.positions, cfg.timeframe, now, latest_atr, atr_refresh_bucket
+                    )
+                now, quotes = live_quotes(now)
                 health.update(
                     quotes_checked_ms=now,
                     missing_quotes=[s for s in [*broker.positions, *symbols] if s not in quotes],
                     recorder=recorder.status(),
                     stream=stream.health() if stream else None,
-                )
-                refresh_open_position_atr(
-                    market, broker.positions, cfg.timeframe, now, latest_atr, atr_refresh_bucket
                 )
                 was_halted = broker.gate.blocked or broker.protection.blocked
                 for closed in broker.mark(quotes, now, latest_atr):
@@ -254,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
                                 funding = derivative_tracker.timing(market, sym)
                                 depth = market.get("/fapi/v1/depth", {"symbol": sym, "limit": 100})
                                 now = market.server_ms()
-                                quotes = live_quotes(now)
+                                now, quotes = live_quotes(now)
                                 if sym not in quotes:
                                     log.info("ENTRY_SKIP %s reason=missing_fresh_pyramid_quote", sym)
                                     continue
@@ -296,10 +299,11 @@ def main(argv: list[str] | None = None) -> int:
                             return
                         last_exit_poll[0] = time.monotonic()
                         exit_now = market.server_ms()
-                        exit_quotes = live_quotes(exit_now)
-                        refresh_open_position_atr(
-                            market, broker.positions, cfg.timeframe, exit_now, latest_atr, atr_refresh_bucket
-                        )
+                        if not cfg.experiment.enabled:
+                            refresh_open_position_atr(
+                                market, broker.positions, cfg.timeframe, exit_now, latest_atr, atr_refresh_bucket
+                            )
+                        exit_now, exit_quotes = live_quotes(exit_now)
                         for closed in broker.mark(exit_quotes, exit_now, latest_atr):
                             log.info("CLOSED: %s", json.dumps(closed))
                             if cfg.operations.telegram_alerts:
@@ -312,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
                         health.update(stage="scan", current_symbol=symbol)
                         if cfg.runtime.live_resilience and broker.positions:
                             exit_now = market.server_ms()
-                            exit_quotes = live_quotes(exit_now)
+                            exit_now, exit_quotes = live_quotes(exit_now)
                             for closed in broker.mark(exit_quotes, exit_now, latest_atr):
                                 log.info("CLOSED: %s", json.dumps(closed))
                                 if cfg.operations.telegram_alerts:
@@ -441,7 +445,7 @@ def main(argv: list[str] | None = None) -> int:
                                 continue
                             if cfg.phase2.enabled or cfg.operations.enabled:
                                 now = market.server_ms()
-                                quotes = live_quotes(now, symbol)
+                                now, quotes = live_quotes(now, symbol)
                                 if symbol not in quotes or now - data[-1].close_ts > 90000:
                                     log.info("ENTRY_SKIP %s reason=stale_book_or_signal_after_scan", symbol)
                                     continue
@@ -452,7 +456,7 @@ def main(argv: list[str] | None = None) -> int:
                                 # re-stamp cached observations or bypass freshness.
                                 derivative_tracker.timing(market, symbol)
                                 now = market.server_ms()
-                                quotes = live_quotes(now, symbol)
+                                now, quotes = live_quotes(now, symbol)
                                 if symbol not in quotes or now - data[-1].close_ts > 90000:
                                     log.info("ENTRY_SKIP %s reason=stale_after_funding_refresh", symbol)
                                     continue
@@ -460,7 +464,7 @@ def main(argv: list[str] | None = None) -> int:
                             if cfg.operations.enabled and cfg.operations.liquidity_guard:
                                 depth = market.get("/fapi/v1/depth", {"symbol": symbol, "limit": 100})
                                 now = market.server_ms()
-                                quotes = live_quotes(now, symbol)
+                                now, quotes = live_quotes(now, symbol)
                                 if symbol not in quotes or now - data[-1].close_ts > 90000:
                                     log.info("ENTRY_SKIP %s reason=stale_after_depth_request", symbol)
                                     continue

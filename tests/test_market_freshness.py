@@ -106,3 +106,58 @@ def test_bulk_failure_can_recover_only_fresh_critical_depth(monkeypatch):
 
     monkeypatch.setattr(api, 'get', get)
     assert api.quotes(now_ms=now, required_symbols=['BTCUSDT']) == {'BTCUSDT': (100, 101)}
+
+
+def test_one_bulk_refresh_recovers_early_held_quote_without_restamping(monkeypatch):
+    api = Market(resilient=True)
+    clock = [1900000000000]
+    initial = clock[0]
+    bulk_calls = [0]
+    def get(path, params=None):
+        if path.endswith('/time'):
+            return {'serverTime': clock[0]}
+        if path.endswith('/bookTicker'):
+            bulk_calls[0] += 1
+            return [{'symbol': 'BTCUSDT', 'bidPrice': '100', 'askPrice': '101',
+                     'time': initial if bulk_calls[0] == 1 else clock[0]}]
+        clock[0] += 5000
+        return {'T': clock[0], 'bids': [['50', '1']], 'asks': [['51', '1']]}
+    monkeypatch.setattr(api, 'get', get)
+    assert api.quotes(now_ms=initial, required_symbols=['BTCUSDT', 'ETHUSDT']) == {
+        'BTCUSDT': (100, 101), 'ETHUSDT': (50, 51)}
+    assert bulk_calls[0] == 2
+    assert api.quotes_checked_ms == clock[0]
+
+
+def test_nonbasket_mark_uses_completed_quote_clock(tmp_path, monkeypatch):
+    from vortex import cli
+    from vortex.config import Settings
+    from vortex.paper import PaperBroker
+    from vortex.paper_experiment import PaperExperiment
+    from vortex.runtime_config import RuntimePolicy
+
+    cfg = Settings(data_dir=tmp_path, experiment=PaperExperiment(enabled=True),
+                   runtime=RuntimePolicy(live_resilience=True))
+    monkeypatch.setattr(cli.Settings, 'from_env', lambda: cfg)
+    monkeypatch.setenv('USE_RADAR', 'false')
+    class SlowPublic:
+        def __init__(self, **kwargs):
+            pass
+        def metadata(self):
+            return {s: {} for s in cfg.symbols}
+        def server_ms(self):
+            return 300000
+        def quotes(self, **kwargs):
+            self.quotes_checked_ms = 302000
+            return {}
+    monkeypatch.setattr(cli, 'Market', SlowPublic)
+    calls = []
+    original = PaperBroker.mark
+    def mark(self, quotes, now, *args):
+        calls.append(now)
+        return original(self, quotes, now, *args)
+    monkeypatch.setattr(PaperBroker, 'mark', mark)
+    monkeypatch.setattr(cli, 'refresh_open_position_atr',
+                        lambda *args: (_ for _ in ()).throw(AssertionError('No ATR I/O after fresh quotes')))
+    assert cli.main(['paper', '--once']) == 0
+    assert calls == [302000]

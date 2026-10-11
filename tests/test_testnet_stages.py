@@ -130,3 +130,11 @@ def test_flat_testnet_read_halts_without_cancelling_any_protection(tmp_path):
     assert [o["clientAlgoId"] for o in exchange.algos] == old_orders
     with pytest.raises(ProtectionError):
         TestnetSupervisor(exchange, tmp_path / "journal.json").audit()
+
+
+def test_current_testnet_entry_is_not_implemented():
+    from vortex.testnet_runner import once
+
+    assert not once(
+        __import__("vortex.config", fromlist=["Settings"]).Settings(), "BTCUSDT", acknowledge=True
+    )["ok"]

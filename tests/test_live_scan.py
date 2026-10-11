@@ -155,7 +155,7 @@ def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypat
     monkeypatch.setattr(live_scan, "CandidateScanner", Scanner)
     monkeypatch.setattr(cli, "analyze", analyze)
     if experiment:
-        monkeypatch.setattr("vortex.ml.feature_snapshot", lambda *args: {})
+        monkeypatch.setattr("vortex.signal_features.feature_snapshot", lambda *args: {})
     assert cli.main(["paper", "--once"]) == 0
     assert state["closed"] and state["analyzed"] == 1
     if experiment:

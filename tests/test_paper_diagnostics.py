@@ -1,4 +1,4 @@
-from research.paper_hour import diagnostic_counts, session_args
+from vortex.session import diagnostic_counts, session_args
 
 
 def test_rejected_analysis_is_counted_without_entry_attempt():

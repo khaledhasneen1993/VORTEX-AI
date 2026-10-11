@@ -1,4 +1,4 @@
-"""Command-line entrypoint: status, historical backtest, or read-only paper."""
+"""Command-line entrypoint: adopted PAPER operation and read-only monitoring."""
 
 from __future__ import annotations
 
@@ -11,12 +11,10 @@ import time
 from dataclasses import replace
 from datetime import datetime, timezone
 
-from .backtest import run as backtest
 from .binance import Market, MarketError
 from .config import Settings
 from .locks import ProcessLock
 from .paper import PaperBroker
-from .reports import save_report
 from .strategy import analyze
 
 log = logging.getLogger("vortex")
@@ -53,44 +51,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="VORTEX AI / paper trading")
     parser.add_argument(
         "command",
-        choices=(
-            "paper",
-            "backtest",
-            "portfolio-backtest",
-            "status",
-            "dashboard",
-            "reset-paper-halt",
-            "testnet-doctor",
-            "testnet-watch",
-            "train-ai",
-        ),
+        choices=("paper", "status", "dashboard", "reset-paper-halt"),
     )
-    parser.add_argument("--symbol", default="BTCUSDT", help="Backtest symbol")
-    parser.add_argument("--bars", type=int, default=1200, help="Backtest candle count 300-1500")
-    parser.add_argument("--days", type=int, default=None, help="Paginated backtest span 1-45 days")
     parser.add_argument("--once", action="store_true", help="Run one polling cycle")
     parser.add_argument("--port", type=int, default=8765, help="Dashboard loopback port")
     parser.add_argument("--ack-risk", action="store_true", help="Acknowledge a manual paper risk reset")
-    parser.add_argument(
-        "--ack-testnet",
-        action="store_true",
-        help="Arm TESTNET-only protection watchdog; requires matching env gate",
-    )
-    parser.add_argument("--dataset", type=str, default="", help="JSONL with confirmed closed-trade labels")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if os.getenv("VORTEX_DIAGNOSTICS", "false").lower() == "true":
         logging.getLogger("vortex.votes").setLevel(logging.DEBUG)
     cfg = Settings.from_env()
-    if args.command == "train-ai":
-        from pathlib import Path
-
-        from .ml import train_jsonl
-
-        if not args.dataset:
-            parser.error("train-ai requires --dataset file.jsonl")
-        print(json.dumps(train_jsonl(Path(args.dataset), cfg.data_dir / "ai_model.json"), indent=2))
-        return 0
     if args.command == "reset-paper-halt":
         with ProcessLock(cfg.data_dir / "paper.lock"):
             broker = PaperBroker(cfg)
@@ -116,103 +86,7 @@ def main(argv: list[str] | None = None) -> int:
 
         serve(cfg, args.port)
         return 0
-    if args.command in {"testnet-doctor", "testnet-watch"}:
-        from .testnet_runner import doctor, prepare
-
-        if args.command == "testnet-doctor":
-            print(json.dumps(doctor(cfg), indent=2))
-            return 0
-        if not args.ack_testnet or os.getenv("VORTEX_TESTNET_ARM") != "TESTNET_ONLY":
-            raise PermissionError("Testnet watchdog requires explicit arming for emergency close")
-        testnet_lock = ProcessLock(cfg.data_dir / "testnet.lock").acquire()
-        api, guardian = prepare(cfg, armed=True)
-        from .binance import TESTNET
-        from .testnet_stages import maintain
-
-        testnet_market = Market(base=TESTNET)
-        while True:
-            observed = guardian.audit(may_flatten=True)
-            if observed.get("phase") == "PROTECTED":
-                symbol = observed["symbol"]
-                fresh_quote = testnet_market.quotes()
-                if symbol not in fresh_quote:
-                    raise ValueError("No TESTNET bid/ask; no staged actions")
-                bid, ask = fresh_quote[symbol]
-                from .indicators import atr
-
-                now_testnet = testnet_market.server_ms()
-                observed_bars = testnet_market.candles(symbol, cfg.timeframe, 60, now_testnet)
-                current_atr = atr(observed_bars) if len(observed_bars) >= 16 else None
-                observed["management"] = maintain(
-                    guardian, bid, ask, atr_value=current_atr, trailing_atr_mult=cfg.trailing_atr_mult
-                )
-            print(json.dumps(observed, indent=2))
-            time.sleep(10)
-    market = Market(resilient=cfg.runtime.live_resilience and args.command == "paper")
-
-    def output_report(report: dict, kind: str, label: str) -> None:
-        path = save_report(cfg.data_dir, kind, report, symbol=label)
-        metrics = report["metrics"]
-        print(
-            json.dumps(
-                {
-                    "file": str(path),
-                    "closed_trades": metrics["closed_trades"],
-                    "win_rate_pct": metrics["win_rate_pct"],
-                    "profit_factor": metrics["profit_factor"],
-                    "max_drawdown_pct": report["max_drawdown_pct"],
-                    "average_r": metrics["average_r"],
-                    "equity_curve": metrics["equity_curve"],
-                },
-                indent=2,
-            )
-        )
-
-    if args.command == "portfolio-backtest":
-        from .portfolio import run_portfolio
-
-        if args.days is None or not 1 <= args.days <= 45:
-            parser.error("Portfolio backtest requires --days 1..45")
-        now = market.server_ms()
-        data = {s: market.history(s, cfg.timeframe, args.days, now) for s in cfg.symbols}
-        higher = {s: market.history(s, "15m", args.days, now) for s in cfg.symbols}
-        macro = {s: market.history(s, "1h", max(10, args.days), now) for s in cfg.symbols}
-        minute = {s: market.history(s, "1m", args.days, now) for s in cfg.symbols}
-        filters = {s: market.symbol_filters(s) for s in cfg.symbols}
-        report = run_portfolio(data, higher, filters, cfg, macro=macro, minute=minute)
-        output_report(report, "portfolio", "portfolio")
-        return 0
-    if args.command == "backtest":
-        if (
-            args.days is None
-            and (not 300 <= args.bars <= 1500)
-            or (args.days is not None and (not 1 <= args.days <= 45))
-            or args.symbol not in market.metadata()
-        ):
-            parser.error("bars=300..1500 and a valid futures symbol required")
-        server = market.server_ms()
-        bars = (
-            market.history(args.symbol, cfg.timeframe, args.days, server)
-            if args.days
-            else market.candles(args.symbol, cfg.timeframe, args.bars, server)
-        )
-        upper = (
-            market.history(args.symbol, "15m", args.days, server)
-            if args.days
-            else market.candles(args.symbol, "15m", 1500, server)
-        )
-        macro = (
-            market.history(args.symbol, "1h", max(10, args.days), server)
-            if args.days
-            else market.candles(args.symbol, "1h", 500, server)
-        )
-        duration_days = args.days or max(1, (args.bars * (5 if cfg.timeframe == "5m" else 15) + 1439) // 1440)
-        minute = market.history(args.symbol, "1m", min(45, duration_days), server)
-        report = backtest(
-            args.symbol, bars, upper, market.symbol_filters(args.symbol), cfg, macro=macro, minute=minute
-        )
-        output_report(report, "backtest", args.symbol)
-        return 0
+    market = Market(resilient=cfg.runtime.live_resilience)
     if cfg.mode != "paper":
         raise ValueError("paper command requires RUN_MODE=paper")
     paper_lock = ProcessLock(cfg.data_dir / "paper.lock").acquire()
@@ -220,28 +94,10 @@ def main(argv: list[str] | None = None) -> int:
     histories = {}
     latest_atr: dict[str, float] = {}
     atr_refresh_bucket: dict[str, int] = {}
-    use_ai = os.getenv("USE_AI_MODEL", "false").lower() == "true"
-    use_claude = os.getenv("USE_CLAUDE", "false").lower() == "true"
-    ai_model = None
-    if use_ai:
-        from .ml import load_model
-
-        ai_model = load_model(cfg.data_dir / "ai_model.json")
-    use_stream = os.getenv("USE_WEBSOCKET", "false").lower() == "true"
-    use_micro = os.getenv("USE_MICROSTRUCTURE", "false").lower() == "true"
     use_radar = os.getenv("USE_RADAR", "true").lower() == "true"
     if cfg.operations.enabled and cfg.operations.focus_symbol:
         use_radar = False
-    if use_radar and use_stream:
-        raise ValueError("Dynamic radar is incompatible with the fixed-symbol WS stream; disable one")
     stream = None
-    if use_stream:
-        from .stream import QuoteStream
-
-        stream = QuoteStream(
-            cfg.symbols, resilient=cfg.runtime.live_resilience, silence_seconds=cfg.runtime.ws_silence_seconds
-        )
-        stream.start()
     from .alerts import detailed_event, notify
     from .operations import DecisionJournal
 
@@ -544,15 +400,10 @@ def main(argv: list[str] | None = None) -> int:
                             log.warning("ENTRY_SKIP %s reason=candidate_data_unavailable", symbol)
                             continue
                         if signal and symbol in quotes:
-                            from .ml import evaluate, feature_snapshot
+                            from .signal_features import feature_snapshot
 
                             features = feature_snapshot(data, signal)
                             signal = replace(signal, features={**signal.features, **features})
-                            if use_ai:
-                                probability = evaluate(ai_model, features)
-                                if probability is None or probability < 0.56:
-                                    log.info("ML REJECT %s probability=%s", symbol, probability)
-                                    continue
                             if decision_ms - data[-1].close_ts > 90000:
                                 log.info(
                                     "ENTRY_SKIP %s reason=stale_signal age_ms=%d",
@@ -560,24 +411,6 @@ def main(argv: list[str] | None = None) -> int:
                                     decision_ms - data[-1].close_ts,
                                 )
                                 continue
-                            if use_claude:
-                                from .claude_review import ReviewUnavailable, confirm
-
-                                try:
-                                    approved, confidence, explanation = confirm(signal)
-                                except ReviewUnavailable as exc:
-                                    log.error("AI review unavailable: %s; skip candidate", exc)
-                                    continue
-                                if not approved:
-                                    log.info("Claude rejected %s (%s): %s", symbol, confidence, explanation)
-                                    continue
-                            if use_micro:
-                                from .microstructure import collect_micro
-
-                                micro = collect_micro(market, symbol, signal.side, now)
-                                if not micro.accepted:
-                                    log.info("MICRO FILTER %s: %s", symbol, micro.reason)
-                                    continue
                             if cfg.phase2.enabled or cfg.operations.enabled:
                                 now = market.server_ms()
                                 quotes = live_quotes(now, symbol)

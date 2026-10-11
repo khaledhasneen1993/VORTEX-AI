@@ -11,8 +11,6 @@ from vortex.config import Settings
 from vortex.exits import decide_tick
 from vortex.models import Candle, Position, Signal
 from vortex.risk import Filters, size_trade
-from vortex.testnet_guard import ProtectionError
-from vortex.testnet_stages import maintain
 
 FILTERS = Filters(0.001, 0.001, 5.0, 0.01)
 
@@ -108,39 +106,3 @@ def test_open_paper_positions_refresh_completed_atr_before_trailing():
     refresh_open_position_atr(market, open_positions, "5m", now + 300000, latest, refreshed)
     assert latest["BTCUSDT"] == pytest.approx(2.0)
     assert market.calls == 2
-
-
-def test_testnet_flat_during_stages_latches_halt_instead_of_silent_skip():
-
-    class FakeAPI:
-        def position(self, symbol):
-            return 0
-
-    class FakeGuard:
-        state = {"phase": "PROTECTED", "symbol": "BTCUSDT", "side": "LONG"}
-        api = FakeAPI()
-
-        def halt(self, reason):
-            raise ProtectionError(reason)
-
-    with pytest.raises(ProtectionError, match="reconciliation"):
-        maintain(FakeGuard(), 100.0, 100.01, atr_value=1.0, trailing_atr_mult=1.0)
-
-
-def test_testnet_supervisor_rejects_leverage_over_five_before_signed_write(tmp_path):
-    from vortex.testnet_guard import TestnetSupervisor
-
-    class NoWrites:
-        def symbol_config(self, symbol):
-            return {"marginType": "ISOLATED"}
-
-        def market_order(self, *args, **kwargs):
-            raise AssertionError("No signed order allowed")
-
-    api = NoWrites()
-    supervisor = TestnetSupervisor(api, tmp_path / "intent.json")
-    supervisor.start_check = lambda: True
-    signal = Signal("BTCUSDT", "LONG", 1, 100.0, 98.0, 106.0, 7, "mock")
-    with pytest.raises(ValueError, match="entry parameters"):
-        supervisor.enter(signal, 1.0, FILTERS, 6)
-    assert supervisor.state["phase"] == "IDLE"

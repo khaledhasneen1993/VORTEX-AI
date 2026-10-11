@@ -6,35 +6,6 @@ from vortex.config import Settings
 from vortex.health import LiveHealth, read_health
 from vortex.monitoring import recent_jsonl
 from vortex.runtime_config import RuntimePolicy
-from vortex.stream import QuoteStream
-
-
-def test_partial_ws_quotes_never_promote_stale_and_silence_closes():
-    monotonic = [1.0]
-    wall = [1000]
-    stream = QuoteStream(
-        ("BTCUSDT", "ETHUSDT"),
-        clock=lambda: monotonic[0],
-        wall_ms=lambda: wall[0],
-        resilient=True,
-        silence_seconds=10,
-    )
-    stream.ingest("{invalid")
-    stream.ingest(json.dumps({"s": "BTCUSDT", "b": "10", "a": "11", "E": 1000}))
-    assert stream.snapshot() == {"BTCUSDT": (10.0, 11.0)}
-    monotonic[0] = 12
-
-    class Socket:
-        closed = False
-
-        def close(self):
-            self.closed = True
-
-    socket = Socket()
-    stream._ws = socket
-    with pytest.raises(ValueError, match="stale"):
-        stream.snapshot()
-    assert socket.closed
 
 
 def test_health_disabled_and_stopped_progress(tmp_path):

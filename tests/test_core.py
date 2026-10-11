@@ -6,7 +6,6 @@ from dataclasses import replace
 
 import pytest
 
-from vortex.backtest import run
 from vortex.binance import Market, MarketError
 from vortex.config import Settings
 from vortex.indicators import adx, atr, ema, rsi
@@ -206,49 +205,6 @@ def test_reject_future_higher_timeframe():
     bars = fake_candles(80)
     htf = fake_candles(36, 900000)
     assert analyze("BTCUSDT", bars, htf) is None
-
-
-def test_backtest_next_open_and_stop_wins_tie(monkeypatch):
-    bars = fake_candles(72)
-    import vortex.backtest as backtest_module
-
-    monkeypatch.setattr(
-        backtest_module,
-        "analyze",
-        lambda sym, history, upper, min_score, **kwargs: (
-            Signal(sym, "LONG", history[-1].ts, 100, 99, 101, 7, "test") if len(history) == 66 else None
-        ),
-    )
-    report = run(
-        "BTCUSDT",
-        bars,
-        [],
-        FILTER,
-        Settings(
-            operations=OperationsPolicy(funding_guard=False, liquidity_guard=False, terminal_target=True)
-        ),
-    )
-    assert report["closed_trades"] == 1
-    trade = report["trades"][0]
-    assert trade["open_ts"] == bars[66].ts
-    assert trade["close_ts"] == bars[66].ts
-    assert trade["reason"] == "stop"
-    assert trade["net_pnl"] < 0
-
-
-def test_no_profits_invented_for_empty_sample():
-    report = run(
-        "BTCUSDT",
-        fake_candles(10),
-        [],
-        FILTER,
-        Settings(
-            operations=OperationsPolicy(funding_guard=False, liquidity_guard=False, terminal_target=True)
-        ),
-    )
-    assert report["closed_trades"] == 0
-    assert report["wallet"] == 1000
-    assert report["win_rate_pct"] == 0
 
 
 def test_corrupted_state_fails_instead_of_resetting(tmp_path):

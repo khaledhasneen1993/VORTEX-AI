@@ -1,159 +1,104 @@
-# VORTEX-AI — adopted PAPER system
+# VORTEX-AI — five-position PAPER basket system
 
-The default deployment is the user-adopted configuration tested at source
-`d54ee349d470c97862059058ecefa8285c1a0083`. The default keeps that
-configuration. An opt-in five-position basket layer ranks the same strategy
-signals and changes group allocation, averaging and exits. Adoption and tests
-are configuration decisions, not evidence of profitability.
+A lightweight Binance USDT-M public-data simulator for Termux/Linux. The current
+smart basket strategy is the default and only supported deployment. No exchange
+API keys, signed orders, real wallets or mainnet execution. Adoption means the
+user selected this strategy; it does not establish profitability.
 
-Binance USDT-M **public market data, virtual PAPER balances only**. The supported
-CLI cannot place exchange orders and needs no exchange API keys.
-
-| Setting | Adopted value |
+| Rule | Current behavior |
 | --- | --- |
-| Starting virtual wallet | 20 USDT |
-| Primary candles | 5m; completed 15m / 1h confirmation |
-| Radar | Up to 30 liquid movers, fast ranking |
-| Net profit target | 4% of total posted position margin, costs included |
-| Price stop | 10% adverse move from original entry |
-| Adverse averaging | At most one add after 5% adverse move; caps still apply |
-| Account loss floor | 25% from starting equity: 20 → 15 USDT |
-| Positions / leverage / total margin | At most 5 / 5x / 25% |
-| Flow / volume spike | Enabled, flow is an extra voter |
-| Enhanced regime / liquidity sweep | Disabled |
-| Recorder / health / quote recovery | Enabled |
+| Virtual starting balance | 100 USDT by default; selectable for each new session |
+| Market selection | Up to 30 liquid Radar movers; completed 5m/15m/1h history |
+| Group entry | Exactly five eligible signals ranked by strength, opened together or none |
+| Initial margin / leverage | 10% of group-start equity per member, rounded down; maximum 5x |
+| Total margin | Maximum 60% of frozen group-start equity and current available capital |
+| Group target | Before 10 minutes: net 3% of all posted margins, including adds |
+| After 10 minutes | Close all five at any strictly positive net after modeled costs |
+| Group loss stop | 10% of fixed session starting balance; -10 USDT from 100 |
+| Holding time | No 15-minute expiry; exits still require protection or profit condition |
+| Smart averaging | Losing members only; fresh aligned signals, at least 0.5 entry ATR further adverse |
+| Add limits | First decision after 5 minutes, then at least 5 minutes apart, maximum 3 rounds; request capped by initial member margin |
+| Other protection | Original 10% member-price stop; permanent 25% account floor; risk/funding/depth/correlation guards |
+| Flow / volume spike | Enabled; flow is an extra voter, unavailable data abstains |
+| Recorder / health | Enabled, bounded sampled REST data and structured decisions |
 
-A qualifying signal is not necessarily a fill. Minimum order size, liquidity,
-funding, correlation, freshness, margin and risk caps can reject it. With 20 USDT,
-all five position slots or an averaging add may be unavailable.
-
-## Optional five-position baskets
-
-Enable with `python -m vortex.configure --equity 20 --basket` for continuous
-operation, or `bash run_paper.sh 10800 --basket` for a fresh three-hour test.
-`BASKET_ENABLED=false` is the default. A bounded launch requires its own
-`--basket` argument; configuring `.env` alone does not select the bounded profile.
-
-| Basket rule | Behavior |
-| --- | --- |
-| Selection | Rank the current scan; open exactly five eligible signals together |
-| Initial allocation | Each uses 10% of basket-start account equity as margin, rounded down by lot size; 5x |
-| Collective target | First 10 minutes: 3% net / posted margins. From 10 minutes: any strictly positive net after costs |
-| Loss averaging | Every 5 minutes from minute 5, at most 3 rounds: consider every losing, freshly aligned member; winners untouched |
-| Holding period | Current `--basket` disables the 15-minute expiry; hold until target or protection |
-| Collective loss stop | Close all members at net loss of 10% of session starting equity (2 USDT at 20) |
-| Emergency protection | Original 10% price stop on any member requests whole-group closing; account floor remains 25% |
-
-At 20 USDT, initial margins are about 2 USDT each (10 total), so the initial
-collective target starts near 0.30 USDT. Posted add margins join its denominator.
-After ten minutes, any net profit above zero requests group closing. Leverage
-is counted once.
-This profile explicitly replaces the legacy 25% total-margin ceiling with a
-60% ceiling of **basket-start equity**, additionally capped by available capital.
-Per-signal risk, portfolio stop risk, profit reserve and execution guards remain.
-The current basket launcher also selects `BASKET_MIN_ENTRY_FILL_RATIO=0.90`: it
-skips initial entries whose lot rounding allocates less than 90% of requested
-margin and considers the next ranked signal. The flag defaults to zero (off).
-Small-wallet minimum notional and risk limits can prevent additions or an entire
-group. No partial five-position group is opened and no missing slot is refilled.
-
-The launcher explicitly selects `BASKET_HOLD_UNTIL_TARGET=true` and
-`BASKET_LOSS_STARTING_EQUITY_FRACTION=0.10`,
-`BASKET_ANY_PROFIT_AFTER_SECONDS=600`, and `BASKET_SMART_ADDS=true`.
-These new behaviors default off; without them,
-the legacy basket deadline and one half-margin add pair remain. The loss threshold uses fixed
-session starting equity, not basket margin or current wallet equity.
-
-Smart averaging needs a further adverse move of at least 0.5 entry ATR from
-the preceding add price (entry on the first add), improving average entry.
-Fixed initial margin caps each request; no doubling. Exchange minimum lots
-are reserved across eligible losers within remaining capital. If all minimums
-cannot fit, strength decides which can be considered. Per-trade/portfolio
-risk and funding/depth guards can still refuse any or all additions.
-
-Stops are close requests on fresh polls, not guaranteed execution prices.
-The four-hour session timer stops observation; remaining open positions are
-saved without inventing a close. Missing quotes leave a persisted pending close until fresh
-prices return. Four groups per hour is not guaranteed. See
-[basket details](docs/BASKETS.md) for state, costs, ranking and limits.
+From 100 USDT, initial group margin is approximately 50 USDT and its initial
+3% target approximately 1.50 USDT. A 10-USDT group stop can erase several wins.
+Fees, reserve, order minimums, risk limits and lot rounding can prevent entries
+or adds. Price winners are untouched. No doubling, forced five-add batch,
+missing-slot refill or guaranteed four groups per hour.
 
 ## Termux / Linux
 
-Stop the old PAPER process with Ctrl+C before updating. Existing sessions and
-open positions are preserved; migration selects a **new virtual wallet**.
+Stop the previous session with Ctrl+C before updating. Migration creates a new
+virtual wallet and preserves old sessions and open-position evidence.
 
 ```bash
 cd ~/VORTEX-20M
 source .venv/bin/activate
-git fetch origin main
-git switch main
 git pull --ff-only origin main
 python -m pip install -e .
-python -m vortex.configure --equity 20
-bash run_paper.sh 10800
+python -m vortex.configure --equity 100
+bash run_paper.sh 3600
 ```
 
-The bounded launcher applies the adopted defaults (or the explicit basket option), creates a unique
-`runs/vortex-approved-*` directory, saves its path in
-`runs/latest-paper-path.txt`, and records logs, effective configuration, Git
-version, saved wallet, decisions, health and recorder manifests. It does not
-close open positions at the timer with an invented price. Supported durations:
-`1200`, `3600`, `10800` (default), `14400` (four hours), `21600` seconds.
+`run_paper.sh` supports 1200, 3600, 10800, 14400 and 21600 seconds; default is
+three hours. Starting equity defaults to 100; override it explicitly with
+`STARTING_EQUITY=20 bash run_paper.sh 3600`. All launches use the same basket
+policy. The old `--basket` argument remains a harmless compatibility alias.
+The timer ends observation and saves open positions without invented closes.
 
-Inspect or export the latest bounded session:
+For continuous PAPER operation: `python -m vortex.cli paper`.
+For a custom bounded run:
+
+```bash
+RUN_DIR="runs/vortex-basket-$(date -u +%Y%m%d-%H%M%S)-$$"
+mkdir -p runs
+printf '%s\n' "$RUN_DIR" > runs/latest-paper-path.txt
+python -m vortex.session --duration-seconds 3600 --starting-equity 100 --diagnostics --output "$RUN_DIR"
+```
+
+To inspect/export the latest 100-USDT session using the migrated configuration:
 
 ```bash
 RUN_DIR="$(cat runs/latest-paper-path.txt)"
 tail -n 80 "$RUN_DIR/session.log"
-DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
-RESULT="$HOME/storage/downloads/VORTEX-paper-$(date -u +%Y%m%d-%H%M%S).zip"
+STARTING_EQUITY=100 DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
+RESULT="$HOME/storage/downloads/VORTEX-basket-$(date -u +%Y%m%d-%H%M%S).zip"
 python -m zipfile -c "$RESULT" "$RUN_DIR"
 echo "$RESULT"
 ```
 
-For continuous PAPER operation using `.env`:
+Status is strictly read-only. Use the saved starting balance and exact policies;
+never change saved-wallet policy to bypass a halt. Old individual/older basket
+wallets are historical evidence; migration does not silently convert them.
 
-```bash
-python -m vortex.cli paper
-```
+## Configuration, safety and validation
 
-Use `DATA_DIR` for the intended saved session when running `status` or
-`dashboard`; never change its policies to bypass a halt. The bounded launcher
-always starts a new wallet. `vortex.configure` preserves credentials without
-printing them and does not delete or edit existing session files.
+[approved.py](vortex/approved.py) is the deployment source;
+[.env.example](.env.example) lists defaults. Internal constructor defaults and
+persisted legacy fields remain for state validation and PAPER safety fixtures,
+not selectable deployment strategies. Removed: signed TESTNET adapters, legacy
+OHLC replay, unused WebSocket/microstructure adapters and unrelated launch assets.
+No month-long historical simulation of this strategy exists yet.
 
-## Configuration and safety
+The broker preserves flock, journals, atomic durable state, idempotent recovery,
+halt on uncertain writes and stale-price rejection. REST data outages can still
+defer exits and exceed nominal stops. Funding cashflows and liquidation are not
+simulated. Recorder observations are sampled, not complete trade/depth history.
 
-[vortex/approved.py](vortex/approved.py) is the deployment-default source.
-[.env.example](.env.example) documents the active configuration. Capture flags
-retain their `PAPER_EXP_*` names for saved-state compatibility. Conservative and
-legacy deployment profiles, manual-entry commands, model training and TESTNET
-watchdog commands are removed from the supported CLI. Internal replay and
-TESTNET protection helpers remain for safety regression tests; they are not
-alternative deployed strategies. Git history remains available.
-
-[Strategy](docs/STRATEGY.md), [risk](docs/RISK.md),
-[operations](docs/OPERATIONS.md), [architecture](docs/ARCHITECTURE.md), and
-[validation limits](docs/VALIDATION.md), and [basket profile](docs/BASKETS.md) describe this system.
+The repository has one build workflow checking code and deterministic tests.
+After a successful main build it prunes older completed runs. A passing build
+establishes software checks, not profits or uninterrupted exchange data.
 
 ```bash
 python -m pip install -e '.[dev]'
-python -m compileall -q vortex tests research
-python -m ruff check --select E9,F63,F7,F82 vortex tests research
+python -m compileall -q vortex tests
+python -m ruff check --select E9,F63,F7,F82 vortex tests
 python -m pytest -q
 ```
 
-No profitability, future win rate, uninterrupted operation, or live exchange
-execution quality is established by a short PAPER session.
-
-## Project review and operational limits
-
-See [the current review](docs/REVIEW.md) for corrected persistence/monitoring
-faults and remaining validation gaps. `status` is strictly read-only, reports
-pending journal recovery, and must use the same policy configuration as its
-saved session. Recovery belongs to a writable restart under the PAPER lock.
-An uncertain ledger write stops PAPER in both grouped and individual paths.
-Live resilience retains original exchange timestamps and stale-price rejection;
-a single extra bulk refresh can recover books aged during critical depth reads,
-but an outage can still defer exits. The latest smart-add basket policy needs
-its own live PAPER validation; earlier sessions do not establish its performance.
+Read [strategy](docs/STRATEGY.md), [basket contract](docs/BASKETS.md),
+[risk](docs/RISK.md), [operations](docs/OPERATIONS.md),
+[architecture](docs/ARCHITECTURE.md), [validation](docs/VALIDATION.md),
+and [latest review](docs/REVIEW.md).

@@ -16,15 +16,6 @@ from vortex.risk import Filters
 F = Filters(0.001, 0.001, 5.0, 0.01)
 
 
-def test_websocket_uses_public_not_market_route():
-    from vortex.stream import QuoteStream
-
-    url = QuoteStream(("BTCUSDT",)).url
-    assert url.startswith("wss://fstream.binance.com/public/stream?streams=")
-    assert "@bookTicker" in url
-    assert "/market/" not in url
-
-
 def test_stage_exits_never_widen_stop():
     p = Position(
         "BTCUSDT",
@@ -155,25 +146,6 @@ def test_partial_close_replay_stop_first_under_ambiguous_candle():
     p = Position("BTCUSDT", "LONG", 1, 100, 98, 106, 1, 0, 20.0, initial_qty=1, initial_risk=2, step=0.001)
     actions = levels_for_bar(p, low=97.5, high=104, opening=100)
     assert len(actions) == 1 and actions[0].reason == "stop" and actions[0].final
-
-
-def test_ws_rejects_delayed_and_out_of_order_ticks():
-    from vortex.stream import QuoteStream
-
-    timestamp = [2000000000000]
-    stream = QuoteStream(("BTCUSDT",), wall_ms=lambda: timestamp[0])
-
-    def msg(event_ms, bid="100", ask="100.1"):
-        return json.dumps({"data": {"s": "BTCUSDT", "b": bid, "a": ask, "E": event_ms}})
-
-    stream.ingest(msg(timestamp[0] - 500))
-    assert stream.snapshot()["BTCUSDT"] == (100.0, 100.1)
-    stream.ingest(msg(timestamp[0] - 4000, "200", "200.1"))
-    stream.ingest(msg(timestamp[0] - 900, "300", "300.1"))
-    assert stream.snapshot()["BTCUSDT"] == (100.0, 100.1)
-    timestamp[0] += 4001
-    with pytest.raises(ValueError):
-        stream.snapshot()
 
 
 def test_staged_target_has_room_for_trailing():

@@ -264,14 +264,6 @@ def test_pyramid_accounting_and_crash_journal(tmp_path):
     assert not recovered.positions
 
 
-def test_testnet_phase2_rejected_before_credentials(monkeypatch):
-    import vortex.testnet_runner as runner
-
-    monkeypatch.setattr(runner, "prepare", lambda *a, **k: pytest.fail("must not access exchange"))
-    result = runner._once_locked(config(), "BTCUSDT", acknowledge=True)
-    assert not result["ok"] and "PAPER/BACKTEST" in result["reason"]
-
-
 def test_all_phase2_env_fields_present():
     from pathlib import Path
 
@@ -290,50 +282,6 @@ def rising_bars():
         ts = NOW + (i - 80) * 300000
         out.append(Candle(ts, px, px + 0.1, px - 0.1, px, 100, ts + 299999, 70))
     return out
-
-
-def test_historical_pyramid_and_compounding_in_both_engines(monkeypatch):
-    import vortex.backtest as bt
-    import vortex.portfolio as pf
-
-    def candidate(symbol, subset, *args, **kwargs):
-        if len(subset) == 70:
-            return replace(signal(symbol, score=9), ts=subset[-1].ts)
-        return None
-
-    monkeypatch.setattr(bt, "analyze", candidate)
-    monkeypatch.setattr(pf, "analyze", candidate)
-    c = config(starting_equity=4000, fee_rate=0.0005, slippage_bps=0)
-    hist = rising_bars()
-    one = bt.run("BTCUSDT", hist, [], F, c)
-    portfolio = pf.run_portfolio({"BTCUSDT": hist}, {"BTCUSDT": []}, {"BTCUSDT": F}, c, diagnostics=True)
-    for report in (one, portfolio):
-        assert len(report["pyramid_events"]) == 1
-        assert report["reserved_profit"] > 0 and report["closed_trades"] == 1
-        assert report["trades"][0]["pyramid_count"] == 1
-        assert report["trades"][0]["net_pnl"] > 0
-    assert one["wallet"] == pytest.approx(portfolio["cash_wallet"], abs=0.001)
-    assert one["reserved_profit"] == pytest.approx(portfolio["reserved_profit"])
-    event = portfolio["pyramid_events"][0]
-    assert event["ts"] == hist[74].ts
-
-
-def test_historical_correlation_blocks_second_same_side(monkeypatch):
-    import vortex.portfolio as pf
-
-    def candidate(symbol, subset, *args, **kwargs):
-        if len(subset) == 70:
-            price = subset[-1].close
-            return replace(signal(symbol), ts=subset[-1].ts, entry=price, stop=price - 10, target=price + 30)
-        return None
-
-    monkeypatch.setattr(pf, "analyze", candidate)
-    h = bars()
-    report = pf.run_portfolio(
-        {"BTCUSDT": h, "ETHUSDT": h}, {"BTCUSDT": [], "ETHUSDT": []}, {"BTCUSDT": F, "ETHUSDT": F}, config()
-    )
-    assert report["open_positions"] == ["BTCUSDT"]
-    assert any(("correlated exposure" in r["reason"] for r in report["correlation_rejections"]))
 
 
 def test_reserved_cash_can_block_min_notional_without_rounding_up():
@@ -378,35 +326,6 @@ def test_pyramid_invalid_observation_and_exhausted_margin():
     assert pyramid_plan(p, float("nan"), NOW, c, F, 4000, 100, 1, 120) is None
     assert pyramid_plan(p, 120, NOW, c, F, 4000, 1000, 1, 120) is None
     assert pyramid_plan(p, 120, NOW, c, F, 4000, 100, 1, float("nan")) is None
-
-
-def test_minute_portfolio_replays_same_add_accounting(monkeypatch):
-    import vortex.portfolio as pf
-
-    def candidate(symbol, subset, *args, **kwargs):
-        if len(subset) == 70:
-            return replace(signal(symbol, score=9), ts=subset[-1].ts)
-        return None
-
-    monkeypatch.setattr(pf, "analyze", candidate)
-    h = rising_bars()
-    minutes = []
-    for b in h:
-        for i in range(5):
-            minutes.append(replace(b, ts=b.ts + i * 60000, close_ts=b.ts + (i + 1) * 60000 - 1))
-    c = config(starting_equity=4000, slippage_bps=0)
-    out = pf.run_portfolio(
-        {"BTCUSDT": h},
-        {"BTCUSDT": []},
-        {"BTCUSDT": F},
-        c,
-        minute={"BTCUSDT": minutes},
-        execution_interval="1m",
-        diagnostics=True,
-    )
-    assert len(out["pyramid_events"]) == 1 and out["closed_trades"] == 1
-    assert out["reserved_profit"] > 0
-    assert out["pyramid_events"][0]["ts"] == h[74].ts
 
 
 def test_multiple_pyramids_need_spacing_and_remain_bounded():

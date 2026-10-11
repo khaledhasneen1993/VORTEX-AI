@@ -1,8 +1,8 @@
 # Five-position PAPER basket contract
 
-Disabled by default (`BASKET_ENABLED=false`). Explicit `configure --basket`
-and `run_paper.sh DURATION --basket` select the current opt-in policy in a new
-wallet. No signed orders, mainnet, new strategy or dependency is introduced.
+The current smart basket strategy is the deployment default. Configure a fresh
+wallet with `python -m vortex.configure --equity 100` or use `run_paper.sh`.
+No signed orders, mainnet, new voter or heavy dependency is introduced.
 
 1. Rank current accepted Radar signals by score, strong label, vote weight,
    ADX and symbol. Open exactly five eligible distinct members together or none.
@@ -46,21 +46,20 @@ ACTIVE → CLOSING → CLOSED persist across partial exits/restarts. Missing fre
 quotes can leave members pending and realized loss can exceed its nominal stop.
 Original entry/stop R anchors remain fixed; average entry changes only on adds.
 
-Flags (default / explicit preset):
-- `BASKET_HOLD_UNTIL_TARGET`: false / true.
-- `BASKET_LOSS_STARTING_EQUITY_FRACTION`: 0 / 0.10.
-- `BASKET_ANY_PROFIT_AFTER_SECONDS`: 0 / 600.
-- `BASKET_SMART_ADDS`: false / true.
+Active deployment flags:
+- `BASKET_HOLD_UNTIL_TARGET`: true.
+- `BASKET_LOSS_STARTING_EQUITY_FRACTION`: 0.10.
+- `BASKET_ANY_PROFIT_AFTER_SECONDS`: 600.
+- `BASKET_SMART_ADDS`: true.
 - `BASKET_SMART_ADD_INTERVAL_SECONDS`: 300.
 - `BASKET_SMART_ADD_MAX_ROUNDS`: 3.
 - `BASKET_SMART_ADD_STEP_ATR`: 0.5.
-- `BASKET_MIN_ENTRY_FILL_RATIO`: 0 / 0.90.
+- `BASKET_MIN_ENTRY_FILL_RATIO`: 0.90.
 
-With new behaviors disabled, the legacy 15-minute deadline and one half-margin
-pair add remain. Old saved wallets retain those saved policies; changing policy
-requires a new isolated session. Retained `deadline_ms` is ignored when holding
-is enabled. Live logs show disabled expiry and the current target (zero after
-10m means strictly positive net); telemetry also records the group loss limit.
+Saved-policy schemas retain historical deadline and add fields, but current
+launches never select that policy. Old wallets remain unchanged as evidence;
+changing policy requires a new isolated session. Retained `deadline_ms` is
+ignored in current deployment. The loss limit is 10 USDT from a 100-USDT start.
 
 Read `baskets.jsonl` and per-member journals together. Smart round decisions
 record selected symbols, per-symbol skip codes, due time and delay. Group

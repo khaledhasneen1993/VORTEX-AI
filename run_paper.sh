@@ -17,5 +17,5 @@ if command -v termux-wake-lock >/dev/null; then termux-wake-lock; fi
 mkdir -p runs
 RUN_DIR="runs/vortex-approved-$(date -u +%Y%m%d-%H%M%S)-$$"
 printf '%s\n' "$RUN_DIR" > runs/latest-paper-path.txt
-exec python -m vortex.session --duration-seconds "$DURATION_SECONDS" --starting-equity 20 \
+exec python -m vortex.session --duration-seconds "$DURATION_SECONDS" --starting-equity "${STARTING_EQUITY:-100}" \
   --diagnostics --output "$RUN_DIR" "${EXTRA_ARGS[@]}"

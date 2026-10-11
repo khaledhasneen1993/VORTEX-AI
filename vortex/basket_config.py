@@ -1,4 +1,4 @@
-"""Opt-in five-position PAPER baskets; legacy deployment remains the default."""
+"""Five-position PAPER contract; fixture defaults retain old saved-policy schemas."""
 
 import os
 from dataclasses import dataclass, fields
@@ -74,23 +74,28 @@ class BasketPolicy:
 
     @classmethod
     def from_env(cls):
-        raw = os.getenv("BASKET_ENABLED", "false").strip().lower()
+        from .approved import APPROVED_ENV
+
+        def setting(key, fallback):
+            return os.getenv(key, APPROVED_ENV.get(key, fallback))
+
+        raw = setting("BASKET_ENABLED", "false").strip().lower()
         if raw not in {"true", "false"}:
             raise ValueError("BASKET_ENABLED must be true or false")
-        hold = os.getenv("BASKET_HOLD_UNTIL_TARGET", "false").strip().lower()
+        hold = setting("BASKET_HOLD_UNTIL_TARGET", "false").strip().lower()
         if hold not in {"true", "false"}:
             raise ValueError("BASKET_HOLD_UNTIL_TARGET must be true or false")
-        smart = os.getenv("BASKET_SMART_ADDS", "false").strip().lower()
+        smart = setting("BASKET_SMART_ADDS", "false").strip().lower()
         if smart not in {"true", "false"}:
             raise ValueError("BASKET_SMART_ADDS must be true or false")
         return cls(
             enabled=raw == "true",
-            min_entry_fill_ratio=float(os.getenv("BASKET_MIN_ENTRY_FILL_RATIO", "0")),
+            min_entry_fill_ratio=float(setting("BASKET_MIN_ENTRY_FILL_RATIO", "0")),
             hold_until_target=hold == "true",
-            any_profit_after_seconds=int(os.getenv("BASKET_ANY_PROFIT_AFTER_SECONDS", "0")),
+            any_profit_after_seconds=int(setting("BASKET_ANY_PROFIT_AFTER_SECONDS", "0")),
             smart_adds=smart == "true",
-            smart_add_interval_seconds=int(os.getenv("BASKET_SMART_ADD_INTERVAL_SECONDS", "300")),
-            smart_add_max_rounds=int(os.getenv("BASKET_SMART_ADD_MAX_ROUNDS", "3")),
-            smart_add_step_atr=float(os.getenv("BASKET_SMART_ADD_STEP_ATR", "0.5")),
-            loss_starting_equity_fraction=float(os.getenv("BASKET_LOSS_STARTING_EQUITY_FRACTION", "0")),
+            smart_add_interval_seconds=int(setting("BASKET_SMART_ADD_INTERVAL_SECONDS", "300")),
+            smart_add_max_rounds=int(setting("BASKET_SMART_ADD_MAX_ROUNDS", "3")),
+            smart_add_step_atr=float(setting("BASKET_SMART_ADD_STEP_ATR", "0.5")),
+            loss_starting_equity_fraction=float(setting("BASKET_LOSS_STARTING_EQUITY_FRACTION", "0")),
         )

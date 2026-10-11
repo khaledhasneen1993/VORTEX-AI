@@ -47,7 +47,7 @@ def session_args(argv=None):
     )
     parser.add_argument("--output", type=Path, default=Path("runs/vortex-approved"))
     parser.add_argument("--diagnostics", action="store_true", help="Record votes and rejection reasons")
-    parser.add_argument("--basket", action="store_true", help="Opt-in ranked five-position PAPER baskets")
+    parser.add_argument("--basket", action="store_true", default=True, help="Compatibility option; current PAPER uses five-position baskets")
     return parser.parse_args(argv)
 
 

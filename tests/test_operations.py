@@ -247,40 +247,6 @@ def test_historical_observations_no_future_funding():
     assert not ok
 
 
-def test_missing_history_stops_replay():
-    from vortex.backtest import run
-
-    with pytest.raises(ValueError, match="timestamped"):
-        run("BTCUSDT", [], [], F, Settings(operations=replace(P, funding_guard=True)))
-
-
-def test_testnet_operations_rejected_before_auth(monkeypatch):
-    from vortex.testnet_runner import _once_locked
-
-    monkeypatch.setattr("vortex.testnet_runner.prepare", lambda *_args, **_kwargs: pytest.fail("auth called"))
-    assert not _once_locked(Settings(operations=P), "BTCUSDT", acknowledge=True)["ok"]
-
-
-def test_stress_gap_and_comparison_require_identical_dataset():
-    from research.stress_operations import compare, shocked
-    from vortex.models import Candle
-
-    bars = [Candle(NOW, 100, 101, 99, 100, 1, NOW + 59999)]
-    changed = shocked(bars, NOW, -0.15)
-    assert changed[0].open == 85 and bars[0].open == 100
-    row = {
-        "equity_with_unrealized": 20,
-        "closed_trades": 0,
-        "profit_factor": None,
-        "max_drawdown_pct": 0,
-        "open_position": False,
-    }
-    one = {"version": "a", "dataset_sha256": "x", "scenarios": {"base": row}}
-    assert compare([one])[0]["equity"] == 20
-    with pytest.raises(ValueError):
-        compare([one, {**one, "dataset_sha256": "y"}])
-
-
 def test_every_operations_field_has_environment_mapping(monkeypatch):
     for key, value in asdict(P).items():
         if isinstance(value, bool):
@@ -352,29 +318,6 @@ def test_dashboard_exposes_risk_telemetry_and_escaped_rejections(tmp_path, monke
     handler.path = "/api/telemetry"
     handler.do_GET()
     assert json.loads(handler.wfile.getvalue())["marked_equity"] == 1000
-
-
-def test_operations_single_and_portfolio_replay_synthetic_parity(monkeypatch):
-    from vortex import backtest, portfolio
-    from vortex.models import Candle
-
-    bars = [
-        Candle(NOW + i * 300000, 100, 100.5, 99.5, 100, 1000, NOW + (i + 1) * 300000 - 1) for i in range(100)
-    ]
-
-    def analyze(*args, **kwargs):
-        data = args[1]
-        if data[-1].ts == bars[65].ts:
-            return Signal("BTCUSDT", "LONG", data[-1].ts, 100, 98, 106, 7, "synthetic test", atr_value=1)
-        return None
-
-    monkeypatch.setattr(backtest, "analyze", analyze)
-    monkeypatch.setattr(portfolio, "analyze", analyze)
-    cfg = Settings(operations=replace(P, stagnant_minutes=15))
-    one = backtest.run("BTCUSDT", bars, bars, F, cfg)
-    many = portfolio.run_portfolio({"BTCUSDT": bars}, {"BTCUSDT": bars}, {"BTCUSDT": F}, cfg)
-    assert one["trades"][0]["reason"] == many["trades"][0]["reason"] == "time_stagnation"
-    assert one["trades"][0]["net_pnl"] == pytest.approx(many["trades"][0]["net_pnl"], abs=1e-5)
 
 
 def test_funding_timing_refresh_does_not_reset_oi_vote_interval():

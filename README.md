@@ -81,7 +81,7 @@ The bounded launcher applies the adopted defaults (or the explicit basket option
 `runs/latest-paper-path.txt`, and records logs, effective configuration, Git
 version, saved wallet, decisions, health and recorder manifests. It does not
 close open positions at the timer with an invented price. Supported durations:
-`1200`, `3600`, `10800` (default), `21600` seconds.
+`1200`, `3600`, `10800` (default), `14400` (four hours), `21600` seconds.
 
 Inspect or export the latest bounded session:
 

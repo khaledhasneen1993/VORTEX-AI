@@ -36,7 +36,7 @@ def session_args(argv=None):
         return number
 
     parser = argparse.ArgumentParser(description="Bounded live-data PAPER radar session")
-    parser.add_argument("--duration-seconds", type=int, choices=[1200, 3600, 10800, 21600], default=10800)
+    parser.add_argument("--duration-seconds", type=int, choices=[1200, 3600, 10800, 14400, 21600], default=10800)
     parser.add_argument(
         "--starting-equity",
         type=positive_equity,

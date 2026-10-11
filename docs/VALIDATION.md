@@ -40,3 +40,10 @@ not live profitability, four groups per hour, or successful small-wallet adds.
 Next basket checks: run a three-hour PAPER session with `--basket`; reconcile
 `baskets.jsonl` net outcomes with all member/add journals; review quote gaps,
 late deadline exits and add refusals before considering further loosening.
+
+Follow-up basket regressions reproduce opening at a 74-second candle offset and
+verify the group-relative five-minute decision without waiting for another Radar
+window. They cover profitable/loss cases, bounded parallel guard collection,
+original funding timestamps, stale/deadline rejection, optional coarse-lot
+allocation filtering, old saved policy compatibility and the four-hour launcher.
+These fixes have not yet been proven in a new multi-hour live PAPER session.

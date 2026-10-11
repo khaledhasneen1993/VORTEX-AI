@@ -62,7 +62,7 @@ python -m vortex.configure --equity 20 --basket
 bash run_paper.sh 10800 --basket
 ```
 
-Use `21600 --basket` for six hours. `run_paper.sh` deliberately uses its explicit
+Use `14400 --basket` for four hours or `21600 --basket` for six hours. `run_paper.sh` deliberately uses its explicit
 option rather than inheriting a stale `.env`. To restore legacy deployment, run
 `python -m vortex.configure --equity 20` and omit `--basket` on bounded launches.
 Both operations create new virtual sessions; old wallets are preserved.

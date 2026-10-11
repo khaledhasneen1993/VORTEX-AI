@@ -1,4 +1,4 @@
-name: VORTEX-AI Build & Test
+name: VORTEX-AI Current Basket — Build & Test
 
 on:
   push:
@@ -31,9 +31,9 @@ jobs:
       - name: Install approved project
         run: python -m pip install -e '.[dev]'
       - name: Compile
-        run: python -m compileall -q vortex tests research
+        run: python -m compileall -q vortex tests
       - name: Check code
-        run: python -m ruff check --select E9,F63,F7,F82 vortex tests research
+        run: python -m ruff check --select E9,F63,F7,F82 vortex tests
       - name: Check dependencies
         run: python -m pip check
       - name: Run tests

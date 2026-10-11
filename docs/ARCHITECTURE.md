@@ -1,64 +1,34 @@
-# Adopted system architecture
+# Current PAPER basket architecture
 
-`approved.py` supplies deployment defaults; `Settings.from_env()` validates them.
-The bounded `vortex.session` runner applies the canonical flags, preflights public
-market data and supervises the PAPER child. Its run evidence includes effective
-configuration, version, source hashes and completed/interrupted/forced status.
-The CLI exposes PAPER, status, dashboard and acknowledged PAPER halt reset.
+approved.py → Settings.from_env → bounded session or continuous CLI → BasketLoop.
+Only the current smart basket deployment is accepted. Runtime configuration keeps
+saved-policy schemas explicit; changing old wallet semantics is refused.
 
-Radar → bounded REST scan → completed-history strategy voters → sizing and
-execution guards → PAPER broker. Public derivatives/trades may abstain when
-incomplete. `signal_features` records the same entry features formerly packaged
-with the unused learner; it does not make predictions. Manual and AI deployment
-modules have been removed. Internal historical and TESTNET safety helpers are
-retained to verify isolation, no look-ahead and protective-state contracts.
+Radar → bounded REST scanner → completed-candle voters → strength ranking →
+funding/depth/correlation/risk guards → atomic five-position PAPER basket.
+Signal voters are unchanged by adoption. No AI model or signed exchange API.
 
-Critical held-position and candidate quotes can be recovered from limited public
-depth when bulk quotes omit them. The same exchange-timestamp, 4-second age,
-future tolerance, finite-price and book-validity checks apply. Old quotes are
-revalidated after recovery; cached prices are never restamped. Resilient scan
-bucket handling avoids repeatedly scanning the same completed candle on error.
+Basket entries and successful loss adds stage on a shadow broker, then commit
+one durable snapshot and an idempotent journal batch. Round decisions persist
+before staging so crash recovery cannot repeat an addition. ACTIVE → CLOSING →
+CLOSED persists; closure reason latches before individual exits. Only members
+with fresh executable quotes can close. No refilling exited basket slots.
 
-The broker keeps flock, atomic state writes, order journals and uncertain-write
-halts. Persisted policy checks protect wallets from silently changed semantics.
-Original R is shared through `r_units.py`; capture margin targets use their own
-explicit units.
+flock protects the writer; state files fsync before atomic rename and directory
+sync. Journals fsync on append and first creation. Uncertain writes stop all PAPER
+execution. Status never writes or replays pending journals. Only writable locked
+restarts recover them. Original R anchors do not change when average entry does.
 
-The bounded background recorder samples active-symbol best bid/ask, limited
-depth, funding, mark, OI and basic taker flow. It uses append-only compressed JSONL,
-rotation, SHA256 manifests, flock, crash recovery and gap records. A bounded queue
-and shutdown budget protect RAM and the live loop; recorder failures fail soft.
-Decision hooks join trading observations to recorder evidence.
+Workers use independent HTTP sessions and bounded pools. They prepare observations
+only; the main thread owns broker mutation. Quotes retain exchange timestamps and
+four-second freshness. Late/missing data abstains, freezes entry or defers closing.
 
-This is sampled REST data, not a full tick tape or an exchange matching-engine
-model. Recorder gaps, stale derivatives, truncated flow, time endpoint failures,
-order-filter rejections and missing quotes remain visible operational limits.
+The background recorder uses bounded queues, compressed append-only JSONL, rotation,
+SHA256 manifests, gap records and its own flock. Its failures remain isolated from
+trade execution. Sampling is not full market replay. A timed-out shutdown can leave
+unsealed data. Health/telemetry expose timestamps and degradation explicitly.
 
-## Optional group execution
-
-`basket_config.py` contains the fixed, opt-in contract; `basket_live.py` collects
-and ranks existing signals using the existing scanner. `basket.py` stages five
-virtual entries or a pair of adds on a shadow broker. One atomic state snapshot
-commits all legs and a pending journal batch; restart replays event IDs without
-repeating fills. No new third-party package or exchange-order path is added.
-
-Groups persist ACTIVE → CLOSING → CLOSED. The exit reason is latched before any
-leg closes; only quoted members can exit, and unquoted members keep the group
-CLOSING across restarts. New entries and legacy pyramiding are blocked during a
-group. Legacy adds have one durable decision latch. Smart adds persist a bounded
-round counter and decision time before staging; each batch journals its
-selected symbols and skipped reasons without repeating adds after a crash.
-Policy changes on saved groups are refused. Background recorder and flock are
-unchanged; group outcomes appear in a separate append-only `baskets.jsonl`.
-
-Basket guard collection reuses the scan executor, independent HTTP sessions and
-at most the configured workers. Its ten-second deadline discards late jobs and
-reserves time for the final executable quote snapshot. Protective quote polls
-continue while waiting; no worker writes broker state. Funding is collected
-last and never restamped.
-
-The opt-in target-or-loss basket policy ignores the historical deadline when
-`hold_until_target` is enabled. `projected_net` supplies the same executable
-sides and cost model for profit and loss thresholds. Loss is compared with
-fixed `Settings.starting_equity`, not compounded wallet or group margin.
-Closing is latched and replayed under the existing journal/recovery mechanism.
+Retained low-level legacy exit/sizing fields support saved schemas and PAPER safety
+fixtures; they are not alternate deployment profiles. Removed historical replay,
+signed TESTNET, unused WebSocket/microstructure and unrelated launch assets do not
+participate in the current release. Runtime dependencies: requests + python-dotenv.

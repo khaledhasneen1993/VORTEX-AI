@@ -161,3 +161,12 @@ def test_decisions_drain_between_slow_public_requests_and_at_shutdown(tmp_path):
     assert sum(r["kind"] == "decision" for r in rows) == 20
     assert worker.status()["dropped_decisions"] == 0
     assert worker.status()["queued_decisions"] == 0
+
+
+def test_recorder_accepts_full_radar_and_five_disjoint_positions(tmp_path):
+    worker = DataRecorder(Settings(data_dir=tmp_path), ())
+    symbols = [f"S{i}USDT" for i in range(35)]
+    worker.update_symbols(symbols)
+    assert worker.symbols == tuple(symbols)
+    worker.update_symbols(symbols + ["EXTRAUSDT"])
+    assert worker.symbols == tuple(symbols)  # Preserve bounded previous universe.

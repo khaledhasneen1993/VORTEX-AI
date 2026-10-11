@@ -37,13 +37,22 @@ rollback on second-add failure, journal replay and uncertain-write shutdown.
 Legacy regressions remain. These checks prove behavior under their fixtures,
 not live profitability, four groups per hour, or successful small-wallet adds.
 
-Next basket checks: run a three-hour PAPER session with `--basket`; reconcile
+Next basket checks: run a new PAPER session with `--basket`; reconcile
 `baskets.jsonl` net outcomes with all member/add journals; review quote gaps,
-late deadline exits and add refusals before considering further loosening.
+loss-stop overshoot, ten-minute positive-net exits and smart-add refusals before
+considering further loosening.
 
 Follow-up basket regressions reproduce opening at a 74-second candle offset and
 verify the group-relative five-minute decision without waiting for another Radar
 window. They cover profitable/loss cases, bounded parallel guard collection,
 original funding timestamps, stale/deadline rejection, optional coarse-lot
 allocation filtering, old saved policy compatibility and the four-hour launcher.
-These fixes have not yet been proven in a new multi-hour live PAPER session.
+The follow-up four-hour session exercised quote and guard timing fixes, but
+preceded the current smart-add / 10% group-stop policy. It cannot validate the
+newest policy. See [project review](REVIEW.md).
+
+Current regressions also cover loser-only multi-round adds, price spacing,
+strictly positive after-ten-minute net exits, original risk caps, read-only status
+under an active writer lock, directory durability, fatal persistence errors in
+both PAPER paths and quote completion clocks. Synthetic tests establish these
+behaviors, not profitability or uninterrupted live quote availability.

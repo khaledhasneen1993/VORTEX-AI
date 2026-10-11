@@ -147,3 +147,18 @@ def test_portfolio_reports_marked_equity_for_unclosed_positions(monkeypatch):
     assert report["open_positions"] == ["BTCUSDT"]
     assert report["equity_with_unrealized"] < report["cash_wallet"]
     assert report["open_positions_unrealized_net"] < 0
+
+
+@pytest.mark.parametrize("basket", [False, True])
+def test_legacy_replay_refuses_current_paper_policy(basket):
+    from dataclasses import replace
+    from vortex.basket_config import BasketPolicy
+    from vortex.paper_experiment import PaperExperiment
+
+    cfg = replace(Settings(), experiment=PaperExperiment(enabled=True, capture_enabled=True),
+                  basket=BasketPolicy(enabled=basket), max_positions=5, max_leverage=5)
+    filt = Filters(0.001, 0.001, 5, 0.01)
+    with pytest.raises(ValueError, match="Legacy OHLC replay"):
+        run("BTCUSDT", [], [], filt, cfg)
+    with pytest.raises(ValueError, match="Legacy OHLC replay"):
+        run_portfolio({}, {}, {}, cfg)

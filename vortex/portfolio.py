@@ -44,6 +44,11 @@ def run_portfolio(
     funding: dict[str, list[FundingEvent]] | None = None,
     execution_observations=None,
 ) -> dict:
+    if config.basket.enabled or config.experiment.enabled:
+        raise ValueError(
+            "Legacy OHLC replay does not implement current PAPER capture/basket exits; "
+            "use recorded live PAPER journals for this policy"
+        )
     require_history(execution_observations, config.operations)
     protection = Protection(config.operations)
     execution_rejections = []

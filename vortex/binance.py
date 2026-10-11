@@ -119,15 +119,23 @@ class Market:
         if self.resilient:
             now = self.server_ms()  # Validate after the quote request, not the old cycle clock.
         observed = {}
-        for row in raw:
-            try:
-                bid, ask = float(row["bidPrice"]), float(row["askPrice"])
-                event_ms = int(row["time"])
-                lag = now - event_ms
-                if isfinite(bid) and isfinite(ask) and 0 < bid <= ask and -1000 <= lag <= max_age_ms:
-                    observed[row["symbol"]] = (bid, ask, event_ms)
-            except (KeyError, ValueError, TypeError):
-                continue
+
+        def observe_tickers(rows):
+            if isinstance(rows, dict):
+                rows = [rows]
+            for row in rows:
+                try:
+                    bid, ask = float(row["bidPrice"]), float(row["askPrice"])
+                    event_ms = int(row["time"])
+                    lag = now - event_ms
+                    if isfinite(bid) and isfinite(ask) and 0 < bid <= ask and -1000 <= lag <= max_age_ms:
+                        previous = observed.get(row["symbol"])
+                        if previous is None or event_ms >= previous[2]:
+                            observed[row["symbol"]] = (bid, ask, event_ms)
+                except (KeyError, ValueError, TypeError):
+                    continue
+
+        observe_tickers(raw)
         # Opt-in recovery for held positions / the execution candidate only.
         # Never re-stamp a cached ticker or use mark/last price as an exit quote.
         if self.resilient:
@@ -159,6 +167,17 @@ class Market:
                     logging.getLogger("vortex.market").warning(
                         "QUOTE_MISSING %s reason=depth_unavailable", symbol
                     )
+            # A bounded extra bulk snapshot can restore early quotes aged by
+            # serial depth requests. Original exchange timestamps remain mandatory;
+            # this is not permission to use a stale book or retry indefinitely.
+            if any(s not in observed or not -1000 <= now - observed[s][2] <= max_age_ms
+                   for s in required):
+                try:
+                    refreshed = self.get("/fapi/v1/ticker/bookTicker")
+                except MarketError:
+                    refreshed = []
+                now = self.server_ms()
+                observe_tickers(refreshed)
             # Earlier quotes are revalidated against the last post-request clock.
         self.quotes_checked_ms = now  # Timestamp of this completed validation, not a cached-book restamp.
         return {s: (bid, ask) for s, (bid, ask, ts) in observed.items()

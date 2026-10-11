@@ -117,7 +117,7 @@ table{{width:100%;border-collapse:collapse;margin-bottom:1.5rem}}th,td{{text-ali
 small{{color:#94a3b8}}</style><h1>VORTEX AI</h1><p>PAPER MODE — no live exchange orders</p>
 <div class=cards><div class=card><small>Realized wallet (USDT)</small><h2>{float(state.get("wallet", 0)):.2f}</h2></div>
 <div class=card><small>Closed trades</small><h2>{int(state.get("closed_count", 0))}</h2></div>
-<div class=card><small>Risk halted</small><h2>{html.escape(str(state.get("risk", {}).get("blocked", False)))}</h2></div></div>
+<div class=card><small>Risk halted</small><h2>{html.escape(str((state.get("risk", {}).get("blocked", False) or state.get("protection", {}).get("blocked", False) or state.get("account_floor_halted", False))))}</h2></div></div>
 <h2>Sampled performance and risk</h2><p>Last exchange observation: {observed}</p>
 <pre>{metrics}</pre><details><summary>Protection state</summary><pre>{protection}</pre></details>
 <h2>Live data and recorder health</h2><pre>{health_text}</pre>

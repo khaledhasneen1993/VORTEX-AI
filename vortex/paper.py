@@ -23,10 +23,12 @@ from .risk import Filters, RiskGate, size_trade
 
 
 class PaperBroker:
-    def __init__(self, cfg: Settings):
+    def __init__(self, cfg: Settings, *, read_only: bool = False):
         self.cfg = cfg
+        self.read_only = read_only
         self.folder = cfg.data_dir
-        self.folder.mkdir(parents=True, exist_ok=True)
+        if not read_only:
+            self.folder.mkdir(parents=True, exist_ok=True)
         self.state_file = self.folder / "paper_state.json"
         self.trades_file = self.folder / "closed_trades.jsonl"
         self.events_file = self.folder / "partial_exits.jsonl"
@@ -126,12 +128,24 @@ class PaperBroker:
 
             validate_state(self)
         # Recovery is idempotent if a crash occurs between state commit and log append.
-        if self.pending_journal is not None:
+        if self.pending_journal is not None and not self.read_only:
             self._write_journal(self.pending_journal)
             self.pending_journal = None
             self.save()
 
+    def _require_writable(self) -> None:
+        if self.read_only:
+            raise PermissionError("Read-only PAPER snapshot cannot mutate state")
+
+    def _sync_folder(self) -> None:
+        fd = os.open(self.folder, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
     def _write_journal(self, event: dict) -> None:
+        self._require_writable()
         if event.get("kind") == "batch":
             for item in event["events"]:
                 self._write_journal(item)
@@ -156,12 +170,16 @@ class PaperBroker:
                         if old.get("event_id"):
                             existing.add(old["event_id"])
         if event["event_id"] not in existing:
+            created = not target.exists()
             with target.open("a", encoding="utf-8") as fp:
                 fp.write(json.dumps(event) + "\n")
                 fp.flush()
                 os.fsync(fp.fileno())
+            if created:
+                self._sync_folder()
 
     def _finish_pending(self):
+        self._require_writable()
         # Do not overwrite a saved exit/add event after an append failure.
         if self.pending_journal is not None:
             self._write_journal(self.pending_journal)
@@ -244,6 +262,7 @@ class PaperBroker:
         }
 
     def save(self) -> None:
+        self._require_writable()
         obj = {
             "version": 1,
             "mode": "paper",
@@ -275,6 +294,7 @@ class PaperBroker:
             f.flush()
             os.fsync(f.fileno())
         tmp.replace(self.state_file)
+        self._sync_folder()
 
     def equity(self, quotes: dict[str, tuple[float, float]]) -> float:
         unrealized = 0.0
@@ -717,6 +737,7 @@ class PaperBroker:
 
     def reset_halt(self, acknowledge: bool) -> None:
         """Explicit local operator action; does NOT reset wallet or daily loss floor."""
+        self._require_writable()
         if not acknowledge or self.positions:
             raise ValueError("Risk reset needs operator acknowledgement and zero open positions")
         if self.account_floor_halted:

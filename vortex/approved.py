@@ -5,6 +5,7 @@ from dataclasses import fields
 APPROVED_SOURCE = "d54ee349d470c97862059058ecefa8285c1a0083"
 APPROVED_ENV = {
     "BASKET_ENABLED": "false",
+    "BASKET_MIN_ENTRY_FILL_RATIO": "0",
     "RUN_MODE": "paper",
     "TIMEFRAME": "5m",
     "TRAILING_ATR_MULT": "1.0",

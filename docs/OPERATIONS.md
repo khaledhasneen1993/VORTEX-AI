@@ -71,7 +71,7 @@ For basket-session status, pass both policy settings:
 
 ```bash
 RUN_DIR="$(cat runs/latest-paper-path.txt)"
-BASKET_ENABLED=true MAX_MARGIN_FRACTION=0.60 DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
+BASKET_ENABLED=true BASKET_MIN_ENTRY_FILL_RATIO=0.90 MAX_MARGIN_FRACTION=0.60 DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
 ```
 
 Read `baskets.jsonl` alongside the per-position journals. Telemetry/dashboard

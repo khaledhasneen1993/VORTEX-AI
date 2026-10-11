@@ -267,6 +267,8 @@ def open_group(broker, candidates, quotes, now, histories):
     )
     for event in events:
         event["basket_id"] = staged.basket["id"]
+        event["requested_margin"] = budget
+        event["allocation_ratio"] = event["position"]["margin"] / budget
     events.append(
         dict(
             kind="basket",

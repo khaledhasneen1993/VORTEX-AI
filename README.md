@@ -49,6 +49,9 @@ raise the denominator to 12 and the target to 0.36. Leverage is counted once.
 This profile explicitly replaces the legacy 25% total-margin ceiling with a
 60% ceiling of **basket-start equity**, additionally capped by available capital.
 Per-signal risk, portfolio stop risk, profit reserve and execution guards remain.
+The current basket launcher also selects `BASKET_MIN_ENTRY_FILL_RATIO=0.90`: it
+skips initial entries whose lot rounding allocates less than 90% of requested
+margin and considers the next ranked signal. The flag defaults to zero (off).
 Small-wallet minimum notional and risk limits can prevent additions or an entire
 group. No partial five-position group is opened and no missing slot is refilled.
 

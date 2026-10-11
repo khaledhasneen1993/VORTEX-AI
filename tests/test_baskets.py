@@ -374,3 +374,27 @@ def test_group_relative_add_timer_does_not_wait_next_radar_window(tmp_path, monk
     assert calls == [605000]  # Cached closed candles reevaluated, not restamped.
     assert b.basket["add_result"] == ("added" if losing else "basket_not_losing")
     assert b.basket["add_decided_ms"] - opened_ms == 300001
+
+
+def test_opt_in_margin_fill_filter_skips_coarse_lot_and_uses_next_rank(tmp_path):
+    from vortex.basket_config import BasketPolicy
+
+    b = setup(tmp_path)
+    b.cfg = replace(b.cfg, basket=BasketPolicy(enabled=True, min_entry_fill_ratio=0.90))
+    cs = candidates()
+    cs[0] = replace(cs[0], filters=replace(FILT, step=0.6))  # 1.2 margin vs requested 2.
+    assert open_group(b, cs, quotes(), NOW, {})[0]
+    assert list(b.positions) == SYMBOLS[1:]
+    assert all(e["allocation_ratio"] >= 0.90 for e in rows(b.entries_file))
+    restored = PaperBroker(b.cfg)
+    assert restored.cfg.basket.min_entry_fill_ratio == 0.90
+    with pytest.raises(ValueError, match="Basket policy changed"):
+        PaperBroker(replace(b.cfg, basket=BasketPolicy(enabled=True)))
+
+
+def test_old_basket_policy_defaults_to_no_new_margin_fill_filter(tmp_path):
+    b = opened(tmp_path)
+    state = json.loads(b.state_file.read_text())
+    state["basket_policy"].pop("min_entry_fill_ratio")
+    b.state_file.write_text(json.dumps(state))
+    assert len(PaperBroker(b.cfg).positions) == 5

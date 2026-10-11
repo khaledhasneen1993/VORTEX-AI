@@ -61,3 +61,13 @@ Four groups per hour and profitability have not been established.
 The add journal records its scheduled `add_due_ms`, actual decision time and
 `add_delay_ms`. Network delays or missing fresh data can still block an add;
 preparation never extends the 90-second signal freshness limit.
+
+`BASKET_MIN_ENTRY_FILL_RATIO` is an optional initial-allocation quality filter:
+zero (default) preserves old downward lot rounding. The current `--basket`
+configure/session commands explicitly set 0.90. An entry that cannot reach 90%
+of its requested margin within the 10% cap is skipped and the next ranked
+eligible signal is considered. If five qualifying symbols remain unavailable,
+no partial group opens. It does not increase quantity or alter add minimums.
+Entry journals record requested margin and actual allocation ratio. Old saved
+baskets without the field retain the disabled policy; changing it needs a new
+session.

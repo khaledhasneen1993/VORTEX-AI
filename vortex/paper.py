@@ -42,6 +42,9 @@ class PaperBroker:
         self.closed_count = 0
         self.pending_journal = None
         self.account_floor_halted = False
+        self.basket = None
+        self.baskets_file = self.folder / "baskets.jsonl"
+        self._basket_staging = False
         if self.state_file.exists():
             self.load()
 
@@ -49,6 +52,9 @@ class PaperBroker:
         raw = json.loads(self.state_file.read_text(encoding="utf-8"))
         if raw.get("version") != 1 or raw.get("mode") != "paper":
             raise ValueError("Unsupported saved state; refuse to reset balance")
+        if raw.get("basket_policy", {"enabled": False}) != self._basket_policy():
+            raise ValueError("Basket policy changed: use a new isolated session")
+        self.basket = raw.get("basket")
         saved_experiment = raw.get("experiment_policy", {"enabled": False})
         if saved_experiment != self._experiment_policy():
             raise ValueError("PAPER experiment policy changed: use a new isolated session")
@@ -102,6 +108,10 @@ class PaperBroker:
         self.gate.day_start_equity = float(risk["day_start_equity"])
         self.gate.consecutive_losses = int(risk["consecutive_losses"])
         self.gate.blocked = bool(risk["blocked"])
+        if self.cfg.basket.enabled:
+            from .basket import validate_state
+
+            validate_state(self)
         # Recovery is idempotent if a crash occurs between state commit and log append.
         if self.pending_journal is not None:
             self._write_journal(self.pending_journal)
@@ -109,8 +119,14 @@ class PaperBroker:
             self.save()
 
     def _write_journal(self, event: dict) -> None:
+        if event.get("kind") == "batch":
+            for item in event["events"]:
+                self._write_journal(item)
+            return
         target = (
-            self.entries_file
+            self.baskets_file
+            if event.get("kind") == "basket"
+            else self.entries_file
             if event.get("kind") == "entry"
             else self.pyramids_file
             if event.get("kind") == "pyramid"
@@ -138,6 +154,17 @@ class PaperBroker:
             self._write_journal(self.pending_journal)
             self.pending_journal = None
             self.save()
+
+    def _basket_policy(self):
+        return (
+            {
+                **asdict(self.cfg.basket),
+                "effective_margin_cap": self.cfg.max_margin_fraction,
+                "leverage": self.cfg.max_leverage,
+            }
+            if self.cfg.basket.enabled
+            else {"enabled": False}
+        )
 
     def _phase2_policy(self):
         return (
@@ -207,6 +234,8 @@ class PaperBroker:
         obj = {
             "version": 1,
             "mode": "paper",
+            "basket_policy": self._basket_policy(),
+            "basket": self.basket,
             "experiment_policy": self._experiment_policy(),
             "account_floor_halted": self.account_floor_halted,
             "wallet": self.wallet,
@@ -268,8 +297,11 @@ class PaperBroker:
         histories=None,
         funding=None,
         depth=None,
+        margin_budget=None,
     ) -> tuple[bool, str]:
         self._finish_pending()
+        if self.cfg.basket.enabled and (not self._basket_staging or margin_budget is None):
+            return False, "basket entries require atomic ranked group"
         if self._account_floor(quotes):
             return False, "experiment account equity floor: liquidation pending / halted"
         if signal.symbol in self.positions:
@@ -330,7 +362,16 @@ class PaperBroker:
         from dataclasses import replace
 
         cost_cfg = replace(self.cfg, slippage_bps=modeled_slip)
-        sized = size_trade(adjusted, capital, cost_cfg, filters, margin_in_use, committed_risk=committed_risk)
+        if margin_budget is not None:
+            from .basket import fixed_margin_size
+
+            sized = fixed_margin_size(
+                adjusted, capital, cost_cfg, filters, margin_in_use, committed_risk, margin_budget
+            )
+        else:
+            sized = size_trade(
+                adjusted, capital, cost_cfg, filters, margin_in_use, committed_risk=committed_risk
+            )
         if sized is None:
             return False, "min notional / risk cap prevents entry"
         qty, margin = sized
@@ -398,6 +439,11 @@ class PaperBroker:
 
         events: list[dict] = []
         floor_halted = self._account_floor(quotes)
+        basket_reason = None
+        if self.cfg.basket.enabled:
+            from .basket import exit_reason
+
+            basket_reason = exit_reason(self, quotes, now_ms, floor_halted)
         for symbol, p in list(self.positions.items()):
             if symbol not in quotes:
                 continue
@@ -415,7 +461,11 @@ class PaperBroker:
                     now_ms=now_ms,
                 )
             )
-            if self.cfg.experiment.enabled:
+            if self.cfg.basket.enabled:
+                from .exits import ExitStep
+
+                action = ExitStep(p.qty, raw, basket_reason, True) if basket_reason else None
+            elif self.cfg.experiment.enabled:
                 from .exits import ExitStep
                 from .paper_experiment import net_margin_target
 
@@ -460,7 +510,8 @@ class PaperBroker:
             gross = sign * (px - p.entry) * qty
             stage_net = gross - entry_cost - exit_cost
             self.wallet += gross - exit_cost
-            self.reserve.record(stage_net)
+            if not self.cfg.basket.enabled:
+                self.reserve.record(stage_net)
             p.entry_fee -= entry_cost
             p.margin *= max(0, 1 - ratio)
             p.qty = max(0.0, p.qty - qty)
@@ -508,12 +559,23 @@ class PaperBroker:
             if final:
                 event["y"] = int(all_net > 0)
                 self.closed_count += 1
-                self.gate.closed(all_net)
-                self.protection.closed(all_net, now_ms)
+                if not self.cfg.basket.enabled:
+                    self.gate.closed(all_net)
+                    self.protection.closed(all_net, now_ms)
                 del self.positions[symbol]
-            self.pending_journal = event
+            if self.cfg.basket.enabled:
+                from .basket import record_exit
+
+                group_event = record_exit(self, event, now_ms)
+                event["basket_id"] = self.basket["id"]
+                event["reserved_profit"] = self.reserve.reserved
+                self.pending_journal = (
+                    {"kind": "batch", "events": [event, group_event]} if group_event else event
+                )
+            else:
+                self.pending_journal = event
             self.save()
-            self._write_journal(event)
+            self._write_journal(self.pending_journal)
             self.pending_journal = None
             self.save()
             events.append(event)
@@ -522,6 +584,8 @@ class PaperBroker:
     def pyramid(self, symbol, bid, ask, filters, quotes, now_ms, histories=None, funding=None, depth=None):
         """Call only AFTER normal exit management with fresh completed histories."""
         self._finish_pending()
+        if self.cfg.basket.enabled:
+            return None  # Basket adds use the single persisted group decision.
         if symbol not in self.positions or not self.cfg.phase2.enabled:
             return None
         if self._account_floor(quotes):

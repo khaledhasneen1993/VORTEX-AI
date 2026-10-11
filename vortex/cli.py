@@ -76,6 +76,7 @@ def main(argv: list[str] | None = None) -> int:
                     "positions": {s: vars(p) for s, p in broker.positions.items()},
                     "closed_trades": broker.closed_count,
                     "risk_halted": broker.gate.blocked,
+                    "basket": broker.basket,
                 },
                 indent=2,
             )
@@ -123,10 +124,26 @@ def main(argv: list[str] | None = None) -> int:
     health = LiveHealth(cfg)
     health.update(force=True, stage="startup")
     scanner = None
-    if cfg.runtime.paper_fast_scan:
+    if cfg.runtime.paper_fast_scan or cfg.basket.enabled:
         from .live_scan import CandidateScanner
 
         scanner = CandidateScanner(market, cfg)
+    basket_loop = None
+    if cfg.basket.enabled:
+        from .basket_live import BasketLoop
+
+        basket_loop = BasketLoop(
+            market,
+            broker,
+            scanner,
+            derivative_tracker,
+            recorder,
+            health,
+            decision_journal,
+            symbols,
+            use_radar,
+        )
+
     def live_quotes(checked_ms, candidate=None):
         if stream:
             result = stream.snapshot()
@@ -144,6 +161,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         while True:
             try:
+                if basket_loop:
+                    basket_loop.cycle()
+                    if args.once:
+                        return 0
+                    time.sleep(cfg.loop_seconds)
+                    continue
                 cycle_degraded = False
                 health.update(stage="quotes", status="RUNNING")
                 recorder.update_symbols([*broker.positions, *symbols])
@@ -297,7 +320,11 @@ def main(argv: list[str] | None = None) -> int:
                             missing = [s for s in broker.positions if s not in exit_quotes]
                             if missing:
                                 cycle_degraded = True
-                                log.warning("ENTRY_SKIP %s reason=missing_open_position_quote positions=%s", symbol, missing)
+                                log.warning(
+                                    "ENTRY_SKIP %s reason=missing_open_position_quote positions=%s",
+                                    symbol,
+                                    missing,
+                                )
                                 continue
                             broker.equity(exit_quotes)
                             quotes = exit_quotes
@@ -493,6 +520,12 @@ def main(argv: list[str] | None = None) -> int:
                     recorder=recorder.status(),
                 )
                 log.error("Cycle failed closed: %s", exc)
+                if basket_loop and isinstance(exc, OSError):
+                    # Never continue with memory diverging from an uncertain state write.
+                    log.critical(
+                        "Basket persistence failed: stopping PAPER; recover saved journal before restarting"
+                    )
+                    return 2
                 if args.once:
                     return 2
             if args.once:

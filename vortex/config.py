@@ -15,10 +15,12 @@ from .phase2 import RiskPolicy
 from .runtime_config import RuntimePolicy
 from .paper_experiment import PaperExperiment
 from .approved import APPROVED_ENV, policy_defaults
+from .basket_config import BasketPolicy
 
 
 @dataclass(frozen=True)
 class Settings:
+    basket: BasketPolicy = field(default_factory=BasketPolicy)
     experiment: PaperExperiment = field(default_factory=PaperExperiment)
     runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
     operations: OperationsPolicy = field(default_factory=OperationsPolicy)
@@ -56,6 +58,18 @@ class Settings:
         # Production execution is not included in this release.
         if self.mode not in {"paper", "backtest"}:
             raise ValueError("RUN_MODE must be paper or backtest; live orders are disabled")
+        if self.basket.enabled and (
+            self.mode != "paper"
+            or not self.experiment.enabled
+            or not self.experiment.capture_enabled
+            or not self.phase2.enabled
+            or not self.operations.enabled
+            or self.max_positions != 5
+            or self.max_leverage != 5
+        ):
+            raise ValueError(
+                "Basket requires PAPER capture, risk/operations, MAX_POSITIONS=5 and MAX_LEVERAGE=5"
+            )
         if self.experiment.enabled and self.mode != "paper":
             raise ValueError("PAPER_EXP_ENABLED supports PAPER live only; no historical execution model")
         if not self.symbols or len(set(self.symbols)) != len(self.symbols):
@@ -82,7 +96,9 @@ class Settings:
             or not 1 <= self.max_leverage <= 10
         ):
             raise ValueError("Position/leverage limit invalid")
-        if not isfinite(self.max_margin_fraction) or not 0 < self.max_margin_fraction <= 0.25:
+        if not isfinite(self.max_margin_fraction) or not 0 < self.max_margin_fraction <= (
+            self.basket.margin_cap_fraction if self.basket.enabled else 0.25
+        ):
             raise ValueError("Margin cap invalid")
         if not 0 < self.max_spread_bps <= 50:
             raise ValueError("Spread cap invalid")
@@ -118,6 +134,7 @@ class Settings:
                 raise ValueError(name + " must be true or false")
             return value == "true"
 
+        basket = BasketPolicy.from_env()
         operations = OperationsPolicy.from_env(policy_defaults(OperationsPolicy, "OPS_"))
         if operations.profile != "aggressive":
             raise ValueError("Only the adopted aggressive PAPER profile is supported; run vortex.configure")
@@ -145,6 +162,7 @@ class Settings:
                 "Only the current strategy/risk/operations release is supported; remove disabled PHASE1_ENABLED/PHASE2_ENABLED/OPS_ENABLED settings"
             )
         return cls(
+            basket=basket,
             experiment=experiment,
             runtime=RuntimePolicy.from_env(policy_defaults(RuntimePolicy)),
             operations=operations,
@@ -164,7 +182,11 @@ class Settings:
             max_daily_loss=float(f("MAX_DAILY_LOSS", "0.55")),
             max_positions=int(f("MAX_POSITIONS", "4")),
             max_leverage=int(f("MAX_LEVERAGE", "5")),
-            max_margin_fraction=float(f("MAX_MARGIN_FRACTION", "0.25")),
+            max_margin_fraction=float(
+                os.getenv("MAX_MARGIN_FRACTION", str(basket.margin_cap_fraction))
+                if basket.enabled
+                else f("MAX_MARGIN_FRACTION", "0.25")
+            ),
             max_spread_bps=float(f("MAX_SPREAD_BPS", "12")),
             min_score=int(f("MIN_SCORE", "5")),
             cooldown_minutes=int(f("COOLDOWN_MINUTES", "15")),

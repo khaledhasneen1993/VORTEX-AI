@@ -22,6 +22,14 @@ def save_telemetry(broker, quotes, now_ms, rejection_count):
         "current_process_decision_records": rejection_count,
         "protection": broker.protection.state(),
     }
+    if broker.cfg.basket.enabled:
+        from .basket import projected_net
+
+        row["basket"] = broker.basket
+        row["basket_projected_net"] = projected_net(broker, quotes)
+        row["basket_target_net"] = (
+            broker.basket["total_margin"] * broker.cfg.basket.profit_margin if broker.basket else None
+        )
     path = broker.folder / "telemetry.json"
     temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps(row, indent=2))

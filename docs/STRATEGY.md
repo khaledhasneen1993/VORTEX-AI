@@ -31,3 +31,18 @@ bounded workers; scan time can exceed the 10-second polling interval.
 No Order Flow data is assumed complete. A sampled/truncated REST window cannot
 establish full-session CVD or true order-book OFI. No new strategy or AI model is
 introduced by this adoption.
+
+## Optional basket selection
+
+`BASKET_ENABLED=true` changes trade grouping, not strategy voters or filters.
+A bounded scan reserves 20 seconds of the same 90-second signal window for
+execution guards; late or unavailable symbols abstain. All collected signals
+are sorted by score, strong label, directional vote weight, 5m ADX and symbol.
+Radar order and worker completion order do not determine entries. Signals must
+remain fresh at the final quote snapshot; exactly five guard-approved candidates
+are required. The selected five share a simulated opening timestamp.
+
+After five minutes, current signals are reevaluated for existing members.
+Only freshly accepted signals aligned with the held side can rank for the
+single two-member add decision. A missing or opposite signal is not recycled
+from entry time. Guard rejections remain visible. See [BASKETS](BASKETS.md).

@@ -5,12 +5,12 @@ cd "$(dirname "$0")"
 DURATION_SECONDS="${1:-10800}"
 EXTRA_ARGS=()
 if [ "$#" -gt 2 ] || { [ "$#" -eq 2 ] && [ "$2" != "--basket" ]; }; then
-  echo "Usage: bash run_paper.sh [1200|3600|10800|21600] [--basket]" >&2
+  echo "Usage: bash run_paper.sh [1200|3600|10800|14400|21600] [--basket]" >&2
   exit 2
 fi
 if [ "${2:-}" = "--basket" ]; then EXTRA_ARGS+=(--basket); fi
 case "$DURATION_SECONDS" in
-  1200|3600|10800|21600) ;;
+  1200|3600|10800|14400|21600) ;;
   *) echo "Unsupported duration: $DURATION_SECONDS" >&2; exit 2 ;;
 esac
 if command -v termux-wake-lock >/dev/null; then termux-wake-lock; fi

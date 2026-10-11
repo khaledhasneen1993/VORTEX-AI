@@ -36,7 +36,7 @@ def session_args(argv=None):
         return number
 
     parser = argparse.ArgumentParser(description="Bounded live-data PAPER radar session")
-    parser.add_argument("--duration-seconds", type=int, choices=[1200, 3600, 10800, 21600], default=10800)
+    parser.add_argument("--duration-seconds", type=int, choices=[1200, 3600, 10800, 14400, 21600], default=10800)
     parser.add_argument(
         "--starting-equity",
         type=positive_equity,
@@ -146,7 +146,7 @@ def main(argv=None):
     if args.starting_equity is not None:
         env["STARTING_EQUITY"] = str(args.starting_equity)
     if args.basket:
-        env.update(BASKET_ENABLED="true", MAX_MARGIN_FRACTION="0.60")
+        env.update(BASKET_ENABLED="true", MAX_MARGIN_FRACTION="0.60", BASKET_MIN_ENTRY_FILL_RATIO="0.90")
     for key in set(os.environ) - set(env):
         os.environ.pop(key)
     os.environ.update(env)

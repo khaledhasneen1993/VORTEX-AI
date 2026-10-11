@@ -48,3 +48,9 @@ CLOSING across restarts. New entries and legacy pyramiding are blocked during a
 group. A durable add-decision latch limits it to one attempt even across a crash.
 Policy changes on saved groups are refused. Background recorder and flock are
 unchanged; group outcomes appear in a separate append-only `baskets.jsonl`.
+
+Basket guard collection reuses the scan executor, independent HTTP sessions and
+at most the configured workers. Its ten-second deadline discards late jobs and
+reserves time for the final executable quote snapshot. Protective quote polls
+continue while waiting; no worker writes broker state. Funding is collected
+last and never restamped.

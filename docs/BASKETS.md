@@ -18,11 +18,13 @@ No mainnet, signed orders, new voter, dependency or historical replay is added.
    slippage and all entry/exit fees. At 3% of total historically posted group
    margins, latch collective closing and close all members, even losing ones.
    Leverage is already represented in margin: do not multiply returns again.
-4. At the first eligible reevaluation after five minutes, if group net is
+4. At the first poll after five minutes, if group net is
    negative, choose its strongest two freshly accepted side-aligned members.
    Request half each member's actual initial margin once. Both additions commit
    together or neither commits. Added margin increases the target denominator.
-   The original stop/entry R anchor stays fixed. A non-losing group or fewer
+   Closed-candle histories are prefetched before the timer and reevaluated at
+   decision time; stale flow/OI abstain. The timer does not wait for the next
+   Radar window. Original stop/entry R anchors stay fixed. A non-losing group or fewer
    than two eligible members produces one recorded skip. Missing quotes defer
    the decision; missing signal data is not a substitute for a current signal.
 5. At 15 minutes, latch group closing regardless of net outcome. An original
@@ -55,3 +57,17 @@ Watch `paper_state.json` / `telemetry.json` basket fields and `baskets.jsonl`:
 The single-writer lock, existing journals, recorder and health checks remain.
 Basket persistence errors terminate PAPER to prevent further uncertain writes.
 Four groups per hour and profitability have not been established.
+
+The add journal records its scheduled `add_due_ms`, actual decision time and
+`add_delay_ms`. Network delays or missing fresh data can still block an add;
+preparation never extends the 90-second signal freshness limit.
+
+`BASKET_MIN_ENTRY_FILL_RATIO` is an optional initial-allocation quality filter:
+zero (default) preserves old downward lot rounding. The current `--basket`
+configure/session commands explicitly set 0.90. An entry that cannot reach 90%
+of its requested margin within the 10% cap is skipped and the next ranked
+eligible signal is considered. If five qualifying symbols remain unavailable,
+no partial group opens. It does not increase quantity or alter add minimums.
+Entry journals record requested margin and actual allocation ratio. Old saved
+baskets without the field retain the disabled policy; changing it needs a new
+session.

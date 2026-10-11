@@ -62,7 +62,7 @@ python -m vortex.configure --equity 20 --basket
 bash run_paper.sh 10800 --basket
 ```
 
-Use `21600 --basket` for six hours. `run_paper.sh` deliberately uses its explicit
+Use `14400 --basket` for four hours or `21600 --basket` for six hours. `run_paper.sh` deliberately uses its explicit
 option rather than inheriting a stale `.env`. To restore legacy deployment, run
 `python -m vortex.configure --equity 20` and omit `--basket` on bounded launches.
 Both operations create new virtual sessions; old wallets are preserved.
@@ -71,7 +71,7 @@ For basket-session status, pass both policy settings:
 
 ```bash
 RUN_DIR="$(cat runs/latest-paper-path.txt)"
-BASKET_ENABLED=true MAX_MARGIN_FRACTION=0.60 DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
+BASKET_ENABLED=true BASKET_MIN_ENTRY_FILL_RATIO=0.90 MAX_MARGIN_FRACTION=0.60 DATA_DIR="$RUN_DIR/state" python -m vortex.cli status
 ```
 
 Read `baskets.jsonl` alongside the per-position journals. Telemetry/dashboard
@@ -81,3 +81,11 @@ decision. `basket_needs_five_eligible` means no group was opened.
 held member means a fresh exit quote is still needed; no new group can open.
 An uncertain persistence failure stops the basket engine rather than continuing
 from possibly uncommitted memory. Resume only the same saved policy and path.
+
+Basket execution observations are collected in parallel on the existing bounded
+scan pool, with a maximum ten-second batch and funding refreshed after depth.
+Their original exchange timestamps are rechecked at the final quote snapshot;
+late responses are discarded. This removes the old sequential all-candidate
+wait that expired early funding observations, without widening the 15-second
+funding/depth guards or four-second book limit. Missing public observations can
+still refuse a group or add.

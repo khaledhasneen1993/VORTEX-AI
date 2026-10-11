@@ -74,3 +74,9 @@ At 15 minutes, remaining members enter persisted closing, even at a loss.
 Account-floor, polling gaps, funding/liquidation exclusions and price freshness
 limits above still apply. Neither the target nor the deadline guarantees profit,
 execution speed or a hard loss ceiling. See [BASKETS](BASKETS.md).
+
+The current basket launcher explicitly sets `BASKET_MIN_ENTRY_FILL_RATIO=0.90`.
+Initial lot rounding below 90% of the requested margin rejects that candidate;
+other eligible signals can replace it. Default zero retains old rounding.
+Neither this filter nor the launcher rounds orders up beyond the requested
+margin. Added orders still face their original lot/minimum and risk constraints.

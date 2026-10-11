@@ -318,3 +318,83 @@ def test_post_request_quote_clock_blocks_late_group_without_another_request(tmp_
     assert checked == 390001
     assert not open_group(b, candidates(), book, checked, {})[0]
     assert not b.positions
+
+
+@pytest.mark.parametrize("losing", [False, True])
+def test_group_relative_add_timer_does_not_wait_next_radar_window(tmp_path, monkeypatch, losing):
+    from types import SimpleNamespace
+    from vortex import basket_live
+    from vortex.basket_live import BasketLoop
+    from vortex.live_scan import Prepared
+    from vortex.models import Candle
+
+    b = setup(tmp_path)
+    opened_ms = 374000  # Entry beyond the old 65-second scan-start window.
+    assert open_group(b, candidates(), quotes(), opened_ms, {})[0]
+    clock = [605000]
+    prices = {s: 10.05 for s in SYMBOLS}
+    if losing:
+        prices = {s: 10.2 for s in SYMBOLS}
+        prices.update({SYMBOLS[0]: 9.6, SYMBOLS[1]: 9.6})
+    calls = []
+
+    class Public:
+        def server_ms(self):
+            return clock[0]
+
+        def quotes(self, **kwargs):
+            self.quotes_checked_ms = clock[0]
+            return quotes(prices)
+
+        def symbol_filters(self, symbol):
+            return FILT
+
+    class Scanner:
+        def results(self, symbols, now, on_wait, **kwargs):
+            calls.append(now)
+            for symbol in symbols:
+                bar = Candle(300000, 10, 11, 9, 10, 100, close_ts=599999)
+                yield symbol, Prepared([bar], [bar], [bar], [bar], None, None, None, now)
+
+    def signal(symbol, *args, **kwargs):
+        return next(c.signal for c in candidates(clock[0], prices=prices) if c.signal.symbol == symbol)
+
+    monkeypatch.setattr(basket_live, "analyze", signal)
+    monkeypatch.setattr("vortex.signal_features.feature_snapshot", lambda *args: {})
+    recorder = SimpleNamespace(update_symbols=lambda x: None, status=lambda: {})
+    health = SimpleNamespace(update=lambda **kwargs: None, observe=lambda *args: None, row={"symbols": {}})
+    loop = BasketLoop(
+        Public(), b, Scanner(), None, recorder, health, SimpleNamespace(count=0), SYMBOLS, False
+    )
+    loop.cycle()  # Prefetch at 3m51s; never add early.
+    assert not b.basket["add_decided"] and calls == [605000]
+    clock[0] = 674001  # First poll at 5m, age 74s: no fresh scan window now.
+    loop.cycle()
+    assert b.basket["add_decided"] and b.basket["add_delay_ms"] == 1
+    assert calls == [605000]  # Cached closed candles reevaluated, not restamped.
+    assert b.basket["add_result"] == ("added" if losing else "basket_not_losing")
+    assert b.basket["add_decided_ms"] - opened_ms == 300001
+
+
+def test_opt_in_margin_fill_filter_skips_coarse_lot_and_uses_next_rank(tmp_path):
+    from vortex.basket_config import BasketPolicy
+
+    b = setup(tmp_path)
+    b.cfg = replace(b.cfg, basket=BasketPolicy(enabled=True, min_entry_fill_ratio=0.90))
+    cs = candidates()
+    cs[0] = replace(cs[0], filters=replace(FILT, step=0.6))  # 1.2 margin vs requested 2.
+    assert open_group(b, cs, quotes(), NOW, {})[0]
+    assert list(b.positions) == SYMBOLS[1:]
+    assert all(e["allocation_ratio"] >= 0.90 for e in rows(b.entries_file))
+    restored = PaperBroker(b.cfg)
+    assert restored.cfg.basket.min_entry_fill_ratio == 0.90
+    with pytest.raises(ValueError, match="Basket policy changed"):
+        PaperBroker(replace(b.cfg, basket=BasketPolicy(enabled=True)))
+
+
+def test_old_basket_policy_defaults_to_no_new_margin_fill_filter(tmp_path):
+    b = opened(tmp_path)
+    state = json.loads(b.state_file.read_text())
+    state["basket_policy"].pop("min_entry_fill_ratio")
+    b.state_file.write_text(json.dumps(state))
+    assert len(PaperBroker(b.cfg).positions) == 5

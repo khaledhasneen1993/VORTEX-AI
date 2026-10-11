@@ -52,7 +52,10 @@ class PaperBroker:
         raw = json.loads(self.state_file.read_text(encoding="utf-8"))
         if raw.get("version") != 1 or raw.get("mode") != "paper":
             raise ValueError("Unsupported saved state; refuse to reset balance")
-        if raw.get("basket_policy", {"enabled": False}) != self._basket_policy():
+        saved_basket = raw.get("basket_policy", {"enabled": False})
+        if saved_basket.get("enabled"):
+            saved_basket.setdefault("min_entry_fill_ratio", 0.0)
+        if saved_basket != self._basket_policy():
             raise ValueError("Basket policy changed: use a new isolated session")
         self.basket = raw.get("basket")
         saved_experiment = raw.get("experiment_policy", {"enabled": False})
@@ -375,6 +378,8 @@ class PaperBroker:
         if sized is None:
             return False, "min notional / risk cap prevents entry"
         qty, margin = sized
+        if margin_budget is not None and margin + 1e-9 < margin_budget * self.cfg.basket.min_entry_fill_ratio:
+            return False, "basket lot rounding underfills requested entry margin"
         if qty * entry > capacity:
             return False, "order exceeds observed depth participation limit"
         fee = qty * entry * self.cfg.fee_rate

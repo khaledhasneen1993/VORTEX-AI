@@ -98,3 +98,9 @@ def test_six_hour_session_has_separate_output():
     assert args.duration_seconds == 6 * 60 * 60
     assert args.starting_equity == 20
     assert args.output == Path("runs/capture-six-hours")
+
+
+def test_four_hour_basket_session_has_correct_timer_and_profile():
+    args = session_args(["--duration-seconds", "14400", "--starting-equity", "20", "--basket"])
+    assert args.duration_seconds == 4 * 60 * 60
+    assert args.starting_equity == 20 and args.basket

@@ -267,6 +267,8 @@ def open_group(broker, candidates, quotes, now, histories):
     )
     for event in events:
         event["basket_id"] = staged.basket["id"]
+        event["requested_margin"] = budget
+        event["allocation_ratio"] = event["position"]["margin"] / budget
     events.append(
         dict(
             kind="basket",
@@ -386,7 +388,14 @@ def add_group(broker, candidates, quotes, now, histories):
         key=strength,
     )
     # Persist one decision before staging; restart cannot retry or add a third leg.
-    g.update(add_decided=True, add_decided_ms=now, add_net_before=net, add_result="decision_committed")
+    g.update(
+        add_decided=True,
+        add_decided_ms=now,
+        add_net_before=net,
+        add_result="decision_committed",
+        add_due_ms=g["opened_ms"] + broker.cfg.basket.add_after_seconds * 1000,
+        add_delay_ms=now - g["opened_ms"] - broker.cfg.basket.add_after_seconds * 1000,
+    )
     broker.save()
     reason = "basket_not_losing" if net >= 0 else "fewer_than_two_aligned_fresh_signals"
     success = False

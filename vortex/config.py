@@ -14,6 +14,7 @@ from .phase1_config import StrategyPolicy
 from .phase2 import RiskPolicy
 from .runtime_config import RuntimePolicy
 from .paper_experiment import PaperExperiment
+from .approved import APPROVED_ENV, policy_defaults
 
 
 @dataclass(frozen=True)
@@ -105,10 +106,11 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
-        load_dotenv()
+        if os.getenv("VORTEX_CANONICAL_SESSION") != "true":
+            load_dotenv()
 
         def f(name: str, default: str) -> str:
-            return os.getenv(name, default).strip()
+            return os.getenv(name, APPROVED_ENV.get(name, default)).strip()
 
         def boolean(name: str, default: str) -> bool:
             value = f(name, default).lower()
@@ -116,23 +118,35 @@ class Settings:
                 raise ValueError(name + " must be true or false")
             return value == "true"
 
-        operations = OperationsPolicy.from_env()
-        aggressive = operations.profile == "aggressive"
+        operations = OperationsPolicy.from_env(policy_defaults(OperationsPolicy, "OPS_"))
+        if operations.profile != "aggressive":
+            raise ValueError("Only the adopted aggressive PAPER profile is supported; run vortex.configure")
+        aggressive = True
         phase1 = StrategyPolicy.from_env(
-            StrategyPolicy(strict_votes=False, allow_single_strong_vote=True, min_strong_score=6)
-            if aggressive
-            else StrategyPolicy()
+            policy_defaults(
+                StrategyPolicy,
+                "PHASE1_",
+                {
+                    "strict_votes": "STRICT_VOTES",
+                    "allow_single_strong_vote": "ALLOW_SINGLE_STRONG_VOTE",
+                    "min_strong_score": "MIN_STRONG_SCORE",
+                },
+            )
         )
-        phase2 = RiskPolicy.from_env(
-            RiskPolicy(aggressive_strong_risk=True, strong_max=0.18) if aggressive else RiskPolicy()
-        )
+        phase2 = RiskPolicy.from_env(policy_defaults(RiskPolicy, "PHASE2_"))
+        experiment = PaperExperiment.from_env(policy_defaults(PaperExperiment, "PAPER_EXP_"))
+        if not experiment.enabled or not experiment.capture_enabled or f("RUN_MODE", "paper") != "paper":
+            raise ValueError("Only the adopted PAPER capture system is supported; run vortex.configure")
+        for retired in ("USE_AI_MODEL", "USE_CLAUDE", "USE_MICROSTRUCTURE", "USE_WEBSOCKET"):
+            if boolean(retired, "false"):
+                raise ValueError(retired + " is not part of the adopted PAPER system")
         if not all((phase1.enabled, phase2.enabled, operations.enabled)):
             raise ValueError(
                 "Only the current strategy/risk/operations release is supported; remove disabled PHASE1_ENABLED/PHASE2_ENABLED/OPS_ENABLED settings"
             )
         return cls(
-            experiment=PaperExperiment.from_env(),
-            runtime=RuntimePolicy.from_env(),
+            experiment=experiment,
+            runtime=RuntimePolicy.from_env(policy_defaults(RuntimePolicy)),
             operations=operations,
             phase1=phase1,
             phase2=phase2,

@@ -252,7 +252,8 @@ def test_configuration_env_and_no_risk_change(monkeypatch):
     with pytest.raises(ValueError):
         StrategyPolicy.from_env()
     env = open(".env.example").read()
-    assert all(("PHASE1_" + f.name.upper() + "=" in env for f in fields(StrategyPolicy)))
+    from vortex.approved import APPROVED_ENV
+    assert all(key + "=" in env for key in APPROVED_ENV if key.startswith("PHASE1_"))
 
 
 def test_filters_toggle_and_thresholds(monkeypatch):

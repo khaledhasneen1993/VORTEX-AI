@@ -5,7 +5,7 @@ Only the current smart basket deployment is accepted. Runtime configuration keep
 saved-policy schemas explicit; changing old wallet semantics is refused.
 
 Radar → bounded REST scanner → completed-candle voters → strength ranking →
-funding/depth/correlation/risk guards → atomic five-position PAPER basket.
+funding/depth/correlation/risk guards → atomic 2–5-position PAPER basket.
 Signal voters are unchanged by adoption. No AI model or signed exchange API.
 
 Basket entries and successful loss adds stage on a shadow broker, then commit
@@ -36,6 +36,7 @@ participate in the current release. Runtime dependencies: requests + python-dote
 The current target is fixed 0.20 USDT group net. `target_net` reports that same
 unit before and after adds/timeouts, and `exit_reason` uses it after protective
 exit precedence. Closed groups reset the scan latch when configured so fresh
-selection can resume in the current allowed candle window. Partial closing
+selection is requested immediately. Existing scanner freshness/deadline bounds
+can abstain until the next eligible completed candle. Partial closing
 never resets entry permission. New policy fields bind to saved state; absent
 historical fields mean disabled rather than silently changing old wallets.

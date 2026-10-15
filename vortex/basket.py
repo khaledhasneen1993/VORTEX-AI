@@ -79,8 +79,8 @@ def validate_state(broker):
         return
     if (
         group.get("phase") not in {"ACTIVE", "CLOSING", "CLOSED"}
-        or len(group.get("symbols", [])) != 5
-        or len(set(group["symbols"])) != 5
+        or not broker.cfg.basket.min_size <= len(group.get("symbols", [])) <= broker.cfg.basket.size
+        or len(set(group["symbols"])) != len(group["symbols"])
         or group.get("deadline_ms") != group.get("opened_ms", 0) + 900000
         or not isfinite(group.get("total_margin", 0))
         or group["total_margin"] <= 0
@@ -113,7 +113,7 @@ def validate_state(broker):
     if not held <= set(group["symbols"]):
         raise ValueError("Orphan position outside saved basket")
     if group["phase"] == "ACTIVE" and held != set(group["symbols"]):
-        raise ValueError("Active basket must contain all five positions")
+        raise ValueError("Active basket must contain all selected positions")
     if group["phase"] == "CLOSED" and held:
         raise ValueError("Closed basket has live positions")
     if group["phase"] == "CLOSING" and (not held or not group.get("close_reason")):
@@ -293,9 +293,10 @@ def open_group(broker, candidates, quotes, now, histories):
             chosen.append(s.symbol)
         if len(chosen) == broker.cfg.basket.size:
             break
-    if len(chosen) != broker.cfg.basket.size:
-        log.info("ENTRY_SKIP BASKET reason=basket_needs_five_eligible count=%d", len(chosen))
-        return False, "basket needs five eligible: no partial group opened"
+    if len(chosen) < broker.cfg.basket.min_size:
+        log.info("ENTRY_SKIP BASKET reason=basket_needs_minimum_eligible count=%d minimum=%d",
+                 len(chosen), broker.cfg.basket.min_size)
+        return False, f"basket needs {broker.cfg.basket.min_size} eligible: no undersized group opened"
     margins = {s: staged.positions[s].margin for s in chosen}
     staged.basket = dict(
         id=f"basket:{now}:{uuid4().hex}",

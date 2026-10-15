@@ -1,4 +1,4 @@
-"""Five-position PAPER contract; fixture defaults retain old saved-policy schemas."""
+"""Two-to-five-position PAPER contract; fixture defaults retain old saved-policy schemas."""
 
 import os
 from dataclasses import dataclass, fields
@@ -9,6 +9,7 @@ from math import isfinite
 class BasketPolicy:
     enabled: bool = False
     size: int = 5
+    min_size: int = 5
     entry_margin_fraction: float = 0.10
     profit_margin: float = 0.03
     fixed_net_target: float = 0.0
@@ -46,6 +47,7 @@ class BasketPolicy:
                 if f.name
                 not in {
                     "enabled",
+                    "min_size",
                     "fixed_net_target",
                     "rescan_after_close",
                     "min_entry_fill_ratio",
@@ -63,6 +65,8 @@ class BasketPolicy:
             raise ValueError(
                 "Basket contract is 5 positions, 10% margin, 3% target, one 2-position half add at 5m, 15m max"
             )
+        if type(self.min_size) is not int or not 2 <= self.min_size <= self.size:
+            raise ValueError("BASKET_MIN_SIZE must be an integer between 2 and 5")
         if not 0 <= self.fixed_net_target <= 10:
             raise ValueError("BASKET_FIXED_NET_TARGET must be 0..10 USDT; zero retains historical target")
         if not 0 <= self.min_entry_fill_ratio <= 1:
@@ -100,6 +104,7 @@ class BasketPolicy:
             raise ValueError("BASKET_RESCAN_AFTER_CLOSE must be true or false")
         return cls(
             enabled=raw == "true",
+            min_size=int(setting("BASKET_MIN_SIZE", "5")),
             fixed_net_target=float(setting("BASKET_FIXED_NET_TARGET", "0")),
             rescan_after_close=rescan == "true",
             min_entry_fill_ratio=float(setting("BASKET_MIN_ENTRY_FILL_RATIO", "0")),

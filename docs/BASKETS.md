@@ -1,18 +1,20 @@
-# Five-position PAPER basket contract
+# Two-to-five-position PAPER basket contract
 
 The current smart basket strategy is the deployment default. Configure a fresh
 wallet with `python -m vortex.configure --equity 100` or use `run_paper.sh`.
 No signed orders, mainnet, new voter or heavy dependency is introduced.
 
 1. Rank current accepted Radar signals by score, strong label, vote weight,
-   ADX and symbol. Open exactly five eligible distinct members together or none.
+   ADX and symbol. Open up to five eligible distinct members together, with a
+   minimum of two. One eligible member opens nothing; select all eligible
+   members when two, three or four pass. Initial allocation stays 10% each.
 2. Request 10% of marked group-start account equity as each initial margin,
    rounded down by lot size, leverage capped at 5x. The initial fill-ratio filter
    is 0.90. Total margin remains capped at 60% of frozen group-start equity and
    current deployable capital; portfolio/per-trade stop risk remains unchanged.
 3. On every fresh poll, estimate group net with executable bid/ask, modeled
    slippage and all entry/exit fees. At net >= **0.20 USDT total**, request
-   closing all five, including losing members. No ten-minute wait, no percentage
+   closing every selected member, including losers. No ten-minute wait, no percentage
    target and no multiplier for adds. Fixed target takes precedence over legacy
    margin/timed fields retained for historical saved-state compatibility.
 4. No 15-minute expiry in the current preset. At net <= minus 10% of fixed
@@ -49,6 +51,7 @@ Original entry/stop R anchors remain fixed; average entry changes only on adds.
 Active deployment flags:
 - `BASKET_HOLD_UNTIL_TARGET`: true.
 - `BASKET_LOSS_STARTING_EQUITY_FRACTION`: 0.10.
+- `BASKET_MIN_SIZE`: 2 (maximum remains 5).
 - `BASKET_FIXED_NET_TARGET`: 0.20 USDT for the whole group.
 - `BASKET_ANY_PROFIT_AFTER_SECONDS`: 0 (historical fallback disabled).
 - `BASKET_RESCAN_AFTER_CLOSE`: true.
@@ -70,8 +73,9 @@ Funding payments and exchange liquidation remain unmodeled. The bounded session
 timer still ends observation and saves any open positions without invented
 closes. Neither averaging, frequency nor profitability is guaranteed.
 
-After complete closing, entry ranking may run again in the same completed-candle
-window (5–65 seconds after close), using new preparation and execution guards.
-Outside that window the next eligible candle is awaited. Partial CLOSING members
-block all entries; unchanged symbol cooldowns/last-signal checks can refuse reuse.
-No claim of continuous fills, fixed groups per hour or target execution price.
+After complete closing, a new search/ranking is requested immediately, without
+waiting for the old candle scan latch. Scanner still rejects completed candles
+older than its existing 90-second signal window (including execution reserve).
+When stale, no entry is fabricated; normal scanning resumes on the next fresh
+candle. Partial CLOSING members block all entries and active groups are never
+topped up. Cooldowns/duplicate signals still apply. No fixed entry frequency.

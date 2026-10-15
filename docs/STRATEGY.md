@@ -39,8 +39,11 @@ A bounded scan reserves 20 seconds of the same 90-second signal window for
 execution guards; late or unavailable symbols abstain. All collected signals
 are sorted by score, strong label, directional vote weight, 5m ADX and symbol.
 Radar order and worker completion order do not determine entries. Signals must
-remain fresh at the final quote snapshot; exactly five guard-approved candidates
-are required. The selected five share a simulated opening timestamp.
+remain fresh at the final quote snapshot; at least two guard-approved candidates
+are required, and at most five strongest eligible members are selected. All
+selected members share a simulated opening timestamp. The group is not topped
+up while active. Complete closing requests a new search immediately; stale
+candles still abstain and cooldowns remain.
 
 After five minutes, current signals are reevaluated for existing members.
 Only freshly accepted signals aligned with the held side can rank for the

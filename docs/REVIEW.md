@@ -1,6 +1,6 @@
 # Current release review and open findings
 
-Current deployment: five-position smart PAPER baskets, default wallet 100 USDT.
+Current deployment: 2–5-position smart PAPER baskets, default wallet 100 USDT.
 No signed orders, real money or alternate strategy launcher. Repository cleanup
 removes obsolete historical/signed/unused adapters; Git history and user session
 archives remain evidence. The build verifies code contracts, not a trading edge.
@@ -40,3 +40,9 @@ The new fixed net target is 0.20 USDT versus a 10-USDT group stop at 100.
 Earlier session figures above describe the previous target/timed-exit policy. Averaging increases exposure
 and caps may prevent adds. No profitability, guaranteed stop fill, full-session
 flow completeness or liquidation realism has been demonstrated.
+
+Current minimum is two eligible members, maximum five; no active-group refill.
+Per-member margin remains 10%, fixed net group target 0.20 USDT and risk caps
+are unchanged. Complete closing requests immediate new search; stale candles
+and cooldowns still prohibit entries. Existing recorded sessions above predate
+this minimum-size change and do not validate its performance.

@@ -27,6 +27,7 @@ def configure(path: Path, equity: float | None = None, basket: bool = True):
     if basket:
         values.update(
             BASKET_ENABLED="true",
+            BASKET_MIN_SIZE="2",
             MAX_MARGIN_FRACTION="0.60",
             BASKET_MIN_ENTRY_FILL_RATIO="0.90",
             BASKET_HOLD_UNTIL_TARGET="true",

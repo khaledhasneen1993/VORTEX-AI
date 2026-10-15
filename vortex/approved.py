@@ -1,10 +1,11 @@
-"""User-adopted five-position PAPER basket configuration; not profitability approval."""
+"""User-adopted 2–5-position PAPER basket configuration; not profitability approval."""
 
 from dataclasses import fields
 
 APPROVED_SOURCE = "82540c4ea988014d24050869a64ebd978130b4ed"
 APPROVED_ENV = {
     "BASKET_ENABLED": "true",
+    "BASKET_MIN_SIZE": "2",
     "BASKET_MIN_ENTRY_FILL_RATIO": "0.90",
     "BASKET_HOLD_UNTIL_TARGET": "true",
     "BASKET_LOSS_STARTING_EQUITY_FRACTION": "0.10",

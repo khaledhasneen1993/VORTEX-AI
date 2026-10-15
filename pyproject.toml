@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vortex-ai"
 version = "0.2.0"
-description = "Five-position Binance USDT-M PAPER basket simulator with guarded loss averaging"
+description = "Two-to-five-position Binance USDT-M PAPER basket simulator with guarded loss averaging"
 requires-python = ">=3.11"
 dependencies = ["requests>=2.31,<3", "python-dotenv>=1.0,<2"]
 

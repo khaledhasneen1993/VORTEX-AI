@@ -1,4 +1,4 @@
-# VORTEX-AI — five-position PAPER basket system
+# VORTEX-AI — 2–5-position PAPER basket system
 
 A lightweight Binance USDT-M public-data simulator for Termux/Linux. The current
 smart basket strategy with a fixed 0.20-USDT net group target is the default and only supported deployment. No exchange
@@ -9,11 +9,11 @@ user selected this strategy; it does not establish profitability.
 | --- | --- |
 | Virtual starting balance | 100 USDT by default; selectable for each new session |
 | Market selection | Up to 30 liquid Radar movers; completed 5m/15m/1h history |
-| Group entry | Exactly five eligible signals ranked by strength, opened together or none |
+| Group entry | Strongest 2–5 eligible signals opened together; fewer than two means no entry |
 | Initial margin / leverage | 10% of group-start equity per member, rounded down; maximum 5x |
 | Total margin | Maximum 60% of frozen group-start equity and current available capital |
-| Group target | Close all five at +0.20 USDT net total after fees and modeled slippage; no ten-minute wait |
-| Next group | Re-rank after complete closing; fresh signals, five eligible names and cooldowns required |
+| Group target | Close every selected member at +0.20 USDT net total after fees and modeled slippage; no ten-minute wait |
+| Next group | Re-rank after complete closing; fresh signals, at least two eligible names and cooldowns required |
 | Group loss stop | 10% of fixed session starting balance; -10 USDT from 100 |
 | Holding time | No 15-minute expiry; exits still require protection or profit condition |
 | Smart averaging | Losing members only; fresh aligned signals, at least 0.5 entry ATR further adverse |
@@ -22,7 +22,7 @@ user selected this strategy; it does not establish profitability.
 | Flow / volume spike | Enabled; flow is an extra voter, unavailable data abstains |
 | Recorder / health | Enabled, bounded sampled REST data and structured decisions |
 
-From 100 USDT, initial group margin is approximately 50 USDT. The target is a
+From 100 USDT, initial group margin is approximately 20–50 USDT for 2–5 members. The target is a
 fixed 0.20 USDT for the whole group at any balance and after adds. A 10-USDT group
 stop equals fifty such targets before overshoot; smaller targets do not prove
 better profitability.
@@ -106,8 +106,11 @@ Read [strategy](docs/STRATEGY.md), [basket contract](docs/BASKETS.md),
 and [latest review](docs/REVIEW.md).
 
 Fixed-target flags: `BASKET_FIXED_NET_TARGET=0.20`,
-`BASKET_ANY_PROFIT_AFTER_SECONDS=0`, `BASKET_RESCAN_AFTER_CLOSE=true`.
-After all five exits, the next fresh ranking can run again within the same candle
-window. Outside that window it waits for the next eligible completed candle;
-no stale signal or cooldown is bypassed. Migration requires a new isolated wallet.
+`BASKET_ANY_PROFIT_AFTER_SECONDS=0`, `BASKET_RESCAN_AFTER_CLOSE=true`,
+`BASKET_MIN_SIZE=2` (maximum five).
+After all selected members exit, search/ranking is requested immediately, even
+if that candle was already scanned. Expired candles abstain under the existing
+90-second rule; the next eligible completed candle is awaited if needed. No
+stale signal or cooldown is bypassed. Active groups are not topped up to five.
+Migration requires a new isolated wallet.
 The target is evaluated at fresh quote polls, not guaranteed tick-by-tick execution.

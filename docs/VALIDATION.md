@@ -1,6 +1,6 @@
 # Validation boundary
 
-The sole deployed strategy is the smart five-position PAPER basket policy selected
+The sole deployed strategy is the smart 2–5-position PAPER basket policy selected
 from 82540c4. Adoption changes deployment defaults and removes unused modules;
 it does not tune voters after seeing results or prove profitability.
 
@@ -38,3 +38,14 @@ cooldowns and freshness remain; no instant refill is guaranteed. Existing sessio
 results above do not validate this changed target. Regression fixtures cover the
 boundary, below-target net after ten minutes, losing-leg collective closure,
 reconciled modeled costs, old policy binding and partial-close/reselection guards.
+
+## Variable group size (2026-10-15)
+
+BASKET_MIN_SIZE=2 permits the strongest 2, 3, 4 or 5 eligible members. Maximum
+five, 10% initial margin each, fixed 0.20-USDT net group target and all guards
+remain. Complete closing requests a new search immediately; scanner deadlines
+still reject stale candles. No active-group refill and no single-member entry.
+Regressions cover 0..6 candidates, distinct-name minimum, fixed member allocation,
+variable-group cost closure/restart, partial liquidation, risk refusals and saved
+minimum-policy binding. Prior observations are not performance evidence for this
+new minimum or a guarantee of immediate entry after every close.

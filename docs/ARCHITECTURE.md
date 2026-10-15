@@ -32,3 +32,10 @@ Retained low-level legacy exit/sizing fields support saved schemas and PAPER saf
 fixtures; they are not alternate deployment profiles. Removed historical replay,
 signed TESTNET, unused WebSocket/microstructure and unrelated launch assets do not
 participate in the current release. Runtime dependencies: requests + python-dotenv.
+
+The current target is fixed 0.20 USDT group net. `target_net` reports that same
+unit before and after adds/timeouts, and `exit_reason` uses it after protective
+exit precedence. Closed groups reset the scan latch when configured so fresh
+selection can resume in the current allowed candle window. Partial closing
+never resets entry permission. New policy fields bind to saved state; absent
+historical fields mean disabled rather than silently changing old wallets.

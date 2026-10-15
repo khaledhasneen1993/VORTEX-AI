@@ -11,6 +11,8 @@ class BasketPolicy:
     size: int = 5
     entry_margin_fraction: float = 0.10
     profit_margin: float = 0.03
+    fixed_net_target: float = 0.0
+    rescan_after_close: bool = False
     add_after_seconds: int = 300
     add_count: int = 2
     add_fraction: float = 0.50
@@ -29,6 +31,7 @@ class BasketPolicy:
         if (
             not isinstance(self.enabled, bool)
             or not isinstance(self.hold_until_target, bool)
+            or not isinstance(self.rescan_after_close, bool)
             or not isinstance(self.smart_adds, bool)
         ):
             raise ValueError("BASKET_ENABLED must be boolean")
@@ -43,6 +46,8 @@ class BasketPolicy:
                 if f.name
                 not in {
                     "enabled",
+                    "fixed_net_target",
+                    "rescan_after_close",
                     "min_entry_fill_ratio",
                     "hold_until_target",
                     "loss_starting_equity_fraction",
@@ -58,6 +63,8 @@ class BasketPolicy:
             raise ValueError(
                 "Basket contract is 5 positions, 10% margin, 3% target, one 2-position half add at 5m, 15m max"
             )
+        if not 0 <= self.fixed_net_target <= 10:
+            raise ValueError("BASKET_FIXED_NET_TARGET must be 0..10 USDT; zero retains historical target")
         if not 0 <= self.min_entry_fill_ratio <= 1:
             raise ValueError("BASKET_MIN_ENTRY_FILL_RATIO must be 0..1; zero disables it")
         if not 0 <= self.loss_starting_equity_fraction <= 0.25:
@@ -88,8 +95,13 @@ class BasketPolicy:
         smart = setting("BASKET_SMART_ADDS", "false").strip().lower()
         if smart not in {"true", "false"}:
             raise ValueError("BASKET_SMART_ADDS must be true or false")
+        rescan = setting("BASKET_RESCAN_AFTER_CLOSE", "false").strip().lower()
+        if rescan not in {"true", "false"}:
+            raise ValueError("BASKET_RESCAN_AFTER_CLOSE must be true or false")
         return cls(
             enabled=raw == "true",
+            fixed_net_target=float(setting("BASKET_FIXED_NET_TARGET", "0")),
+            rescan_after_close=rescan == "true",
             min_entry_fill_ratio=float(setting("BASKET_MIN_ENTRY_FILL_RATIO", "0")),
             hold_until_target=hold == "true",
             any_profit_after_seconds=int(setting("BASKET_ANY_PROFIT_AFTER_SECONDS", "0")),

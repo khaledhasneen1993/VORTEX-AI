@@ -151,6 +151,8 @@ def target_net(broker, now):
     group = broker.basket
     if not group:
         return None
+    if broker.cfg.basket.fixed_net_target > 0:
+        return broker.cfg.basket.fixed_net_target
     seconds = broker.cfg.basket.any_profit_after_seconds
     if seconds > 0 and now >= group["opened_ms"] + seconds * 1000:
         return 0.0  # Strictly greater than zero, not break-even.
@@ -185,6 +187,9 @@ def exit_reason(broker, quotes, now, floor_halted=False):
         loss_fraction = broker.cfg.basket.loss_starting_equity_fraction
         if net is not None and loss_fraction > 0 and net <= -broker.cfg.starting_equity * loss_fraction:
             reason = "basket_starting_equity_loss_stop"
+        elif broker.cfg.basket.fixed_net_target > 0:
+            if net is not None and net >= broker.cfg.basket.fixed_net_target:
+                reason = "basket_fixed_net_target"
         elif (
             net is not None
             and net > 0

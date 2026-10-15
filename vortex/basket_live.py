@@ -190,14 +190,19 @@ class BasketLoop:
 
     def cycle(self):
         self.degraded = False
+        was_open = bool(self.broker.positions)
         now, quotes = self._mark()
         group = self.broker.basket
+        if was_open and not self.broker.positions and self.cfg.basket.rescan_after_close:
+            self.last_scan = -1  # Re-rank fresh candidates after ALL members have exited.
         if group and group["phase"] == "CLOSING":
             self._report(now, quotes)
             return
         active = bool(self.broker.positions)
         if active:
             now, quotes = self._manage_add(now, quotes)
+            if not self.broker.positions and self.cfg.basket.rescan_after_close:
+                self.last_scan = -1
             self._report(now, quotes)
             return
         bucket = now // 300000

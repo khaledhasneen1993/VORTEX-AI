@@ -24,7 +24,8 @@ def test_latest_defaults_and_no_alternative_master_profile(monkeypatch):
     )
     assert cfg.basket.enabled and cfg.basket.smart_adds and cfg.basket.hold_until_target
     assert cfg.basket.loss_starting_equity_fraction == 0.10
-    assert cfg.basket.any_profit_after_seconds == 600
+    assert cfg.basket.any_profit_after_seconds == 0
+    assert cfg.basket.fixed_net_target == 0.20 and cfg.basket.rescan_after_close
     assert cfg.operations.profile == "aggressive" and cfg.operations.short_loss_cooldown
     assert not cfg.phase1.strict_votes and cfg.phase1.allow_single_strong_vote
     assert cfg.min_strong_score == 6 and cfg.phase2.strong_max == 0.18

@@ -295,7 +295,9 @@ def test_policy_is_opt_in_saved_state_cannot_switch_modes(tmp_path):
     assert values["BASKET_ENABLED"] == "true" and values["MAX_MARGIN_FRACTION"] == "0.60"
     assert values["BASKET_HOLD_UNTIL_TARGET"] == "true"
     assert values["BASKET_LOSS_STARTING_EQUITY_FRACTION"] == "0.10"
-    assert values["BASKET_ANY_PROFIT_AFTER_SECONDS"] == "600"
+    assert values["BASKET_ANY_PROFIT_AFTER_SECONDS"] == "0"
+    assert values["BASKET_FIXED_NET_TARGET"] == "0.20"
+    assert values["BASKET_RESCAN_AFTER_CLOSE"] == "true"
     assert values["BASKET_SMART_ADDS"] == "true"
     configure(path, 20)
     assert dotenv_values(path)["BASKET_ENABLED"] == "true"
@@ -653,3 +655,77 @@ def test_smart_funding_guard_and_corrupt_rounds_remain_fail_closed(tmp_path):
     b.save()
     with pytest.raises(ValueError, match="Invalid saved smart"):
         PaperBroker(b.cfg)
+
+
+@pytest.mark.parametrize("net,seconds,closes", [(0.199, 1, False), (0.2, 1, True), (0.201, 1, True),
+                                                 (0.01, 601, False), (-0.2, 1200, False)])
+def test_fixed_dollar_target_has_no_ten_minute_override(tmp_path, monkeypatch, net, seconds, closes):
+    from vortex import basket
+    b = held_group(tmp_path)
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, fixed_net_target=0.2,
+                                         any_profit_after_seconds=600))
+    monkeypatch.setattr(basket, "projected_net", lambda *args: net)
+    assert basket.target_net(b, NOW + seconds * 1000) == 0.2
+    assert (exit_reason(b, quotes(), NOW + seconds * 1000) == "basket_fixed_net_target") == closes
+
+
+def test_fixed_target_closes_five_with_loser_and_reconciles_costs(tmp_path):
+    b = held_group(tmp_path)
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, fixed_net_target=0.2))
+    prices = {s: 10.1 for s in SYMBOLS[:4]}
+    prices[SYMBOLS[4]] = 9.9
+    book = quotes(prices)
+    net = projected_net(b, book)
+    assert 0.2 <= net < b.basket["total_margin"] * 0.03
+    closed = b.mark(book, NOW + 1000)
+    assert len(closed) == 5 and any(e["net_pnl"] < 0 for e in closed)
+    assert all(e["reason"] == "basket_fixed_net_target" for e in closed)
+    assert not b.positions and b.wallet == pytest.approx(20 + net)
+    assert PaperBroker(b.cfg).basket["phase"] == "CLOSED"
+
+
+def test_old_wallet_cannot_silently_acquire_fixed_target(tmp_path):
+    b = opened(tmp_path)
+    with pytest.raises(ValueError, match="Basket policy changed"):
+        PaperBroker(replace(b.cfg, basket=replace(b.cfg.basket, fixed_net_target=0.2)))
+    raw = json.loads(b.state_file.read_text())
+    raw["basket_policy"].pop("fixed_net_target")
+    raw["basket_policy"].pop("rescan_after_close")
+    b.state_file.write_text(json.dumps(raw))
+    assert PaperBroker(b.cfg).basket == b.basket  # Missing historical fields mean off.
+
+
+@pytest.mark.parametrize("rescan,partial,offset,expected_scans", [
+    (True, False, 1000, 1), (False, False, 1000, 0),
+    (True, True, 1000, 0), (True, False, 90000, 0),
+])
+def test_reselect_after_full_close_keeps_quote_and_candle_guards(
+    tmp_path, monkeypatch, rescan, partial, offset, expected_scans
+):
+    from types import SimpleNamespace
+    from vortex import basket_live
+    from vortex.basket_live import BasketLoop
+    b = held_group(tmp_path)
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, fixed_net_target=0.2,
+                                         rescan_after_close=rescan))
+    book = quotes({s: 10.1 for s in SYMBOLS})
+    now = NOW + offset
+    # Persist closing first; partial exits must never permit a new group.
+    assert exit_reason(b, book, now) == "basket_fixed_net_target"
+    held_book = {SYMBOLS[0]: book[SYMBOLS[0]]} if partial else book
+    loop = BasketLoop(None, b, None, None, None,
+                      SimpleNamespace(row={"symbols": {}}), None, SYMBOLS, False)
+    loop.last_scan = now // 300000  # Previous group already scanned this candle.
+    def mark():
+        b.mark(held_book, now)
+        return now, held_book
+    scans = []
+    monkeypatch.setattr(loop, "_mark", mark)
+    monkeypatch.setattr(loop, "_scan", lambda symbols, at: scans.append(at) or [])
+    monkeypatch.setattr(loop, "_guards", lambda ready: ready)
+    monkeypatch.setattr(loop, "_quotes", lambda required: (now, book))
+    monkeypatch.setattr(loop, "_report", lambda *args: None)
+    monkeypatch.setattr(basket_live, "open_group", lambda *args: (False, "no five eligible"))
+    loop.cycle()
+    assert len(scans) == expected_scans
+    assert len(b.positions) == (4 if partial else 0)

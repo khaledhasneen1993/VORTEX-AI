@@ -154,7 +154,9 @@ def main(argv=None):
             BASKET_MIN_ENTRY_FILL_RATIO="0.90",
             BASKET_HOLD_UNTIL_TARGET="true",
             BASKET_LOSS_STARTING_EQUITY_FRACTION="0.10",
-            BASKET_ANY_PROFIT_AFTER_SECONDS="600",
+            BASKET_ANY_PROFIT_AFTER_SECONDS="0",
+            BASKET_FIXED_NET_TARGET="0.20",
+            BASKET_RESCAN_AFTER_CLOSE="true",
             BASKET_SMART_ADDS="true",
         )
     for key in set(os.environ) - set(env):

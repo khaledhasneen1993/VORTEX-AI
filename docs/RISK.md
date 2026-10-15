@@ -14,8 +14,8 @@
 | Rolling drawdown halt | 12% in 1h / 18% in 2h |
 | Positive group profit reserve | 50%, already inside wallet |
 
-Before ten minutes, target net equals 3% of all historically posted group margins,
-including adds. From ten minutes any strictly positive group net requests closing.
+The profit trigger is a fixed **0.20 USDT net for the entire group**, checked
+from its first fresh poll. It stays fixed after ten minutes and after adds.
 Fees and simulated slippage are included; leverage is already reflected in margin.
 No 15-minute expiry. Individual targets/legacy averaging fields are inactive.
 
@@ -34,8 +34,9 @@ Original R is immutable abs(original entry - original stop); net R divides net
 PnL by original quantity times original R. Adds do not redefine the R anchors.
 Group margin-return targets use a separate unit. Reserve is not additional equity.
 
-At 100 USDT, initial total margin is about 50, target about 1.50, and group stop
-10. After ten minutes profitable closes can be much smaller. Initial margin/cap
+At 100 USDT, initial total margin is about 50, fixed net target 0.20, and group
+stop 10 (fifty target amounts). A smaller target alone does not establish an
+improved edge. Initial margin/cap
 leave about 10 USDT for adds before other constraints. No expected profitability
 or successful averaging follows from these numbers. Funding cashflows and
 liquidation are unmodeled; fee default is 0.0005, base slippage 3 bps.

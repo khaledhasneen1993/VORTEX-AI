@@ -20,6 +20,7 @@ class BasketPolicy:
     max_seconds: int = 900
     margin_cap_fraction: float = 0.60
     min_entry_fill_ratio: float = 0.0  # Off until explicitly selected by the basket launcher.
+    adaptive_entry_size: bool = False
     hold_until_target: bool = False
     loss_starting_equity_fraction: float = 0.0
     any_profit_after_seconds: int = 0
@@ -34,6 +35,7 @@ class BasketPolicy:
             or not isinstance(self.hold_until_target, bool)
             or not isinstance(self.rescan_after_close, bool)
             or not isinstance(self.smart_adds, bool)
+            or not isinstance(self.adaptive_entry_size, bool)
         ):
             raise ValueError("BASKET_ENABLED must be boolean")
         if any(not isfinite(getattr(self, f.name)) for f in fields(self) if f.name != "enabled"):
@@ -51,6 +53,7 @@ class BasketPolicy:
                     "fixed_net_target",
                     "rescan_after_close",
                     "min_entry_fill_ratio",
+                    "adaptive_entry_size",
                     "hold_until_target",
                     "loss_starting_equity_fraction",
                     "any_profit_after_seconds",
@@ -102,11 +105,15 @@ class BasketPolicy:
         rescan = setting("BASKET_RESCAN_AFTER_CLOSE", "false").strip().lower()
         if rescan not in {"true", "false"}:
             raise ValueError("BASKET_RESCAN_AFTER_CLOSE must be true or false")
+        adaptive = setting("BASKET_ADAPTIVE_ENTRY_SIZE", "false").strip().lower()
+        if adaptive not in {"true", "false"}:
+            raise ValueError("BASKET_ADAPTIVE_ENTRY_SIZE must be true or false")
         return cls(
             enabled=raw == "true",
             min_size=int(setting("BASKET_MIN_SIZE", "5")),
             fixed_net_target=float(setting("BASKET_FIXED_NET_TARGET", "0")),
             rescan_after_close=rescan == "true",
+            adaptive_entry_size=adaptive == "true",
             min_entry_fill_ratio=float(setting("BASKET_MIN_ENTRY_FILL_RATIO", "0")),
             hold_until_target=hold == "true",
             any_profit_after_seconds=int(setting("BASKET_ANY_PROFIT_AFTER_SECONDS", "0")),

@@ -7,10 +7,11 @@ No signed orders, mainnet, new voter or heavy dependency is introduced.
 1. Rank current accepted Radar signals by score, strong label, vote weight,
    ADX and symbol. Open up to five eligible distinct members together, with a
    minimum of two. One eligible member opens nothing; select all eligible
-   members when two, three or four pass. Initial allocation stays 10% each.
+   members when two, three or four pass. Initial allocation is capped at 10% each.
 2. Request 10% of marked group-start account equity as each initial margin,
-   rounded down by lot size, 10x leverage explicitly enabled for PAPER. The initial fill-ratio filter
-   is 0.90. Total margin remains capped at 60% of frozen group-start equity and
+   reduced to existing cost-aware risk/capital limits and rounded down by lot size,
+   10x leverage explicitly enabled for PAPER. With `BASKET_ADAPTIVE_ENTRY_SIZE=true`,
+   the historical 0.90 fill-ratio filter is inactive; exchange minimums still apply. Total margin remains capped at 60% of frozen group-start equity and
    current deployable capital; portfolio/per-trade stop risk remains unchanged.
 3. On every fresh poll, estimate group net with executable bid/ask, modeled
    slippage and all entry/exit fees. At net >= **0.20 USDT total**, request
@@ -59,7 +60,8 @@ Active deployment flags:
 - `BASKET_SMART_ADD_INTERVAL_SECONDS`: 300.
 - `BASKET_SMART_ADD_MAX_ROUNDS`: 3.
 - `BASKET_SMART_ADD_STEP_ATR`: 0.5.
-- `BASKET_MIN_ENTRY_FILL_RATIO`: 0.90.
+- `BASKET_ADAPTIVE_ENTRY_SIZE`: true (initial entries only).
+- `BASKET_MIN_ENTRY_FILL_RATIO`: 0.90, used only with adaptive sizing false.
 
 Saved-policy schemas retain historical deadline and add fields, but current
 launches never select that policy. Old wallets remain unchanged as evidence;
@@ -85,3 +87,13 @@ Initial sizing and add minimum/margin accounting use the same effective leverage
 Turning the opt-in off retains the 5x cap. Old saved leverage remains policy-bound;
 migration requires a new isolated wallet. Existing stop-risk caps may allow fewer
 members or refuse a group entirely; the minimum of two is never bypassed.
+
+
+Adaptive sizing changes only initial entry allocation: retain the largest lot
+permitted by existing cost-aware trade/portfolio risk and available margin, up to
+the 10% request. No upward rounding to minimum notional. A rejected candidate is
+still skipped; fewer than two successful members rolls back the entire batch.
+Adds use actual `initial_margins` as their cap and retain exact-budget sizing.
+The new boolean defaults false for historical low-level fixtures; missing saved
+fields mean false, so enabling it requires a new isolated wallet. The adopted
+preset enables it. False restores the prior full-margin and fill-ratio behavior.

@@ -44,8 +44,11 @@ def fresh(candidate, now, max_age_ms=90000):
     )
 
 
-def fixed_margin_size(signal, capital, cfg, filters, margin_used, risk_used, budget, margin_capital=None):
-    """Exact requested margin, rounded DOWN by lot size, or refuse the trade.
+def fixed_margin_size(
+    signal, capital, cfg, filters, margin_used, risk_used, budget,
+    margin_capital=None, *, adaptive=False,
+):
+    """Exact requested margin or, for opted-in initial entries, risk-sized margin.
 
     Basket's explicit 10% allocation replaces the legacy 6.25% entry ceiling,
     while portfolio/per-signal stop risk and total capital caps still apply.
@@ -64,6 +67,10 @@ def fixed_margin_size(signal, capital, cfg, filters, margin_used, risk_used, bud
         committed_risk=risk_used,
         margin_capital=margin_capital,
     )
+    if adaptive:
+        # size_trade floors lots and checks minimums, cash and existing stop-risk
+        # budgets. The requested margin is a ceiling, never a required minimum.
+        return sized
     if sized is None or requested <= 0 or sized[0] + filters.step * 1e-8 < requested:
         return None
     return requested, requested * signal.entry / effective_leverage(cfg)
@@ -314,6 +321,9 @@ def open_group(broker, candidates, quotes, now, histories):
         event["basket_id"] = staged.basket["id"]
         event["requested_margin"] = budget
         event["allocation_ratio"] = event["position"]["margin"] / budget
+        event["entry_sizing"] = (
+            "risk_adaptive" if broker.cfg.basket.adaptive_entry_size else "fixed_margin"
+        )
     events.append(
         dict(
             kind="basket",

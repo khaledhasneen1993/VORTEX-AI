@@ -56,3 +56,17 @@ Current deployment explicitly enables `PAPER_10X_LEVERAGE=true` with max leverag
 closure, add-margin consistency, unchanged trade/portfolio risk refusal,
 5x fallback and saved-leverage binding. This changes exposure, not risk caps;
 earlier 5x session results are not evidence for the new setting.
+
+
+## Adaptive initial sizing (2026-10-15)
+
+The supplied 13:51–14:21 Jordan-time 10x PAPER session completed without entries:
+79 accepted strategy signals, 47 candidate risk/minimum refusals, 30 liquidity
+refusals and one price-runaway refusal. Wallet remained 100 USDT, no ERROR-level
+messages and health STOPPED. These observations validate no trading performance.
+The new adaptive initial-sizing flag accepts risk-approved smaller lots; it does
+not remove stops or loosen risk/liquidity. Deterministic regressions cover normal
+LONG/SHORT entries below 90% requested margin, minimums/liquidity/atomic rollback,
+actual-margin persistence, exact-add semantics and saved-policy binding. This
+changed sizing still needs a new live PAPER run; earlier observations do not
+validate its profitability or establish a future entry count.

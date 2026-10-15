@@ -45,3 +45,11 @@ historical fields mean disabled rather than silently changing old wallets.
 The 10x opt-in applies only to PAPER baskets; other paths retain a 5x cap.
 Persisted basket policy includes configured leverage, preventing exposure
 migration across leverage changes. This does not introduce an exchange gateway.
+
+
+Opted-in initial basket sizing uses the existing `size_trade` result directly,
+bounded above by the requested member margin. Exact-margin/add paths retain the
+prior refusal semantics. Adaptive initial entries bypass the historical requested-
+margin fill ratio, never exchange minimums or execution guards. Atomic journals
+persist requested/actual allocation and sizing mode. The new policy boolean is
+saved-state-bound; missing historical values mean false.

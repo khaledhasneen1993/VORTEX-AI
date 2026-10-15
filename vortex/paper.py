@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import asdict
 
@@ -61,6 +62,7 @@ class PaperBroker:
             saved_basket.setdefault("loss_starting_equity_fraction", 0.0)
             for key in (
                 "min_size",
+                "adaptive_entry_size",
                 "fixed_net_target",
                 "rescan_after_close",
                 "any_profit_after_seconds",
@@ -402,7 +404,8 @@ class PaperBroker:
             from .basket import fixed_margin_size
 
             sized = fixed_margin_size(
-                adjusted, capital, cost_cfg, filters, margin_in_use, committed_risk, margin_budget
+                adjusted, capital, cost_cfg, filters, margin_in_use, committed_risk, margin_budget,
+                adaptive=self.cfg.basket.adaptive_entry_size,
             )
         else:
             sized = size_trade(
@@ -411,10 +414,20 @@ class PaperBroker:
         if sized is None:
             return False, "min notional / risk cap prevents entry"
         qty, margin = sized
-        if margin_budget is not None and margin + 1e-9 < margin_budget * self.cfg.basket.min_entry_fill_ratio:
+        if (
+            margin_budget is not None
+            and not self.cfg.basket.adaptive_entry_size
+            and margin + 1e-9 < margin_budget * self.cfg.basket.min_entry_fill_ratio
+        ):
             return False, "basket lot rounding underfills requested entry margin"
         if qty * entry > capacity:
             return False, "order exceeds observed depth participation limit"
+        if margin_budget is not None and self.cfg.basket.adaptive_entry_size:
+            logging.getLogger("vortex").info(
+                "BASKET_ENTRY_SIZE %s code=RISK_ADAPTIVE_ENTRY requested_margin=%.8f "
+                "actual_margin=%.8f allocation_ratio=%.6f",
+                signal.symbol, margin_budget, margin, margin / margin_budget,
+            )
         fee = qty * entry * self.cfg.fee_rate
         self.wallet -= fee
         self.positions[signal.symbol] = Position(

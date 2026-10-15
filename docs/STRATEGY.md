@@ -51,3 +51,10 @@ smart loss-add rounds in the explicit current preset. Price winners are
 untouched. A missing or opposite signal is not recycled from entry time.
 Guard rejections remain visible. Old default-disabled flags retain their single
 two-member decision. See [BASKETS](BASKETS.md).
+
+
+Initial execution now uses `BASKET_ADAPTIVE_ENTRY_SIZE=true`: 10% margin is an
+upper bound, reduced by the existing trade/portfolio risk calculator. Ranking,
+strong labels and strategy accept/reject logic remain unchanged. A smaller
+risk-approved lot is not a strategy rejection; exchange minimums and all other
+execution guards still decide eligibility. Target/stop/add selection are unchanged.

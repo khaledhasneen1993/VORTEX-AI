@@ -10,7 +10,7 @@ user selected this strategy; it does not establish profitability.
 | Virtual starting balance | 100 USDT by default; selectable for each new session |
 | Market selection | Up to 30 liquid Radar movers; completed 5m/15m/1h history |
 | Group entry | Strongest 2–5 eligible signals opened together; fewer than two means no entry |
-| Initial margin / leverage | 10% of group-start equity per member, rounded down; 10x with PAPER_10X_LEVERAGE=true (5x fallback when disabled) |
+| Initial margin / leverage | Up to 10% of group-start equity per member, reduced to fit risk and rounded down; 10x with PAPER_10X_LEVERAGE=true (5x fallback when disabled) |
 | Total margin | Maximum 60% of frozen group-start equity and current available capital |
 | Group target | Close every selected member at +0.20 USDT net total after fees and modeled slippage; no ten-minute wait |
 | Next group | Re-rank after complete closing; fresh signals, at least two eligible names and cooldowns required |
@@ -22,7 +22,8 @@ user selected this strategy; it does not establish profitability.
 | Flow / volume spike | Enabled; flow is an extra voter, unavailable data abstains |
 | Recorder / health | Enabled, bounded sampled REST data and structured decisions |
 
-From 100 USDT, initial group margin is approximately 20–50 USDT for 2–5 members. The target is a
+From 100 USDT, each member requests at most 10 USDT margin; actual group margin
+may be below 20–50 USDT because risk-sized entries can be smaller. The target is a
 fixed 0.20 USDT for the whole group at any balance and after adds. A 10-USDT group
 stop equals fifty such targets before overshoot; smaller targets do not prove
 better profitability.
@@ -116,11 +117,24 @@ Migration requires a new isolated wallet.
 The target is evaluated at fresh quote polls, not guaranteed tick-by-tick execution.
 
 Current leverage setting: `MAX_LEVERAGE=10`, `PAPER_10X_LEVERAGE=true`.
-At 100-USDT group-start equity each requested 10% margin is about 10 USDT,
-giving about 100 USDT modeled notional per member when accepted. Margin still
+At 100-USDT group-start equity each requested maximum margin is about 10 USDT,
+giving at most about 100 USDT modeled notional per member. Requested margin still
 tracks 10% of group-start equity as the wallet changes; it is not a permanently
 fixed 10-USDT stake. Actual lots are rounded down. Original 8–10% / 12–18% trade
-stop-risk caps and 30% portfolio stop-risk remain, so 10x can reject normal
-signals, additional members or adds instead of increasing their risk budget.
+stop-risk caps and 30% portfolio stop-risk remain, so initial entries shrink to
+the permitted risk size; exchange minimums, exhausted
+risk and other guards can still reject entries or adds.
 Target remains 0.20 USDT net per group; higher leverage increases fees/notional.
 Use a new isolated wallet after migration; saved 5x exposure cannot become 10x.
+
+
+`BASKET_ADAPTIVE_ENTRY_SIZE=true` makes the 10% initial margin a ceiling.
+Existing cost-aware per-trade/portfolio sizing selects a smaller lot when needed,
+without changing member/group stops or the +0.20-USDT net group target. The old
+`BASKET_MIN_ENTRY_FILL_RATIO=0.90` only applies with adaptive sizing disabled;
+exchange quantity/notional minimums always apply. False restores exact-margin
+refusal. Adds retain their exact-budget checks and are capped by the member's
+actual initial margin. Logs expose requested/actual margin and allocation ratio;
+entry journals label `entry_sizing=risk_adaptive`. This flag is enabled in the
+adopted preset, off in low-level policy defaults, and bound to saved wallet state.
+Migrate configuration and use a new session; old sessions are not converted.

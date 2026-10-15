@@ -3,7 +3,7 @@
 | Policy | Value |
 | --- | --- |
 | Starting virtual wallet | 100 USDT by default |
-| Each initial margin | 10% of marked group-start equity, rounded down |
+| Each initial margin | Up to 10% of marked group-start equity, risk-sized and rounded down |
 | Positions / leverage | Two to five eligible members / 10x explicitly enabled for PAPER baskets |
 | Aggregate margin | 60% of frozen group-start equity, also capped by current capital |
 | Normal / strong modeled stop-risk requests | 8–10% / 12–18%; actual size remains capped |
@@ -34,10 +34,9 @@ Original R is immutable abs(original entry - original stop); net R divides net
 PnL by original quantity times original R. Adds do not redefine the R anchors.
 Group margin-return targets use a separate unit. Reserve is not additional equity.
 
-At 100 USDT, initial total margin is about 20–50 depending on member count, fixed net target 0.20, and group
+At 100 USDT, initial total margin is at most about 20–50 depending on member count, fixed net target 0.20, and group
 stop 10 (fifty target amounts). A smaller target alone does not establish an
-improved edge. Initial margin/cap
-leave about 10–40 USDT for adds before other constraints. No expected profitability
+improved edge. Actual initial margins and the aggregate cap determine remaining add capacity. No expected profitability
 or successful averaging follows from these numbers. Funding cashflows and
 liquidation are unmodeled; fee default is 0.0005, base slippage 3 bps.
 
@@ -47,8 +46,17 @@ definition for initial sizes, fixed margins, minimum add budgets and added margi
 Disabled or nonbasket paths retain the original 5x cap. No signed execution exists.
 A ~10-USDT margin now requests ~100 USDT notional. The original 10% price stop
 therefore risks ~10 USDT before costs, which exceeds the 8–10% normal-signal
-budget at 100 USDT in many cases. Fixed allocation is refused when risk cannot fit;
-neither the original trade cap nor the 30% portfolio stop-risk cap is raised.
+budget at 100 USDT in many cases. With `BASKET_ADAPTIVE_ENTRY_SIZE=true`, initial lots shrink to fit those budgets
+instead of requiring the full requested allocation. False retains exact-margin
+refusal. Neither the original trade cap nor the 30% portfolio stop-risk cap is raised.
 Do not interpret the maximum of five as a guaranteed fill count. Existing group
 stop remains -10 USDT at 100, target remains +0.20 USDT net. Entry margin remains
 10% of group-start equity rather than an immutable dollar stake.
+
+
+Adaptive sizing uses the existing risk calculator after executable entry and
+modeled costs are known. The old 90% fill-ratio constraint does not veto these
+smaller initial entries; exchange minimums, liquidity, spread, funding, freshness
+and correlation still apply. Actual initial margin is persisted and limits adds.
+A normal signal can therefore qualify below 10-USDT margin at 100 equity/10x;
+five members or any particular fill frequency is not guaranteed. No stop is removed.

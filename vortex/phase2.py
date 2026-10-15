@@ -203,7 +203,7 @@ def pyramid_plan(
     """
     from .r_units import anchor_entry, price_r
     from .models import Signal
-    from .risk import floor_step, size_trade
+    from .risk import effective_leverage, floor_step, size_trade
 
     pol = cfg.phase2
     if not pol.enabled or not pol.pyramiding or p.trade_risk_cap <= 0:
@@ -281,7 +281,7 @@ def pyramid_plan(
     added_net = (exit_price - price) * sign * qty - (price + exit_price) * qty * cfg.fee_rate
     if existing_net + added_net < 0:
         return None
-    margin = qty * price / min(cfg.max_leverage, 5)
+    margin = qty * price / effective_leverage(cfg)
     return qty, margin, qty * price * cfg.fee_rate
 
 

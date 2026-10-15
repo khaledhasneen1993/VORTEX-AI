@@ -11,7 +11,7 @@ from uuid import uuid4
 from .models import Signal
 from .operations import depth_capacity, funding_gate, slippage_bps
 from .phase2 import apply_pyramid, correlation_gate, stop_exposure
-from .risk import Filters, floor_step, size_trade
+from .risk import Filters, effective_leverage, floor_step, size_trade
 
 log = logging.getLogger("vortex")
 
@@ -52,7 +52,7 @@ def fixed_margin_size(signal, capital, cfg, filters, margin_used, risk_used, bud
     """
     if not cfg.basket.enabled or not isfinite(budget) or budget <= 0:
         return None
-    requested = floor_step(budget * min(cfg.max_leverage, 5) / signal.entry, filters.step)
+    requested = floor_step(budget * effective_leverage(cfg) / signal.entry, filters.step)
     scoped = replace(cfg, phase2=replace(cfg.phase2, entry_margin_fraction=0.25))
     sized = size_trade(
         signal,
@@ -66,7 +66,7 @@ def fixed_margin_size(signal, capital, cfg, filters, margin_used, risk_used, bud
     )
     if sized is None or requested <= 0 or sized[0] + filters.step * 1e-8 < requested:
         return None
-    return requested, requested * signal.entry / min(cfg.max_leverage, 5)
+    return requested, requested * signal.entry / effective_leverage(cfg)
 
 
 def validate_state(broker):
@@ -587,7 +587,7 @@ def smart_add_group(broker, candidates, quotes, now, histories):
         # Reserve real exchange minimum lots; never round above allocated capital.
         f = c.filters
         qty = ceil(max(f.min_qty, f.min_notional / price) / f.step) * f.step
-        minimum = qty * price / min(staged.cfg.max_leverage, 5)
+        minimum = qty * price / effective_leverage(staged.cfg)
         cap = g["initial_margins"][symbol]  # Fixed initial amount; no doubling.
         if minimum > cap or sum(x[1] for x in eligible) + minimum > available:
             skipped[symbol] = "smart_add_minimum_exceeds_available_margin"

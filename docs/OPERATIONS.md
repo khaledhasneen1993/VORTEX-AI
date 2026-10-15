@@ -44,3 +44,8 @@ Recorder failures fail soft. STOPPING_TIMEOUT means unsealed data needs recovery
 it does not establish clean recorder shutdown. The session timer stops observation
 and saves remaining positions without invented liquidation prices. See VALIDATION
 and REVIEW for gaps from the most recent one-hour 100-USDT session.
+
+Current migration also selects `PAPER_10X_LEVERAGE=true`, `MAX_LEVERAGE=10`.
+No engine starts during configure. The next new 100-USDT session requests about
+10-USDT initial margin per member, about 100-USDT notional. Normal risk/capital,
+funding and liquidity guards still apply. Do not reuse or convert saved 5x wallets.

@@ -788,3 +788,76 @@ def test_minimum_requires_two_distinct_eligible_symbols(tmp_path):
     one = candidates(symbols=SYMBOLS[:1])[0]
     assert not open_group(b, [one, one], quotes(), NOW, {})[0]
     assert not b.positions and not b.state_file.exists()
+
+
+def ten_x_broker(tmp_path, leverage=10):
+    base = setup(tmp_path).cfg
+    cfg = replace(base, starting_equity=100, max_leverage=leverage,
+                  paper_10x_leverage=leverage == 10,
+                  basket=replace(base.basket, min_size=2, fixed_net_target=0.2,
+                                 smart_adds=True, hold_until_target=True,
+                                 loss_starting_equity_fraction=0.10))
+    return PaperBroker(cfg)
+
+
+def test_ten_x_doubles_notional_at_same_member_margin_and_reconciles_close(tmp_path):
+    five = ten_x_broker(tmp_path / "five", 5)
+    ten = ten_x_broker(tmp_path / "ten")
+    for broker in (five, ten):
+        assert open_group(broker, candidates(symbols=SYMBOLS[:2]), quotes(), NOW, {})[0]
+    for symbol in SYMBOLS[:2]:
+        p5, p10 = five.positions[symbol], ten.positions[symbol]
+        assert p10.margin == pytest.approx(p5.margin, abs=0.0001)
+        assert p10.qty == pytest.approx(2 * p5.qty, abs=FILT.step)
+        assert p10.qty * p10.entry / p10.margin == pytest.approx(10)
+        assert 9.999 <= p10.margin <= 10
+    book = quotes({s: 10.05 for s in SYMBOLS})
+    net = projected_net(ten, book)
+    assert net >= 0.2
+    events = ten.mark(book, NOW + 1000)
+    assert len(events) == 2 and not ten.positions
+    assert ten.wallet == pytest.approx(100 + net)
+
+
+def test_ten_x_keeps_original_trade_and_portfolio_stop_risk_caps(tmp_path):
+    from vortex.phase2 import stop_exposure
+    b = ten_x_broker(tmp_path)
+    assert open_group(b, candidates(), quotes(), NOW, {})[0]
+    # Three ~100-USDT notionals with 10% stops plus costs exceed the 30% budget.
+    assert len(b.positions) == 2
+    capital = b.reserve.capital(b.wallet, b.equity(quotes()))
+    assert sum(stop_exposure(p, b.cfg) for p in b.positions.values()) <= capital * 0.30
+    assert all(stop_exposure(p, b.cfg) <= p.trade_risk_cap for p in b.positions.values())
+    normal = ten_x_broker(tmp_path / "normal")
+    cs = [replace(c, signal=replace(c.signal, score=6, features={"strong_signal": 0}))
+          for c in candidates()]
+    assert not open_group(normal, cs, quotes(), NOW, {})[0]
+    assert not normal.positions and normal.wallet == 100
+
+
+def test_ten_x_loss_add_uses_same_margin_denominator_and_preserves_stop(tmp_path):
+    from vortex.basket import _add_position
+    b = ten_x_broker(tmp_path)
+    assert open_group(b, candidates(symbols=SYMBOLS[:2]), quotes(), NOW, {})[0]
+    symbol = SYMBOLS[0]
+    p = b.positions[symbol]
+    before_qty, before_margin, stop = p.qty, p.margin, p.stop
+    prices = {s: 9.9 for s in SYMBOLS}
+    c = candidates(NOW + 300000, symbols=[symbol], prices=prices)[0]
+    event, reason = _add_position(b, c, quotes(prices), NOW + 300000, {}, margin_budget=1)
+    assert event is not None, reason
+    assert event["qty"] * event["price"] / event["margin"] == pytest.approx(10)
+    assert p.qty == pytest.approx(before_qty + event["qty"])
+    assert p.margin == pytest.approx(before_margin + event["margin"])
+    assert p.stop == stop and event["fee"] == pytest.approx(event["qty"] * event["price"] * b.cfg.fee_rate)
+
+
+def test_ten_x_requires_flag_and_cannot_migrate_saved_five_x_exposure(tmp_path):
+    from vortex.risk import effective_leverage
+    b = ten_x_broker(tmp_path, 5)
+    with pytest.raises(ValueError, match="10x needs"):
+        replace(b.cfg, max_leverage=10)
+    assert effective_leverage(replace(Settings(), max_leverage=10)) == 5
+    assert open_group(b, candidates(symbols=SYMBOLS[:2]), quotes(), NOW, {})[0]
+    with pytest.raises(ValueError, match="Basket policy changed"):
+        PaperBroker(replace(b.cfg, max_leverage=10, paper_10x_leverage=True))

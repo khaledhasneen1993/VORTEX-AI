@@ -34,6 +34,7 @@ class Settings:
     max_daily_loss: float = 0.55
     max_positions: int = 4
     max_leverage: int = 5
+    paper_10x_leverage: bool = False
     max_margin_fraction: float = 0.25
     max_spread_bps: float = 12.0
     min_score: int = 5
@@ -55,6 +56,8 @@ class Settings:
             object.__setattr__(self, "max_daily_loss", min(self.max_daily_loss, 0.20))
         if self.operations.enabled and self.operations.focus_symbol:
             object.__setattr__(self, "symbols", (self.operations.focus_symbol,))
+        if not isinstance(self.paper_10x_leverage, bool):
+            raise ValueError("PAPER_10X_LEVERAGE must be boolean")
         # Production execution is not included in this release.
         if self.mode not in {"paper", "backtest"}:
             raise ValueError("RUN_MODE must be paper or backtest; live orders are disabled")
@@ -65,10 +68,10 @@ class Settings:
             or not self.phase2.enabled
             or not self.operations.enabled
             or self.max_positions != 5
-            or self.max_leverage != 5
+            or self.max_leverage not in ((5, 10) if self.paper_10x_leverage else (5,))
         ):
             raise ValueError(
-                "Basket requires PAPER capture, risk/operations, MAX_POSITIONS=5 and MAX_LEVERAGE=5"
+                "Basket requires PAPER capture, risk/operations, MAX_POSITIONS=5; 10x needs PAPER_10X_LEVERAGE"
             )
         if self.experiment.enabled and self.mode != "paper":
             raise ValueError("PAPER_EXP_ENABLED supports PAPER live only; no historical execution model")
@@ -189,6 +192,7 @@ class Settings:
             max_daily_loss=float(f("MAX_DAILY_LOSS", "0.55")),
             max_positions=int(f("MAX_POSITIONS", "4")),
             max_leverage=int(f("MAX_LEVERAGE", "5")),
+            paper_10x_leverage=boolean("PAPER_10X_LEVERAGE", "false"),
             max_margin_fraction=float(
                 os.getenv("MAX_MARGIN_FRACTION", str(basket.margin_cap_fraction))
                 if basket.enabled

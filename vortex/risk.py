@@ -40,6 +40,12 @@ def floor_step(value: float, step: float) -> float:
     return float((Decimal(str(value)) / d).to_integral_value(rounding=ROUND_DOWN) * d)
 
 
+def effective_leverage(cfg: Settings) -> int:
+    """10x is explicitly PAPER-basket-only; historical/other paths keep 5x."""
+    cap = 10 if cfg.mode == "paper" and cfg.basket.enabled and cfg.paper_10x_leverage else 5
+    return min(cfg.max_leverage, cap)
+
+
 def size_trade(
     signal: Signal,
     equity: float,
@@ -76,8 +82,8 @@ def size_trade(
     if budget <= 0:
         return None
     max_by_risk = budget / (stop_gap + cost_per_unit)
-    # Config accepts 1..10 but this bot's trading policy never exceeds 5x.
-    leverage = min(cfg.max_leverage, 5)
+    # Entry and all add paths share the same explicitly enabled PAPER leverage.
+    leverage = effective_leverage(cfg)
     margin_basis = equity
     if margin_capital is not None:
         if not cfg.basket.enabled or not math.isfinite(margin_capital) or margin_capital <= 0:

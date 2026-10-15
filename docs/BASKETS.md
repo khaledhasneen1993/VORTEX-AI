@@ -9,7 +9,7 @@ No signed orders, mainnet, new voter or heavy dependency is introduced.
    minimum of two. One eligible member opens nothing; select all eligible
    members when two, three or four pass. Initial allocation stays 10% each.
 2. Request 10% of marked group-start account equity as each initial margin,
-   rounded down by lot size, leverage capped at 5x. The initial fill-ratio filter
+   rounded down by lot size, 10x leverage explicitly enabled for PAPER. The initial fill-ratio filter
    is 0.90. Total margin remains capped at 60% of frozen group-start equity and
    current deployable capital; portfolio/per-trade stop risk remains unchanged.
 3. On every fresh poll, estimate group net with executable bid/ask, modeled
@@ -79,3 +79,9 @@ older than its existing 90-second signal window (including execution reserve).
 When stale, no entry is fabricated; normal scanning resumes on the next fresh
 candle. Partial CLOSING members block all entries and active groups are never
 topped up. Cooldowns/duplicate signals still apply. No fixed entry frequency.
+
+Current deployment sets `MAX_LEVERAGE=10` and `PAPER_10X_LEVERAGE=true`.
+Initial sizing and add minimum/margin accounting use the same effective leverage.
+Turning the opt-in off retains the 5x cap. Old saved leverage remains policy-bound;
+migration requires a new isolated wallet. Existing stop-risk caps may allow fewer
+members or refuse a group entirely; the minimum of two is never bypassed.

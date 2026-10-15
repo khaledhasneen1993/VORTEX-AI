@@ -73,3 +73,10 @@ recording bounds, recovery/policy isolation and preservation of default 911.
 Existing journal/flock/uncertain-write/stale-data tests remain. No live 913 result
 exists yet; previous 911 session results do not establish 913 performance.
 Funding cashflows and liquidation remain unmodeled. No new dependencies.
+
+Execution batch routing fix: the initial 913 live attempt accepted signals but
+the shared guard worker rejected independent mode with "Execution batches require
+PAPER baskets". Guard batching now explicitly allows PAPER 913 as well as 911,
+retaining its 0..10s deadline, bounded workers and original timestamps. A regression
+runs the real guard batch through the 913 loop into a virtual entry; parallelism,
+stale funding and expiration tests cover both modes. No filter or risk was relaxed.

@@ -170,7 +170,8 @@ def test_paper_cli_uses_prepared_data_and_shuts_down_scanner(tmp_path, monkeypat
     assert (tmp_path / "paper_state.json").exists()
 
 
-def test_basket_execution_batch_is_parallel_bounded_and_keeps_exchange_timestamps():
+@pytest.mark.parametrize("individual", [False, True])
+def test_basket_execution_batch_is_parallel_bounded_and_keeps_exchange_timestamps(individual):
     from vortex.basket_config import BasketPolicy
     from vortex.paper_experiment import PaperExperiment
 
@@ -217,6 +218,11 @@ def test_basket_execution_batch_is_parallel_bounded_and_keeps_exchange_timestamp
                 state["closed"] += 1
                 state["sessions"].append(self)
 
+    if individual:
+        cfg = replace(cfg, strategy_913_enabled=True, basket=BasketPolicy(),
+                      max_positions=15, max_leverage=10, paper_10x_leverage=True,
+                      experiment=replace(cfg.experiment, average_enabled=False),
+                      phase2=replace(cfg.phase2, pyramiding=False))
     scanner = CandidateScanner(Public(), cfg, market_factory=Public)
     try:
         result = dict(scanner.execution(cfg.symbols))
@@ -228,7 +234,8 @@ def test_basket_execution_batch_is_parallel_bounded_and_keeps_exchange_timestamp
         scanner.close()
 
 
-def test_execution_deadline_and_stale_funding_never_create_fresh_observations():
+@pytest.mark.parametrize("individual", [False, True])
+def test_execution_deadline_and_stale_funding_never_create_fresh_observations(individual):
     from vortex.basket_config import BasketPolicy
     from vortex.paper_experiment import PaperExperiment
 
@@ -256,6 +263,11 @@ def test_execution_deadline_and_stale_funding_never_create_fresh_observations():
         def server_ms(self):
             return 305000
 
+    if individual:
+        cfg = replace(cfg, strategy_913_enabled=True, basket=BasketPolicy(),
+                      max_positions=15, max_leverage=10, paper_10x_leverage=True,
+                      experiment=replace(cfg.experiment, average_enabled=False),
+                      phase2=replace(cfg.phase2, pyramiding=False))
     scanner = CandidateScanner(Public(), cfg, market_factory=Public, clock=lambda: clock[0])
     try:
         result = list(scanner.execution(["BTCUSDT"]))

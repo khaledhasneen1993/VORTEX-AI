@@ -178,3 +178,42 @@ def test_913_loop_refills_without_waiting_for_all_members(tmp_path, monkeypatch)
     loop._quotes = lambda required: (605000, {"CUSDT": (10, 10)})
     with pytest.raises(ValueError, match="Missing quote"):
         loop.cycle()
+
+
+def test_913_live_loop_uses_real_execution_batch_before_broker_entry(tmp_path):
+    from types import SimpleNamespace
+    from vortex.basket import Candidate
+    from vortex.live_scan import CandidateScanner
+
+    b = broker(tmp_path)
+    b.cfg = replace(b.cfg, operations=replace(b.cfg.operations,
+                                             funding_guard=True, liquidity_guard=True))
+    class Public:
+        def metadata(self):
+            return {"AUSDT": {}}
+
+        def server_ms(self):
+            return 305000
+
+        def get(self, endpoint, params):
+            if endpoint.endswith("/depth"):
+                return {"T": 305000, "bids": [["10", "10000"]], "asks": [["10", "10000"]]}
+            return {"symbol": params["symbol"], "time": 305000,
+                    "lastFundingRate": "0", "nextFundingTime": 900000}
+
+        def quotes(self, **kwargs):
+            return {"AUSDT": (10, 10)}
+
+    scanner = CandidateScanner(Public(), b.cfg, market_factory=Public)
+    recorder = SimpleNamespace(status=lambda: {}, update_symbols=lambda symbols: None)
+    health = SimpleNamespace(row={"symbols": {}}, update=lambda **kwargs: None)
+    loop = IndividualLoop(Public(), b, scanner, None, recorder, health,
+                          SimpleNamespace(count=0), ["AUSDT"], False)
+    s = Signal("AUSDT", "LONG", 0, 10, 9, 11, 6, "synthetic", atr_value=0.1)
+    loop._scan = lambda symbols, now: [Candidate(s, FILT, 299999)]
+    try:
+        loop.cycle()
+        assert set(b.positions) == {"AUSDT"}
+        assert b.basket is None and b.positions["AUSDT"].margin > 0
+    finally:
+        scanner.close()

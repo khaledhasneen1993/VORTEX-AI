@@ -97,7 +97,11 @@ class IndividualLoop(BasketLoop):
             }
             ready = self._scan([s for s in symbols if s not in self.broker.positions], now)
             guarded = self._guards(ready)
-            required = tuple(dict.fromkeys([*self.broker.positions, *(c.signal.symbol for c in guarded)]))
+            # Bulk quotes cover all candidates. Critical recovery prioritizes
+            # held positions, then potential new slots, never the whole Radar.
+            required = tuple(dict.fromkeys([
+                *self.broker.positions, *(c.signal.symbol for c in guarded),
+            ]))[:15]
             now, quotes = self._quotes(required)
             for event in self.broker.mark(quotes, now):
                 log.info("CLOSED: %s", event)

@@ -21,11 +21,15 @@ class MarketError(RuntimeError):
 
 
 class Market:
-    def __init__(self, base: str = BASE, session: requests.Session | None = None, *, resilient: bool = False):
+    def __init__(self, base: str = BASE, session: requests.Session | None = None, *,
+                 resilient: bool = False, critical_symbol_limit: int = 6):
         if base not in {BASE, TESTNET}:
             raise ValueError("Exchange endpoint must be allowlisted")
+        if type(critical_symbol_limit) is not int or critical_symbol_limit not in {6, 15}:
+            raise ValueError("Critical symbol limit must be 6 or 15")
         self.base = base
         self.resilient = resilient
+        self.critical_symbol_limit = critical_symbol_limit
         self.http = session or requests.Session()
         self.http.headers.update({"User-Agent": f"VortexAI-paper/{__version__}"})
         self._exchange: dict | None = None
@@ -140,11 +144,15 @@ class Market:
         # Never re-stamp a cached ticker or use mark/last price as an exit quote.
         if self.resilient:
             required = tuple(dict.fromkeys(required_symbols))
-            if len(required) > 6:
-                raise ValueError("At most six critical quote symbols per request")
+            if len(required) > self.critical_symbol_limit:
+                raise ValueError(f"At most {self.critical_symbol_limit} critical quote symbols per request")
+            recoveries = 0
             for symbol in required:
                 if symbol in observed:
                     continue
+                if recoveries >= 6:
+                    break  # Preserve bounded depth work even with fifteen held symbols.
+                recoveries += 1
                 try:
                     book = self.get("/fapi/v1/depth", {"symbol": symbol, "limit": 5})
                     bid, bid_qty = map(float, book["bids"][0])

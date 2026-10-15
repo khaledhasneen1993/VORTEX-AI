@@ -88,7 +88,8 @@ def main(argv: list[str] | None = None) -> int:
 
         serve(cfg, args.port)
         return 0
-    market = Market(resilient=cfg.runtime.live_resilience)
+    market = Market(resilient=cfg.runtime.live_resilience,
+                    critical_symbol_limit=15 if cfg.strategy_913_enabled else 6)
     if cfg.mode != "paper":
         raise ValueError("paper command requires RUN_MODE=paper")
     paper_lock = ProcessLock(cfg.data_dir / "paper.lock").acquire()

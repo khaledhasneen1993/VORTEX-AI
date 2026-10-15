@@ -3,7 +3,7 @@
 Update main after stopping the old process, install with `python -m pip install
 -e .`, then migrate using `python -m vortex.configure --equity 100`. Existing
 sessions are preserved; do not overwrite or change policies on saved positions.
-Every deployment launch uses the current five-position smart basket strategy.
+Every deployment launch uses the current 2–5-position smart basket strategy.
 `--basket` is retained for command compatibility and is no longer required.
 
 `bash run_paper.sh 3600` creates a fresh 100-USDT one-hour session. Durations:
@@ -18,9 +18,11 @@ Dashboard binds loopback only. A displayed wallet excludes floating PnL; reserve
 is already inside it. Marked equity has an observation timestamp: stale equity
 must not be presented as end-of-session equity.
 
-Exactly five eligible signals open together. A total group net of at least
-0.20 USDT requests closing all five immediately at a fresh poll, without a
-ten-minute wait. After complete closing, fresh candidates are ranked again;
+The strongest two to five eligible signals open together. Fewer than two
+opens nothing; initial margin remains 10% per member. A total group net of at least
+0.20 USDT requests closing every selected member immediately at a fresh poll, without a
+ten-minute wait. After complete closing, search/ranking is requested immediately, even if that
+candle was already scanned. An expired candle abstains;
 candle freshness, symbol cooldowns and all execution guards remain.
 The group loss threshold is fixed 10% of session starting balance. Original
 member stops, account floor and risk guards remain. Smart round decisions begin

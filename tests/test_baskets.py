@@ -296,6 +296,7 @@ def test_policy_is_opt_in_saved_state_cannot_switch_modes(tmp_path):
     assert values["BASKET_HOLD_UNTIL_TARGET"] == "true"
     assert values["BASKET_LOSS_STARTING_EQUITY_FRACTION"] == "0.10"
     assert values["BASKET_ANY_PROFIT_AFTER_SECONDS"] == "0"
+    assert values["BASKET_MIN_SIZE"] == "2"
     assert values["BASKET_FIXED_NET_TARGET"] == "0.20"
     assert values["BASKET_RESCAN_AFTER_CLOSE"] == "true"
     assert values["BASKET_SMART_ADDS"] == "true"
@@ -697,7 +698,7 @@ def test_old_wallet_cannot_silently_acquire_fixed_target(tmp_path):
 
 @pytest.mark.parametrize("rescan,partial,offset,expected_scans", [
     (True, False, 1000, 1), (False, False, 1000, 0),
-    (True, True, 1000, 0), (True, False, 90000, 0),
+    (True, True, 1000, 0), (True, False, 90000, 1),
 ])
 def test_reselect_after_full_close_keeps_quote_and_candle_guards(
     tmp_path, monkeypatch, rescan, partial, offset, expected_scans
@@ -729,3 +730,61 @@ def test_reselect_after_full_close_keeps_quote_and_candle_guards(
     loop.cycle()
     assert len(scans) == expected_scans
     assert len(b.positions) == (4 if partial else 0)
+
+
+@pytest.mark.parametrize("count", [0, 1, 2, 3, 4, 5, 6])
+def test_variable_basket_opens_up_to_five_or_none_below_two(tmp_path, count):
+    b = setup(tmp_path)
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, min_size=2, fixed_net_target=0.2))
+    ok, _ = open_group(b, list(reversed(candidates(symbols=SYMBOLS[:count]))), quotes(), NOW, {})
+    assert ok == (count >= 2)
+    if count < 2:
+        assert not b.positions and b.wallet == 20 and not b.state_file.exists()
+        return
+    assert list(b.positions) == SYMBOLS[:min(count, 5)]
+    assert all(1.9999 <= p.margin <= 2 for p in b.positions.values())
+    assert len(rows(b.entries_file)) == min(count, 5)
+    assert len(PaperBroker(b.cfg).positions) == min(count, 5)
+    book = quotes({s: 10.2 for s in SYMBOLS})
+    events = b.mark(book, NOW + 1000)
+    assert len(events) == min(count, 5) and not b.positions
+    assert b.basket["phase"] == "CLOSED"
+    assert PaperBroker(b.cfg).basket["phase"] == "CLOSED"
+
+
+def test_variable_group_keeps_risk_rejections_and_historical_policy_binding(tmp_path):
+    b = setup(tmp_path)
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, min_size=2))
+    bad = candidates(filters=replace(FILT, min_notional=100))
+    assert not open_group(b, bad, quotes(), NOW, {})[0]
+    assert not b.positions and not b.state_file.exists()
+    b = opened(tmp_path / "historical")
+    raw = json.loads(b.state_file.read_text())
+    raw["basket_policy"].pop("min_size")
+    b.state_file.write_text(json.dumps(raw))
+    assert len(PaperBroker(b.cfg).positions) == 5
+    with pytest.raises(ValueError, match="Basket policy changed"):
+        PaperBroker(replace(b.cfg, basket=replace(b.cfg.basket, min_size=2)))
+
+
+def test_two_member_partial_close_survives_restart_and_blocks_new_group(tmp_path):
+    b = setup(tmp_path)
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, min_size=2, fixed_net_target=0.2))
+    assert open_group(b, candidates(symbols=SYMBOLS[:2]), quotes(), NOW, {})[0]
+    book = quotes({s: 10.3 for s in SYMBOLS})
+    assert exit_reason(b, book, NOW + 1000) == "basket_fixed_net_target"
+    assert len(b.mark({SYMBOLS[0]: book[SYMBOLS[0]]}, NOW + 1000)) == 1
+    b = PaperBroker(b.cfg)
+    assert b.basket["phase"] == "CLOSING" and len(b.positions) == 1
+    assert not open_group(b, candidates(), book, NOW + 1001, {})[0]
+    assert len(b.mark(book, NOW + 1002)) == 1
+    assert b.basket["phase"] == "CLOSED" and not b.positions
+    assert b.wallet == pytest.approx(20 + b.basket["realized_net"])
+
+
+def test_minimum_requires_two_distinct_eligible_symbols(tmp_path):
+    b = setup(tmp_path)
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, min_size=2))
+    one = candidates(symbols=SYMBOLS[:1])[0]
+    assert not open_group(b, [one, one], quotes(), NOW, {})[0]
+    assert not b.positions and not b.state_file.exists()

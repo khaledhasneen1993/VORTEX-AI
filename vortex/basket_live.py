@@ -32,6 +32,7 @@ class BasketLoop:
         self.use_radar = use_radar
         self.histories = {}
         self.last_scan = -1
+        self.reselect_due = False
         self.last_add_scan = -1
         self.add_group_id = None
         self.prepared = {}
@@ -194,7 +195,7 @@ class BasketLoop:
         now, quotes = self._mark()
         group = self.broker.basket
         if was_open and not self.broker.positions and self.cfg.basket.rescan_after_close:
-            self.last_scan = -1  # Re-rank fresh candidates after ALL members have exited.
+            self.reselect_due = True  # Search immediately after ALL selected members exit.
         if group and group["phase"] == "CLOSING":
             self._report(now, quotes)
             return
@@ -202,11 +203,12 @@ class BasketLoop:
         if active:
             now, quotes = self._manage_add(now, quotes)
             if not self.broker.positions and self.cfg.basket.rescan_after_close:
-                self.last_scan = -1
+                self.reselect_due = True
             self._report(now, quotes)
             return
         bucket = now // 300000
-        if self.last_scan != bucket and 5000 <= now % 300000 <= 65000:
+        if self.reselect_due or (self.last_scan != bucket and 5000 <= now % 300000 <= 65000):
+            self.reselect_due = False
             self.last_scan = bucket
             symbols = self.symbols
             if self.use_radar:

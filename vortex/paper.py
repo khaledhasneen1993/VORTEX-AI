@@ -60,6 +60,7 @@ class PaperBroker:
             saved_basket.setdefault("hold_until_target", False)
             saved_basket.setdefault("loss_starting_equity_fraction", 0.0)
             for key in (
+                "min_size",
                 "fixed_net_target",
                 "rescan_after_close",
                 "any_profit_after_seconds",

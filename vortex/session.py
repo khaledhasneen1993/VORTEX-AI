@@ -47,7 +47,7 @@ def session_args(argv=None):
     )
     parser.add_argument("--output", type=Path, default=Path("runs/vortex-approved"))
     parser.add_argument("--diagnostics", action="store_true", help="Record votes and rejection reasons")
-    parser.add_argument("--basket", action="store_true", default=True, help="Compatibility option; current PAPER uses five-position baskets")
+    parser.add_argument("--basket", action="store_true", default=True, help="Compatibility option; current PAPER uses 2–5-position baskets")
     return parser.parse_args(argv)
 
 
@@ -150,6 +150,7 @@ def main(argv=None):
     if args.basket:
         env.update(
             BASKET_ENABLED="true",
+            BASKET_MIN_SIZE="2",
             MAX_MARGIN_FRACTION="0.60",
             BASKET_MIN_ENTRY_FILL_RATIO="0.90",
             BASKET_HOLD_UNTIL_TARGET="true",

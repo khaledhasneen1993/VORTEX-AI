@@ -11,10 +11,10 @@ No signed orders, mainnet, new voter or heavy dependency is introduced.
    is 0.90. Total margin remains capped at 60% of frozen group-start equity and
    current deployable capital; portfolio/per-trade stop risk remains unchanged.
 3. On every fresh poll, estimate group net with executable bid/ask, modeled
-   slippage and all entry/exit fees. Before ten minutes, close all members at
-   3% of historically posted group margins, including adds. From ten minutes,
-   **strictly positive** net requests closing all members, including losers.
-   Zero or negative net does not itself trigger a timed close.
+   slippage and all entry/exit fees. At net >= **0.20 USDT total**, request
+   closing all five, including losing members. No ten-minute wait, no percentage
+   target and no multiplier for adds. Fixed target takes precedence over legacy
+   margin/timed fields retained for historical saved-state compatibility.
 4. No 15-minute expiry in the current preset. At net <= minus 10% of fixed
    session starting equity, close all members: -2 USDT for a 20-USDT wallet.
    Original member-price stops and the account 25% floor also remain. The
@@ -49,7 +49,9 @@ Original entry/stop R anchors remain fixed; average entry changes only on adds.
 Active deployment flags:
 - `BASKET_HOLD_UNTIL_TARGET`: true.
 - `BASKET_LOSS_STARTING_EQUITY_FRACTION`: 0.10.
-- `BASKET_ANY_PROFIT_AFTER_SECONDS`: 600.
+- `BASKET_FIXED_NET_TARGET`: 0.20 USDT for the whole group.
+- `BASKET_ANY_PROFIT_AFTER_SECONDS`: 0 (historical fallback disabled).
+- `BASKET_RESCAN_AFTER_CLOSE`: true.
 - `BASKET_SMART_ADDS`: true.
 - `BASKET_SMART_ADD_INTERVAL_SECONDS`: 300.
 - `BASKET_SMART_ADD_MAX_ROUNDS`: 3.
@@ -67,3 +69,9 @@ outcomes drive reserve/streak accounting once; reserve is inside the wallet.
 Funding payments and exchange liquidation remain unmodeled. The bounded session
 timer still ends observation and saves any open positions without invented
 closes. Neither averaging, frequency nor profitability is guaranteed.
+
+After complete closing, entry ranking may run again in the same completed-candle
+window (5–65 seconds after close), using new preparation and execution guards.
+Outside that window the next eligible candle is awaited. Partial CLOSING members
+block all entries; unchanged symbol cooldowns/last-signal checks can refuse reuse.
+No claim of continuous fills, fixed groups per hour or target execution price.

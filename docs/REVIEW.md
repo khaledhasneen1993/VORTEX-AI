@@ -36,7 +36,7 @@ logging. The latest basket's stop/extra rounds cannot be validated during data g
 3. Revalidate the unchanged strategy with reconciled fresh valuations, then build a
    matching historical model with funding and honest missing depth/flow handling.
 
-Before 10 minutes target ~1.50 USDT initial margin return versus 10-USDT group stop
-at 100. Later profitable exits may be much smaller. Averaging increases exposure
+The new fixed net target is 0.20 USDT versus a 10-USDT group stop at 100.
+Earlier session figures above describe the previous target/timed-exit policy. Averaging increases exposure
 and caps may prevent adds. No profitability, guaranteed stop fill, full-session
 flow completeness or liquidation realism has been demonstrated.

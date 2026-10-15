@@ -18,8 +18,10 @@ Dashboard binds loopback only. A displayed wallet excludes floating PnL; reserve
 is already inside it. Marked equity has an observation timestamp: stale equity
 must not be presented as end-of-session equity.
 
-Exactly five eligible signals open together. Before ten minutes the target is
-3% of posted margins; after ten minutes strictly positive group net closes all.
+Exactly five eligible signals open together. A total group net of at least
+0.20 USDT requests closing all five immediately at a fresh poll, without a
+ten-minute wait. After complete closing, fresh candidates are ranked again;
+candle freshness, symbol cooldowns and all execution guards remain.
 The group loss threshold is fixed 10% of session starting balance. Original
 member stops, account floor and risk guards remain. Smart round decisions begin
 after five minutes; max three, >=five minutes apart. Adds require losing aligned

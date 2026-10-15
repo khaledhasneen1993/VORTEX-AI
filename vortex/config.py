@@ -155,7 +155,9 @@ class Settings:
         if not experiment.enabled or not experiment.capture_enabled or f("RUN_MODE", "paper") != "paper":
             raise ValueError("Only the adopted PAPER capture system is supported; run vortex.configure")
         if not (basket.enabled and basket.hold_until_target and basket.smart_adds
-                and basket.any_profit_after_seconds == 600
+                and basket.any_profit_after_seconds == 0
+                and basket.fixed_net_target == 0.20
+                and basket.rescan_after_close
                 and basket.loss_starting_equity_fraction == 0.10
                 and basket.min_entry_fill_ratio == 0.90):
             raise ValueError("Only the adopted smart PAPER basket policy is supported; run vortex.configure")

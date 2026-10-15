@@ -28,3 +28,13 @@ OHLC engines have been removed; a matching historical engine has not been built.
 Next checks: fix/measure time and quote continuity; explain every add prefilter skip;
 run another unchanged PAPER policy and reconcile closed PnL, floating exposure,
 reserve, costs and timestamp freshness. Do not count stale equity as final equity.
+
+## Fixed 0.20-USDT target update (2026-10-15)
+
+Current deployment replaces the percentage/ten-minute exits with a fixed 0.20-USDT
+net target for the entire five-member basket. After complete closing, fresh
+selection can resume without the prior scan latch blocking that candle. Risk,
+cooldowns and freshness remain; no instant refill is guaranteed. Existing session
+results above do not validate this changed target. Regression fixtures cover the
+boundary, below-target net after ten minutes, losing-leg collective closure,
+reconciled modeled costs, old policy binding and partial-close/reselection guards.

@@ -42,7 +42,7 @@ def floor_step(value: float, step: float) -> float:
 
 def effective_leverage(cfg: Settings) -> int:
     """10x is explicitly PAPER-basket-only; historical/other paths keep 5x."""
-    cap = 10 if cfg.mode == "paper" and cfg.basket.enabled and cfg.paper_10x_leverage else 5
+    cap = 10 if cfg.mode == "paper" and (cfg.basket.enabled or cfg.strategy_913_enabled) and cfg.paper_10x_leverage else 5
     return min(cfg.max_leverage, cap)
 
 

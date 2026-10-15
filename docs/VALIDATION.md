@@ -70,3 +70,10 @@ LONG/SHORT entries below 90% requested margin, minimums/liquidity/atomic rollbac
 actual-margin persistence, exact-add semantics and saved-policy binding. This
 changed sizing still needs a new live PAPER run; earlier observations do not
 validate its profitability or establish a future entry count.
+
+
+## Optional independent 913
+New deterministic cases cover LONG/SHORT net target/stop boundaries, individual
+closure, slot refill without flattening others, risk/cash/minimum/quote guards,
+no additions, policy binding, 15-position cap, recorder bounds and 911 defaults.
+Prior PAPER results belong to 911; 913 live validation has not been run.

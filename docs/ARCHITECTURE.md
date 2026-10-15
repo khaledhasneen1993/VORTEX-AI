@@ -53,3 +53,10 @@ prior refusal semantics. Adaptive initial entries bypass the historical requeste
 margin fill ratio, never exchange minimums or execution guards. Atomic journals
 persist requested/actual allocation and sizing mode. The new policy boolean is
 saved-state-bound; missing historical values mean false.
+
+
+Opt-in 913 routes to `IndividualLoop`, sharing bounded scanner/guard/quote/health
+helpers but opening and closing independently. Broker policy state binds the 913
+net-margin units, leverage/count/capital ceiling; 911 behavior remains the default.
+No group is created. Add paths refuse 913. Successful closes use the same durable
+state and journal/recovery logic. Recorder union is bounded at 45 in 913 only.

@@ -57,3 +57,11 @@ show actual sizing. The 90% fill-ratio check applies only when this flag is fals
 Exchange minimums and all execution guards remain. Adaptive sizing applies only
 to new members, not to add budgets, and changing the flag on a saved wallet is
 refused. Update/install/configure, then start a new isolated PAPER session.
+
+
+## Explicit independent strategy 913
+Use `STARTING_EQUITY=100 bash run_913.sh 3600` for a separate bounded run, or
+`python -m vortex.configure --strategy 913 --equity 100` for a fresh continuous
+wallet. Default launcher/configure remain 911. 913 closes each position at net
++1%/-5% margin, allows up to 15 with existing capital limits, and forbids adds.
+Use [STRATEGY_913](STRATEGY_913.md) for exact units and available-margin limitations.

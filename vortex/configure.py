@@ -12,19 +12,20 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 
-from .approved import canonical_environment
+from .approved import canonical_environment, select_strategy
 
 
-def configure(path: Path, equity: float | None = None, basket: bool = True):
+def configure(path: Path, equity: float | None = None, basket: bool = True, strategy="911"):
     if equity is not None and (not isfinite(equity) or equity <= 0):
         raise ValueError("Virtual equity must be positive and finite")
     from .config import Settings
 
     values = canonical_environment(dotenv_values(path) if path.exists() else {}, fields(Settings))
+    values = select_strategy(values, strategy)
     values["DATA_DIR"] = "data/vortex-approved-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
     if equity is not None:
         values["STARTING_EQUITY"] = str(equity)
-    if basket:
+    if basket and strategy == "911":
         values.update(
             BASKET_ENABLED="true",
             BASKET_MIN_SIZE="2",
@@ -61,9 +62,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env", type=Path, default=Path(".env"))
     parser.add_argument("--equity", type=float)
+    parser.add_argument("--strategy", choices=["911", "913"], default="911")
     parser.add_argument("--basket", action="store_true", default=True, help="Compatibility option; baskets are always enabled")
     args = parser.parse_args()
-    folder = configure(args.env, args.equity, args.basket)
+    folder = configure(args.env, args.equity, args.basket, args.strategy)
     print("Current PAPER configuration saved; no engine started. New DATA_DIR:", folder)
 
 

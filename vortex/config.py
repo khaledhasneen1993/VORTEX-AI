@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from math import isfinite
 from pathlib import Path
 
@@ -35,6 +35,7 @@ class Settings:
     max_positions: int = 4
     max_leverage: int = 5
     paper_10x_leverage: bool = False
+    strategy_913_enabled: bool = False
     max_margin_fraction: float = 0.25
     max_spread_bps: float = 12.0
     min_score: int = 5
@@ -58,6 +59,16 @@ class Settings:
             object.__setattr__(self, "symbols", (self.operations.focus_symbol,))
         if not isinstance(self.paper_10x_leverage, bool):
             raise ValueError("PAPER_10X_LEVERAGE must be boolean")
+        if not isinstance(self.strategy_913_enabled, bool):
+            raise ValueError("STRATEGY_913_ENABLED must be boolean")
+        if self.strategy_913_enabled and (
+            self.mode != "paper" or self.basket.enabled
+            or not self.experiment.enabled or not self.experiment.capture_enabled
+            or self.experiment.average_enabled or self.phase2.pyramiding
+            or not self.phase2.enabled or not self.operations.enabled
+            or self.max_leverage != 10 or not self.paper_10x_leverage
+        ):
+            raise ValueError("913 requires independent PAPER capture, 10x and no additions")
         # Production execution is not included in this release.
         if self.mode not in {"paper", "backtest"}:
             raise ValueError("RUN_MODE must be paper or backtest; live orders are disabled")
@@ -95,12 +106,12 @@ class Settings:
         ):
             raise ValueError("Daily loss cap invalid")
         if (
-            not 1 <= self.max_positions <= (5 if self.experiment.enabled else 4 if self.phase2.enabled else 3)
+            not 1 <= self.max_positions <= (15 if self.strategy_913_enabled else 5 if self.experiment.enabled else 4 if self.phase2.enabled else 3)
             or not 1 <= self.max_leverage <= 10
         ):
             raise ValueError("Position/leverage limit invalid")
         if not isfinite(self.max_margin_fraction) or not 0 < self.max_margin_fraction <= (
-            self.basket.margin_cap_fraction if self.basket.enabled else 0.25
+            self.basket.margin_cap_fraction if self.basket.enabled or self.strategy_913_enabled else 0.25
         ):
             raise ValueError("Margin cap invalid")
         if not 0 < self.max_spread_bps <= 50:
@@ -137,7 +148,10 @@ class Settings:
                 raise ValueError(name + " must be true or false")
             return value == "true"
 
+        individual = boolean("STRATEGY_913_ENABLED", "false")
         basket = BasketPolicy.from_env()
+        if individual:
+            basket = replace(basket, enabled=False)
         operations = OperationsPolicy.from_env(policy_defaults(OperationsPolicy, "OPS_"))
         if operations.profile != "aggressive":
             raise ValueError("Only the adopted aggressive PAPER profile is supported; run vortex.configure")
@@ -155,9 +169,12 @@ class Settings:
         )
         phase2 = RiskPolicy.from_env(policy_defaults(RiskPolicy, "PHASE2_"))
         experiment = PaperExperiment.from_env(policy_defaults(PaperExperiment, "PAPER_EXP_"))
+        if individual:
+            experiment = replace(experiment, average_enabled=False)
+            phase2 = replace(phase2, pyramiding=False)
         if not experiment.enabled or not experiment.capture_enabled or f("RUN_MODE", "paper") != "paper":
             raise ValueError("Only the adopted PAPER capture system is supported; run vortex.configure")
-        if not (basket.enabled and basket.min_size == 2 and basket.hold_until_target and basket.smart_adds
+        if not individual and not (basket.enabled and basket.min_size == 2 and basket.hold_until_target and basket.smart_adds
                 and basket.any_profit_after_seconds == 0
                 and basket.fixed_net_target == 0.20
                 and basket.rescan_after_close
@@ -173,6 +190,7 @@ class Settings:
             )
         return cls(
             basket=basket,
+            strategy_913_enabled=individual,
             experiment=experiment,
             runtime=RuntimePolicy.from_env(policy_defaults(RuntimePolicy)),
             operations=operations,
@@ -195,7 +213,7 @@ class Settings:
             paper_10x_leverage=boolean("PAPER_10X_LEVERAGE", "false"),
             max_margin_fraction=float(
                 os.getenv("MAX_MARGIN_FRACTION", str(basket.margin_cap_fraction))
-                if basket.enabled
+                if basket.enabled or individual
                 else f("MAX_MARGIN_FRACTION", "0.25")
             ),
             max_spread_bps=float(f("MAX_SPREAD_BPS", "12")),

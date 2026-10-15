@@ -60,3 +60,11 @@ smaller initial entries; exchange minimums, liquidity, spread, funding, freshnes
 and correlation still apply. Actual initial margin is persisted and limits adds.
 A normal signal can therefore qualify below 10-USDT margin at 100 equity/10x;
 five members or any particular fill frequency is not guaranteed. No stop is removed.
+
+
+## Alternative 913
+The table above describes 911. Explicit 913 replaces collective exits/member price
+stops with independent +1%/-5% **net actual-margin** triggers at 10x. All capital,
+trade/portfolio risk and account halt guards remain. Entry margin is up to 10% of
+current equity and aggregate margin stays 60%; a maximum of 15 is not capacity to
+fund fifteen 10-USDT stakes from 100. There are no adds. See STRATEGY_913.md.

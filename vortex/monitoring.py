@@ -9,6 +9,7 @@ def save_telemetry(broker, quotes, now_ms, rejection_count):
     equity = broker.equity(quotes)
     row = {
         "mode": "PAPER",
+        "strategy": "913" if broker.cfg.strategy_913_enabled else "911",
         "observed_ms": now_ms,
         "observed_utc": datetime.fromtimestamp(now_ms / 1000, UTC).isoformat(),
         "marked_equity": equity,

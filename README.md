@@ -10,7 +10,7 @@ user selected this strategy; it does not establish profitability.
 | Virtual starting balance | 100 USDT by default; selectable for each new session |
 | Market selection | Up to 30 liquid Radar movers; completed 5m/15m/1h history |
 | Group entry | Strongest 2–5 eligible signals opened together; fewer than two means no entry |
-| Initial margin / leverage | 10% of group-start equity per member, rounded down; maximum 5x |
+| Initial margin / leverage | 10% of group-start equity per member, rounded down; 10x with PAPER_10X_LEVERAGE=true (5x fallback when disabled) |
 | Total margin | Maximum 60% of frozen group-start equity and current available capital |
 | Group target | Close every selected member at +0.20 USDT net total after fees and modeled slippage; no ten-minute wait |
 | Next group | Re-rank after complete closing; fresh signals, at least two eligible names and cooldowns required |
@@ -114,3 +114,13 @@ if that candle was already scanned. Expired candles abstain under the existing
 stale signal or cooldown is bypassed. Active groups are not topped up to five.
 Migration requires a new isolated wallet.
 The target is evaluated at fresh quote polls, not guaranteed tick-by-tick execution.
+
+Current leverage setting: `MAX_LEVERAGE=10`, `PAPER_10X_LEVERAGE=true`.
+At 100-USDT group-start equity each requested 10% margin is about 10 USDT,
+giving about 100 USDT modeled notional per member when accepted. Margin still
+tracks 10% of group-start equity as the wallet changes; it is not a permanently
+fixed 10-USDT stake. Actual lots are rounded down. Original 8–10% / 12–18% trade
+stop-risk caps and 30% portfolio stop-risk remain, so 10x can reject normal
+signals, additional members or adds instead of increasing their risk budget.
+Target remains 0.20 USDT net per group; higher leverage increases fees/notional.
+Use a new isolated wallet after migration; saved 5x exposure cannot become 10x.

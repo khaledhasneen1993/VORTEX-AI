@@ -46,3 +46,8 @@ Per-member margin remains 10%, fixed net group target 0.20 USDT and risk caps
 are unchanged. Complete closing requests immediate new search; stale candles
 and cooldowns still prohibit entries. Existing recorded sessions above predate
 this minimum-size change and do not validate its performance.
+
+The subsequent 10x opt-in changes notional and fee/stop exposure at the same
+10%-equity initial margin. Risk budgets are retained; fewer entries/adds can
+qualify. Prior 5x sessions do not validate the new leverage. Target remains
+fixed 0.20 USDT net and session group stop remains 10% of starting balance.

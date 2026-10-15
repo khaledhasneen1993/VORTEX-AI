@@ -49,3 +49,10 @@ Regressions cover 0..6 candidates, distinct-name minimum, fixed member allocatio
 variable-group cost closure/restart, partial liquidation, risk refusals and saved
 minimum-policy binding. Prior observations are not performance evidence for this
 new minimum or a guarantee of immediate entry after every close.
+
+## 10x PAPER opt-in
+Current deployment explicitly enables `PAPER_10X_LEVERAGE=true` with max leverage
+10. Regression fixtures cover same margin/doubled notional, fee-aware group
+closure, add-margin consistency, unchanged trade/portfolio risk refusal,
+5x fallback and saved-leverage binding. This changes exposure, not risk caps;
+earlier 5x session results are not evidence for the new setting.

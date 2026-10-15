@@ -40,3 +40,8 @@ selection is requested immediately. Existing scanner freshness/deadline bounds
 can abstain until the next eligible completed candle. Partial closing
 never resets entry permission. New policy fields bind to saved state; absent
 historical fields mean disabled rather than silently changing old wallets.
+
+`risk.effective_leverage` is shared by trade sizing and all add margin paths.
+The 10x opt-in applies only to PAPER baskets; other paths retain a 5x cap.
+Persisted basket policy includes configured leverage, preventing exposure
+migration across leverage changes. This does not introduce an exchange gateway.

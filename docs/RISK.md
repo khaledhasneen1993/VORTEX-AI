@@ -4,7 +4,7 @@
 | --- | --- |
 | Starting virtual wallet | 100 USDT by default |
 | Each initial margin | 10% of marked group-start equity, rounded down |
-| Positions / leverage | Two to five eligible members / maximum 5x |
+| Positions / leverage | Two to five eligible members / 10x explicitly enabled for PAPER baskets |
 | Aggregate margin | 60% of frozen group-start equity, also capped by current capital |
 | Normal / strong modeled stop-risk requests | 8–10% / 12–18%; actual size remains capped |
 | Portfolio original-stop risk | 30%, including modeled costs |
@@ -40,3 +40,15 @@ improved edge. Initial margin/cap
 leave about 10–40 USDT for adds before other constraints. No expected profitability
 or successful averaging follows from these numbers. Funding cashflows and
 liquidation are unmodeled; fee default is 0.0005, base slippage 3 bps.
+
+## Explicit 10x PAPER leverage
+`PAPER_10X_LEVERAGE=true` with `MAX_LEVERAGE=10` enables a shared leverage
+definition for initial sizes, fixed margins, minimum add budgets and added margins.
+Disabled or nonbasket paths retain the original 5x cap. No signed execution exists.
+A ~10-USDT margin now requests ~100 USDT notional. The original 10% price stop
+therefore risks ~10 USDT before costs, which exceeds the 8–10% normal-signal
+budget at 100 USDT in many cases. Fixed allocation is refused when risk cannot fit;
+neither the original trade cap nor the 30% portfolio stop-risk cap is raised.
+Do not interpret the maximum of five as a guaranteed fill count. Existing group
+stop remains -10 USDT at 100, target remains +0.20 USDT net. Entry margin remains
+10% of group-start equity rather than an immutable dollar stake.

@@ -63,7 +63,7 @@ def average_plan(p, price, now_ms, cfg, filters, capital, committed_margin, port
     """One adverse add, never widen the immutable original stop or risk caps."""
     from .models import Signal
     from .phase2 import stop_exposure
-    from .risk import floor_step, size_trade
+    from .risk import effective_leverage, floor_step, size_trade
 
     policy = cfg.experiment
     sign = 1 if p.side == "LONG" else -1
@@ -105,4 +105,4 @@ def average_plan(p, price, now_ms, cfg, filters, capital, committed_margin, port
     qty = floor_step(min(sized[0], p.initial_qty * policy.average_fraction), filters.step)
     if qty < filters.min_qty or price * qty < filters.min_notional:
         return None
-    return qty, qty * price / min(cfg.max_leverage, 5), qty * price * cfg.fee_rate
+    return qty, qty * price / effective_leverage(cfg), qty * price * cfg.fee_rate

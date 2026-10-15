@@ -123,7 +123,7 @@ def test_env_voting_and_atr_settings_are_validated(monkeypatch):
     assert cfg.trailing_atr_mult == 1.25
     assert cfg.min_strong_score == 8
     assert cfg.risk_per_trade == 0.12 and cfg.max_positions == 5
-    assert cfg.max_leverage == 5 and cfg.max_daily_loss == 0.25
+    assert cfg.max_leverage == 10 and cfg.paper_10x_leverage and cfg.max_daily_loss == 0.25
     monkeypatch.setenv("OPS_PROFILE", "unknown")
     with pytest.raises(ValueError):
         Settings.from_env()

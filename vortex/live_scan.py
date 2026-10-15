@@ -158,13 +158,17 @@ class CandidateScanner:
                 market.http.close()
 
     def execution(self, symbols, on_wait=lambda: None, *, budget_seconds=10):
-        """Bounded PAPER-basket guard batch on the SAME existing worker pool.
+        """Bounded PAPER basket/913 guard batch on the SAME worker pool.
 
         Final broker checks still enforce original observation timestamps.
         Late jobs are discarded; they cannot write trading state or submit orders.
         """
-        if not self.cfg.basket.enabled or not 0 <= budget_seconds <= 10:
-            raise ValueError("Execution batches require PAPER baskets and a 0..10s budget")
+        if (
+            self.cfg.mode != "paper"
+            or not (self.cfg.basket.enabled or self.cfg.strategy_913_enabled)
+            or not 0 <= budget_seconds <= 10
+        ):
+            raise ValueError("Execution batches require PAPER basket/913 mode and a 0..10s budget")
         symbols = list(dict.fromkeys(symbols))
         if len(symbols) > 30:
             raise ValueError("Execution batch exceeds Radar limit")

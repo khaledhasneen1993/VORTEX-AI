@@ -161,3 +161,50 @@ def test_nonbasket_mark_uses_completed_quote_clock(tmp_path, monkeypatch):
                         lambda *args: (_ for _ in ()).throw(AssertionError('No ATR I/O after fresh quotes')))
     assert cli.main(['paper', '--once']) == 0
     assert calls == [302000]
+
+
+def test_explicit_fifteen_critical_quotes_keep_default_bound_and_freshness(monkeypatch):
+    import pytest
+    now = 1900000000000
+    names = [f"S{i}USDT" for i in range(15)]
+    rows = [{"symbol": s, "bidPrice": "10", "askPrice": "10.01", "time": now} for s in names]
+    rows[-1]["time"] = now - 5000
+    def get(path, params=None):
+        if path.endswith('/time'):
+            return {'serverTime': now}
+        if path.endswith('/bookTicker'):
+            return rows
+        return {'T': now - 5000, 'bids': [['10', '1']], 'asks': [['10.01', '1']]}
+    default = Market(resilient=True)
+    monkeypatch.setattr(default, 'get', get)
+    with pytest.raises(ValueError, match='At most 6'):
+        default.quotes(now_ms=now, required_symbols=names)
+    expanded = Market(resilient=True, critical_symbol_limit=15)
+    monkeypatch.setattr(expanded, 'get', get)
+    quotes = expanded.quotes(now_ms=now, required_symbols=names)
+    assert set(quotes) == set(names[:-1])  # Enlarged count never accepts stale data.
+    with pytest.raises(ValueError, match='At most 15'):
+        expanded.quotes(now_ms=now, required_symbols=[*names, 'OVERUSDT'])
+    for limit in (0, True, 16, 30):
+        with pytest.raises(ValueError):
+            Market(critical_symbol_limit=limit)
+
+
+def test_fifteen_critical_recovery_stays_six_depths_and_one_bulk_refresh(monkeypatch):
+    api = Market(resilient=True, critical_symbol_limit=15)
+    now = 1900000000000
+    names = [f"S{i}USDT" for i in range(15)]
+    calls = []
+    def get(path, params=None):
+        calls.append(path)
+        if path.endswith('/time'):
+            return {'serverTime': now}
+        if path.endswith('/bookTicker'):
+            return []
+        return {'T': now, 'bids': [['10', '1']], 'asks': [['10.01', '1']]}
+    monkeypatch.setattr(api, 'get', get)
+    result = api.quotes(now_ms=now, required_symbols=names)
+    assert set(result) == set(names[:6])
+    assert calls.count('/fapi/v1/depth') == 6
+    assert calls.count('/fapi/v1/ticker/bookTicker') == 2
+    assert api.quotes_checked_ms == now

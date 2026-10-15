@@ -217,3 +217,53 @@ def test_913_live_loop_uses_real_execution_batch_before_broker_entry(tmp_path):
         assert b.basket is None and b.positions["AUSDT"].margin > 0
     finally:
         scanner.close()
+
+
+@pytest.mark.parametrize('count', [1, 7, 15, 30])
+def test_913_cli_real_guard_and_market_quote_paths_accept_multiple_candidates(tmp_path, monkeypatch, count):
+    from vortex import cli, live_scan
+    from vortex.basket import Candidate
+    from vortex.binance import Market
+    names = [f'S{i}USDT' for i in range(count)]
+    b = broker(tmp_path)
+    cfg = replace(b.cfg, symbols=tuple(names),
+                  runtime=replace(b.cfg.runtime, recorder_enabled=False, health_enabled=False, live_resilience=True),
+                  operations=replace(b.cfg.operations, funding_guard=True, liquidity_guard=True))
+    required_counts = []
+    limits = []
+    class Public(Market):
+        def __init__(self, **kwargs):
+            limits.append(kwargs.get('critical_symbol_limit', 6))
+            super().__init__(**kwargs)
+
+        def metadata(self):
+            return {s: {} for s in names}
+
+        def get(self, path, params=None):
+            if path.endswith('/time'):
+                return {'serverTime': 305000}
+            if path.endswith('/bookTicker'):
+                return [{'symbol': s, 'bidPrice': '10', 'askPrice': '10', 'time': 305000} for s in names]
+            if path.endswith('/depth'):
+                return {'T': 305000, 'bids': [['10', '10000']], 'asks': [['10', '10000']]}
+            assert path.endswith('/premiumIndex')
+            return {'symbol': params['symbol'], 'time': 305000,
+                    'lastFundingRate': '0', 'nextFundingTime': 900000}
+
+        def quotes(self, **kwargs):
+            required_counts.append(len(kwargs.get('required_symbols', ())))
+            return super().quotes(**kwargs)
+
+    candidates = [Candidate(Signal(s, 'LONG', 0, 10, 9, 11, 6, 'synthetic', atr_value=0.1),
+                            FILT, 299999) for s in names]
+    monkeypatch.setattr(cli.Settings, 'from_env', lambda: cfg)
+    monkeypatch.setattr(cli, 'Market', Public)
+    monkeypatch.setattr(live_scan, 'Market', Public)
+    monkeypatch.setenv('USE_RADAR', 'false')
+    monkeypatch.setattr(IndividualLoop, '_scan', lambda self, symbols, now: candidates)
+    assert cli.main(['paper', '--once']) == 0
+    restored = PaperBroker(cfg)
+    assert restored.positions and len(restored.positions) <= min(count, 15)
+    assert limits[0] == 15
+    assert max(required_counts) == min(count, 15)
+    assert restored.basket is None

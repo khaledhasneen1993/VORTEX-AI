@@ -80,3 +80,15 @@ PAPER baskets". Guard batching now explicitly allows PAPER 913 as well as 911,
 retaining its 0..10s deadline, bounded workers and original timestamps. A regression
 runs the real guard batch through the 913 loop into a virtual entry; parallelism,
 stale funding and expiration tests cover both modes. No filter or risk was relaxed.
+
+
+Critical-quote routing fix: 913 now opts into fifteen critical symbols in the
+public Market gateway; the historical/default gateway remains limited to six.
+Final entry snapshots prioritize held symbols, then the strongest candidate slots,
+never more than fifteen recovery names even with thirty accepted Radar signals.
+Bulk quotes may supply additional fresh candidates. Recovery still makes at most
+six depth requests plus one bulk refresh per quote call. All observations retain
+original timestamps and the same freshness bound; missing held prices freeze entries.
+CLI regressions use real guard/Market quote code with 1/7/15/30 candidates, and
+freshness/bounded-recovery tests cover fifteen held quote names. These are synthetic
+software checks, not completed live performance results.

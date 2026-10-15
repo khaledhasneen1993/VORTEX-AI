@@ -12,7 +12,7 @@ clocks remain accurate; one bounded bulk refresh may restore aged critical books
 recorder accepts 30 Radar + 5 held names; dashboard includes all risk halt sources.
 Safety controls and current strategy/risk calculations are unchanged by adoption.
 
-## Latest live evidence: one hour, 100 USDT, source 82540c4
+## Earlier live evidence: one hour, 100 USDT, source 82540c4
 
 Twenty entries across four groups; fifteen closed trades, five left open. Completed
 group nets: +0.450359462, +0.048561881, +0.134062042 USDT. Sum +0.632983385; the
@@ -42,7 +42,7 @@ and caps may prevent adds. No profitability, guaranteed stop fill, full-session
 flow completeness or liquidation realism has been demonstrated.
 
 Current minimum is two eligible members, maximum five; no active-group refill.
-Per-member margin remains 10%, fixed net group target 0.20 USDT and risk caps
+Per-member margin requests at most 10%, fixed net group target 0.20 USDT and risk caps
 are unchanged. Complete closing requests immediate new search; stale candles
 and cooldowns still prohibit entries. Existing recorded sessions above predate
 this minimum-size change and do not validate its performance.
@@ -51,3 +51,16 @@ The subsequent 10x opt-in changes notional and fee/stop exposure at the same
 10%-equity initial margin. Risk budgets are retained; fewer entries/adds can
 qualify. Prior 5x sessions do not validate the new leverage. Target remains
 fixed 0.20 USDT net and session group stop remains 10% of starting balance.
+
+
+## Latest live evidence and sizing correction (2026-10-15)
+
+The 13:51–14:21 Jordan-time 100-USDT, 10x, min-two run opened no positions.
+79 strategy accept records did not become fills: candidate guards logged 47
+risk/minimum refusals, 30 insufficient-liquidity refusals and one runaway-price
+refusal. No ERROR-level messages; shutdown completed, wallet remained 100 USDT.
+Full requested 10%-equity margin plus a 10% price stop exceeded normal risk
+budgets. Adopted `BASKET_ADAPTIVE_ENTRY_SIZE=true` now uses smaller risk-approved
+initial lots, leaving all stops and risk limits unchanged. Adds retain exact-
+budget checks and use actual initial margins. Liquidity refusals remain valid.
+This correction has deterministic tests; live PAPER validation remains pending.

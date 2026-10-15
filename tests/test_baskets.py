@@ -861,3 +861,72 @@ def test_ten_x_requires_flag_and_cannot_migrate_saved_five_x_exposure(tmp_path):
     assert open_group(b, candidates(symbols=SYMBOLS[:2]), quotes(), NOW, {})[0]
     with pytest.raises(ValueError, match="Basket policy changed"):
         PaperBroker(replace(b.cfg, max_leverage=10, paper_10x_leverage=True))
+
+
+@pytest.mark.parametrize("side", ["LONG", "SHORT"])
+def test_adaptive_entry_fits_normal_risk_without_changing_stops_or_target(tmp_path, side):
+    from vortex.phase2 import stop_exposure
+    b = ten_x_broker(tmp_path)
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, adaptive_entry_size=True,
+                                         min_entry_fill_ratio=0.90))
+    cs = [replace(c, signal=replace(c.signal, side=side, score=6,
+                                   features={"strong_signal": 0})) for c in candidates()]
+    assert open_group(b, cs, quotes(), NOW, {})[0]
+    assert 2 <= len(b.positions) <= 5
+    assert any(p.margin < 9 for p in b.positions.values())
+    for p in b.positions.values():
+        assert 0 < p.margin <= 10
+        assert p.qty * p.entry / p.margin == pytest.approx(10)
+        assert abs(p.entry - p.stop) / p.entry == pytest.approx(0.10)
+        assert stop_exposure(p, b.cfg) <= p.trade_risk_cap + 1e-8
+        assert b.basket["initial_margins"][p.symbol] == p.margin
+    assert sum(stop_exposure(p, b.cfg) for p in b.positions.values()) <= 30
+    assert b.cfg.basket.fixed_net_target == 0.2
+    assert b.cfg.basket.loss_starting_equity_fraction == 0.10
+    for event in rows(b.entries_file):
+        assert event["entry_sizing"] == "risk_adaptive"
+        assert event["requested_margin"] == 10
+        assert event["allocation_ratio"] == pytest.approx(event["position"]["margin"] / 10)
+    assert PaperBroker(b.cfg).basket == b.basket
+
+
+def test_adaptive_entry_preserves_minimum_liquidity_and_atomic_group_guards(tmp_path):
+    for label, filters, liquid in [("minimum", replace(FILT, min_notional=1000), False),
+                                     ("liquidity", FILT, True)]:
+        b = ten_x_broker(tmp_path / label)
+        b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, adaptive_entry_size=True),
+                        operations=replace(b.cfg.operations, liquidity_guard=liquid))
+        cs = [replace(c, signal=replace(c.signal, score=6, features={"strong_signal": 0}))
+              for c in candidates(filters=filters)]
+        assert not open_group(b, cs, quotes(), NOW, {})[0]
+        assert not b.positions and b.wallet == 100 and not b.state_file.exists()
+    b = ten_x_broker(tmp_path / "one")
+    b.cfg = replace(b.cfg, basket=replace(b.cfg.basket, adaptive_entry_size=True))
+    assert not open_group(b, candidates(symbols=SYMBOLS[:1]), quotes(), NOW, {})[0]
+    assert not b.positions and not b.state_file.exists()
+
+
+def test_adaptive_entry_is_opt_in_policy_bound_and_does_not_resize_adds(tmp_path, monkeypatch):
+    from vortex.basket import fixed_margin_size
+    b = ten_x_broker(tmp_path)
+    assert not b.cfg.basket.adaptive_entry_size
+    assert open_group(b, candidates(symbols=SYMBOLS[:2]), quotes(), NOW, {})[0]
+    raw = json.loads(b.state_file.read_text())
+    raw["basket_policy"].pop("adaptive_entry_size")
+    b.state_file.write_text(json.dumps(raw))
+    assert PaperBroker(b.cfg).basket == b.basket
+    new = replace(b.cfg, basket=replace(b.cfg.basket, adaptive_entry_size=True))
+    with pytest.raises(ValueError, match="Basket policy changed"):
+        PaperBroker(new)
+    s = replace(candidates()[0].signal, entry=10, stop=9, score=6,
+                features={"strong_signal": 0})
+    # Add calls omit adaptive; exact add requests must still be fully affordable.
+    assert fixed_margin_size(s, 100, new, FILT, 0, 0, 10) is None
+    assert fixed_margin_size(s, 100, new, FILT, 0, 0, 10, adaptive=True) is not None
+    monkeypatch.setenv("BASKET_ADAPTIVE_ENTRY_SIZE", "false")
+    assert not BasketPolicy.from_env().adaptive_entry_size
+    monkeypatch.setenv("BASKET_ADAPTIVE_ENTRY_SIZE", "yes")
+    with pytest.raises(ValueError, match="BASKET_ADAPTIVE_ENTRY_SIZE"):
+        BasketPolicy.from_env()
+    with pytest.raises(ValueError):
+        BasketPolicy(adaptive_entry_size=1)

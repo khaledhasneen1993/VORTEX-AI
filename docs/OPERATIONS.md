@@ -19,7 +19,7 @@ is already inside it. Marked equity has an observation timestamp: stale equity
 must not be presented as end-of-session equity.
 
 The strongest two to five eligible signals open together. Fewer than two
-opens nothing; initial margin remains 10% per member. A total group net of at least
+opens nothing; initial margin is at most 10% per member, reduced to fit risk. A total group net of at least
 0.20 USDT requests closing every selected member immediately at a fresh poll, without a
 ten-minute wait. After complete closing, search/ranking is requested immediately, even if that
 candle was already scanned. An expired candle abstains;
@@ -47,5 +47,13 @@ and REVIEW for gaps from the most recent one-hour 100-USDT session.
 
 Current migration also selects `PAPER_10X_LEVERAGE=true`, `MAX_LEVERAGE=10`.
 No engine starts during configure. The next new 100-USDT session requests about
-10-USDT initial margin per member, about 100-USDT notional. Normal risk/capital,
+at most 10-USDT initial margin per member, at most about 100-USDT notional. Normal risk/capital,
 funding and liquidity guards still apply. Do not reuse or convert saved 5x wallets.
+
+
+Migration now selects `BASKET_ADAPTIVE_ENTRY_SIZE=true`. Initial entries may use
+less than the requested 10% margin; logs `BASKET_ENTRY_SIZE` and entry journals
+show actual sizing. The 90% fill-ratio check applies only when this flag is false.
+Exchange minimums and all execution guards remain. Adaptive sizing applies only
+to new members, not to add budgets, and changing the flag on a saved wallet is
+refused. Update/install/configure, then start a new isolated PAPER session.

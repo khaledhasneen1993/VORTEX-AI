@@ -4,6 +4,7 @@ from dataclasses import fields
 
 APPROVED_SOURCE = "82540c4ea988014d24050869a64ebd978130b4ed"
 APPROVED_ENV = {
+    "STRATEGY_913_ENABLED": "false",
     "BASKET_ENABLED": "true",
     "BASKET_MIN_SIZE": "2",
     "BASKET_MIN_ENTRY_FILL_RATIO": "0.90",
@@ -89,6 +90,18 @@ def policy_defaults(cls, prefix="", aliases=None):
         value = getattr(defaults, field.name)
         values[field.name] = raw == "true" if isinstance(value, bool) else type(value)(raw)
     return cls(**values)
+
+
+def select_strategy(values, strategy="911"):
+    """Explicit independent preset; 911 remains the deployment default."""
+    if strategy not in {"911", "913"}:
+        raise ValueError("Strategy must be 911 or 913")
+    values = dict(values)
+    values["STRATEGY_913_ENABLED"] = "true" if strategy == "913" else "false"
+    if strategy == "913":
+        values.update(BASKET_ENABLED="false", MAX_POSITIONS="15",
+                      PAPER_EXP_AVERAGE_ENABLED="false", PHASE2_PYRAMIDING="false")
+    return values
 
 
 def canonical_environment(values, setting_fields):

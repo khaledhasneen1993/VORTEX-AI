@@ -213,9 +213,9 @@ class DataRecorder:
         }
 
     def update_symbols(self, symbols):
-        # Radar<=30 plus up to five existing positions; never an unbounded cache.
+        # Radar<=30 plus bounded held positions; 913 allows fifteen.
         symbols = tuple(dict.fromkeys(symbols))
-        if len(symbols) > 35 or any(not s.isalnum() or not s.endswith("USDT") for s in symbols):
+        if len(symbols) > (45 if self.cfg.strategy_913_enabled else 35) or any(not s.isalnum() or not s.endswith("USDT") for s in symbols):
             return
         with self.guard:
             self.symbols = symbols

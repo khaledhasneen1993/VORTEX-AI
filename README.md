@@ -1,7 +1,7 @@
 # VORTEX-AI — 2–5-position PAPER basket system
 
 A lightweight Binance USDT-M public-data simulator for Termux/Linux. The current
-smart basket strategy with a fixed 0.20-USDT net group target is the default and only supported deployment. No exchange
+smart basket strategy with a fixed 0.20-USDT net group target is the default deployment (strategy 911). Strategy 913 is an explicit independent-position alternative. No exchange
 API keys, signed orders, real wallets or mainnet execution. Adoption means the
 user selected this strategy; it does not establish profitability.
 
@@ -138,3 +138,16 @@ actual initial margin. Logs expose requested/actual margin and allocation ratio;
 entry journals label `entry_sizing=risk_adaptive`. This flag is enabled in the
 adopted preset, off in low-level policy defaults, and bound to saved wallet state.
 Migrate configuration and use a new session; old sessions are not converted.
+
+
+## Strategy 913 (explicit alternative)
+
+`STARTING_EQUITY=100 bash run_913.sh 3600` starts a fresh one-hour 913 PAPER
+session. Up to 15 distinct independent positions, same 10x and up-to-10%-equity
+margin per entry. Each closes at net +1% / -5% of its own actual margin including
+fees/modeled slippage (+0.10 / -0.50 USDT at 10 margin). No averaging or basket exit.
+The 60% aggregate margin/cash/risk guards remain: 15 is a cap, not fifteen funded
+10-USDT positions from a 100-USDT wallet. `STRATEGY_913_ENABLED` defaults false;
+`run_paper.sh` and configure without --strategy still select 911. Saved branch
+[strategy-911](https://github.com/khaledhasneen1993/VORTEX-AI/tree/strategy-911)
+retains the original version. Read [913 contract and launch instructions](docs/STRATEGY_913.md).

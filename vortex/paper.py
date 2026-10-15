@@ -55,6 +55,8 @@ class PaperBroker:
         raw = json.loads(self.state_file.read_text(encoding="utf-8"))
         if raw.get("version") != 1 or raw.get("mode") != "paper":
             raise ValueError("Unsupported saved state; refuse to reset balance")
+        if raw.get("strategy_913_policy", {"enabled": False}) != self._strategy_913_policy():
+            raise ValueError("913 policy changed: use a new isolated session")
         saved_basket = raw.get("basket_policy", {"enabled": False})
         if saved_basket.get("enabled"):
             saved_basket.setdefault("min_entry_fill_ratio", 0.0)
@@ -191,6 +193,14 @@ class PaperBroker:
             self.pending_journal = None
             self.save()
 
+    def _strategy_913_policy(self):
+        return (
+            {"enabled": True, "target_margin": 0.01, "stop_margin": 0.05,
+             "entry_margin_fraction": 0.10, "leverage": self.cfg.max_leverage,
+             "positions": self.cfg.max_positions, "margin_cap": self.cfg.max_margin_fraction}
+            if self.cfg.strategy_913_enabled else {"enabled": False}
+        )
+
     def _basket_policy(self):
         return (
             {
@@ -272,6 +282,7 @@ class PaperBroker:
             "version": 1,
             "mode": "paper",
             "basket_policy": self._basket_policy(),
+            "strategy_913_policy": self._strategy_913_policy(),
             "basket": self.basket,
             "experiment_policy": self._experiment_policy(),
             "account_floor_halted": self.account_floor_halted,
@@ -383,6 +394,13 @@ class PaperBroker:
         sign = 1 if signal.side == "LONG" else -1
         if self.cfg.experiment.enabled:
             stop_gap = entry * self.cfg.experiment.stop_price
+        if self.cfg.strategy_913_enabled:
+            from .strategy913 import raw_exit_price
+
+            stop_price = raw_exit_price(entry, sign, self.cfg.fee_rate, slip, -0.05)
+            stop_gap = sign * (entry - stop_price)
+            if stop_gap <= 0:
+                return False, "913 modeled costs exhaust stop budget"
         # Preserve all entry-time metadata after adapting to executable prices.
         from dataclasses import replace
 
@@ -400,7 +418,13 @@ class PaperBroker:
         from dataclasses import replace
 
         cost_cfg = replace(self.cfg, slippage_bps=modeled_slip)
-        if margin_budget is not None:
+        if self.cfg.strategy_913_enabled:
+            margin_budget = equity * 0.10
+            from .strategy913 import entry_size
+
+            sized = entry_size(adjusted, capital, equity, cost_cfg, filters,
+                               margin_in_use, committed_risk, bid if sign == 1 else ask)
+        elif margin_budget is not None:
             from .basket import fixed_margin_size
 
             sized = fixed_margin_size(
@@ -416,13 +440,19 @@ class PaperBroker:
         qty, margin = sized
         if (
             margin_budget is not None
-            and not self.cfg.basket.adaptive_entry_size
+            and not self.cfg.basket.adaptive_entry_size and not self.cfg.strategy_913_enabled
             and margin + 1e-9 < margin_budget * self.cfg.basket.min_entry_fill_ratio
         ):
             return False, "basket lot rounding underfills requested entry margin"
         if qty * entry > capacity:
             return False, "order exceeds observed depth participation limit"
-        if margin_budget is not None and self.cfg.basket.adaptive_entry_size:
+        if self.cfg.strategy_913_enabled:
+            logging.getLogger("vortex").info(
+                "913_ENTRY_SIZE %s requested_margin=%.8f actual_margin=%.8f "
+                "target_net=%.8f stop_net=%.8f",
+                signal.symbol, margin_budget, margin, margin * 0.01, -margin * 0.05,
+            )
+        elif margin_budget is not None and self.cfg.basket.adaptive_entry_size:
             logging.getLogger("vortex").info(
                 "BASKET_ENTRY_SIZE %s code=RISK_ADAPTIVE_ENTRY requested_margin=%.8f "
                 "actual_margin=%.8f allocation_ratio=%.6f",
@@ -451,7 +481,13 @@ class PaperBroker:
             atr_value=signal.atr_value or stop_gap / 1.5,
         )
         initialize_position(self.positions[signal.symbol], signal, capital, self.cfg)
-        if self.cfg.experiment.enabled:
+        if self.cfg.strategy_913_enabled:
+            from .strategy913 import raw_exit_price
+
+            p = self.positions[signal.symbol]
+            p.target = raw_exit_price(entry, sign, self.cfg.fee_rate, slip, 0.01)
+            p.initial_target = p.target
+        elif self.cfg.experiment.enabled:
             from .paper_experiment import net_margin_target
 
             p = self.positions[signal.symbol]
@@ -516,6 +552,10 @@ class PaperBroker:
                 from .exits import ExitStep
 
                 action = ExitStep(p.qty, raw, basket_reason, True) if basket_reason else None
+            elif self.cfg.strategy_913_enabled:
+                from .strategy913 import exit_step
+
+                action = exit_step(p, bid, ask, self.cfg, floor_halted)
             elif self.cfg.experiment.enabled:
                 from .exits import ExitStep
                 from .paper_experiment import net_margin_target
@@ -635,6 +675,8 @@ class PaperBroker:
     def pyramid(self, symbol, bid, ask, filters, quotes, now_ms, histories=None, funding=None, depth=None):
         """Call only AFTER normal exit management with fresh completed histories."""
         self._finish_pending()
+        if self.cfg.strategy_913_enabled:
+            return None
         if self.cfg.basket.enabled:
             return None  # Basket adds use the single persisted group decision.
         if symbol not in self.positions or not self.cfg.phase2.enabled:

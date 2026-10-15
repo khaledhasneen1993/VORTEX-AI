@@ -125,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
     health = LiveHealth(cfg)
     health.update(force=True, stage="startup")
     scanner = None
-    if cfg.runtime.paper_fast_scan or cfg.basket.enabled:
+    if cfg.runtime.paper_fast_scan or cfg.basket.enabled or cfg.strategy_913_enabled:
         from .live_scan import CandidateScanner
 
         scanner = CandidateScanner(market, cfg)
@@ -143,6 +143,15 @@ def main(argv: list[str] | None = None) -> int:
             decision_journal,
             symbols,
             use_radar,
+        )
+    elif cfg.strategy_913_enabled:
+        from .strategy913 import IndividualLoop
+
+        log.info("PAPER strategy=913 max_positions=%d target=1%% stop=5%% net margin; no adds",
+                 cfg.max_positions)
+        basket_loop = IndividualLoop(
+            market, broker, scanner, derivative_tracker, recorder, health,
+            decision_journal, symbols, use_radar,
         )
 
     def live_quotes(checked_ms, candidate=None):

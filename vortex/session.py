@@ -18,7 +18,7 @@ from hashlib import sha256
 from math import isfinite
 from pathlib import Path
 
-from vortex.approved import canonical_environment
+from vortex.approved import canonical_environment, select_strategy
 from vortex.binance import Market
 from vortex.config import Settings
 from vortex.radar import discover
@@ -47,6 +47,7 @@ def session_args(argv=None):
     )
     parser.add_argument("--output", type=Path, default=Path("runs/vortex-approved"))
     parser.add_argument("--diagnostics", action="store_true", help="Record votes and rejection reasons")
+    parser.add_argument("--strategy", choices=["911", "913"], default="911")
     parser.add_argument("--basket", action="store_true", default=True, help="Compatibility option; current PAPER uses 2–5-position baskets")
     return parser.parse_args(argv)
 
@@ -132,6 +133,7 @@ def main(argv=None):
         raise ValueError("Never restart or overwrite an existing session")
     folder.mkdir(parents=True)
     env = canonical_environment(os.environ, fields(Settings))
+    env = select_strategy(env, args.strategy)
     env.update(
         VORTEX_CANONICAL_SESSION="true",
         RUN_MODE="paper",
@@ -147,7 +149,7 @@ def main(argv=None):
     )
     if args.starting_equity is not None:
         env["STARTING_EQUITY"] = str(args.starting_equity)
-    if args.basket:
+    if args.basket and args.strategy == "911":
         env.update(
             BASKET_ENABLED="true",
             BASKET_MIN_SIZE="2",
